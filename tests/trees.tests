@@ -1,0 +1,196 @@
+REBOL [
+    Type: Module
+    Title: "Tests for trees"
+    Author: "Gabriele Santilli"
+    Imports: [%bootstrap/trees.r]
+]
+
+[
+    mold n: make-node 'root
+]
+[
+	set-node n/prop/test: 1
+]
+[
+	get-node n/prop/test
+]
+[
+    c: make-node 'child
+    set-node c/parent: n
+	n = get-node c/parent
+]
+[
+	get-node n/type
+]
+[
+	get-node c/type
+]
+[
+    set-node c/parent: none
+	mold c
+]
+[
+	mold n
+]
+[
+    c: make-node 'child1
+    set-node c/parent: n
+    c: make-node 'child2
+    set-node c/parent: n
+	result: [ ]
+	foreach child get-node n/childs [
+		append result get-node child/type
+	]
+	result
+]
+[
+    c: get-node n/childs/1
+	get-node c/type
+]
+[
+    c: get-node c/next
+	get-node c/type
+]
+[
+    get-node c/next
+]
+[
+    c: get-node c/prev
+    get-node c/type
+]
+[
+    get-node c/prev
+]
+[
+	t: make-tree [
+		html []
+			[head []
+				[title []]
+				[meta [http-equiv: "Content-Type"]]
+			]
+			[body []
+				[div [class: "Main"]
+					[p []]
+					[p []]
+				]
+				[div [class: "Footer"]
+					[p [color: "grey"]]
+				]
+			]
+	]
+	mold-tree t
+]
+[
+	; REBOL enters endless loop... :(
+	;t = load-tree mold-tree t
+]
+[
+    merge-nodes: func [node] [
+        set-node node/parent: get-node node/prev
+        unwrap-node node
+    ]
+	rewrite-tree t [
+        [type = 'p prev <> none prev/type = 'p] merge-nodes
+    ]
+	mold-tree t
+]
+[
+    node? t
+]
+[
+    node? get-node t/childs/1
+]
+[
+    change-color: func [node] [set-node node/prop/color: #808080]
+    rewrite-tree t [
+        [type = 'p prop/color = "grey"] change-color
+    ]
+    mold-tree t
+]
+[
+    move-footer: func [body /local footer main] [
+        main: get-node body/childs/1
+        footer: get-node body/childs/2
+        set-node main/prev: footer
+        set-node footer/prop/class: "Header"
+        set-node footer/childs/1/prev: make-tree [p [class: "Menu"]]
+    ]
+    fix-content-type: func [node] [
+        set-node node/prop/value: "text/html; charset=UTF-8"
+    ]
+    rewrite-tree t [
+        [
+            type = 'body
+            childs/1 <> none childs/1/type = 'div childs/1/prop/class = "Main"
+            childs/2 <> none childs/2/type = 'div childs/2/prop/class = "Footer"
+        ] move-footer
+        [type = 'meta prop/http-equiv = "Content-Type" prop/value <> "text/html; charset=UTF-8"] fix-content-type
+    ]
+    mold-tree t
+]
+[
+    rewrite-tree t [
+        [type = 'div prop/class = "Main"] unwrap-node
+    ]
+    mold-tree t
+]
+[
+    t: make-tree [
+        html []
+            [body []
+                [p []
+                    [text [value: "something"]]
+                    [i []
+                        [br []] [text [value: "^/"]]
+                    ]
+                    [text [value: "something else"]]
+                ]
+            ]
+    ]
+    rewrite-tree t [
+        [
+            type = 'i
+            childs/1 <> none childs/1/type = 'br
+            childs/2 <> none childs/2/type = 'text childs/2/prop/value = "^/"
+            childs/3 = none
+        ] unwrap-node
+    ]
+    mold-tree t
+]
+[
+    t: make-tree [
+        html []
+            [body []
+                [p []
+                    [text [value: "something"]]
+                    [span []
+                        [text [value: "inside span"]]
+                    ]
+                    [span [style: "one"]
+                        [text [value: "inside styled span"]]
+                    ]
+                    [text [value: "something else"]]
+                ]
+            ]
+    ]
+    rewrite-tree t [
+        [type = 'span prop/style = none prop/id = none prop/dir = none] unwrap-node
+    ]
+    mold-tree t
+]
+[
+    t: make-tree [
+        html []
+            [body []
+                [ul []
+                    [li [] [text [value: "something"]] [br []]]
+                    [li [] [text [value: "something else"]] [br []]]
+                ]
+            ]
+    ]
+    remove-node: func [node] [set-node node/parent: none]
+    rewrite-tree t [
+        [type ~ li/br next = none] remove-node
+    ]
+    mold-tree t
+]

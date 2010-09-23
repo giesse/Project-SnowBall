@@ -1,0 +1,25 @@
+REBOL [
+	Title: "Just testing tests/run.r"
+	Author: "Gabriele Santilli"
+	Tests: [%tests/run.r]
+]
+
+[
+	1 + 1
+]
+[
+	read %tests/run.r
+]
+[
+	read/binary system/options/boot
+]
+[
+	context [a: 1 b: 2]
+]
+[
+	1 / 0
+]
+[
+	; non-catched throw will ALWAYS fail
+	throw 'failure
+]
