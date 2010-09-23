@@ -1,0 +1,9 @@
+string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} fail {[root [] [integer! [value 1]] [word! [value +]] [integer! [value 2]]]} string! {[root [] [function [value action] [integer! [value 1]] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [paren! [] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]]} string! "[root [] [path! [value system/words]]]" string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} string! {[root [] [set-word! [value a:] [integer! [value 1]]] [set-word! [value b:] [integer! [value 2]]] [function [value action] [word! [value a]] [word! [value b]]]]} string! {[root [] [function [value action] [argument [value a types #[none]]] [argument [value b types #[none]]]]]} string! {[root [] [apply [] [get-word! [value :insert]] [argument [name 
+                series
+            ] [function [value action] [block! [value [1 2 3]]]]] [argument [name 
+                value
+            ] [integer! [value 4]]] [refinement [name 
+                dup
+            ]] [argument [name 
+                count
+            ] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [macro [value #[function! [[macro] a b][add a b]] args [a b] refs []] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value find/only] [block! [value [1 2 3]]] [integer! [value 2]]]]} string! {[root [] [function [value change/part] [word! [value block1]] [word! [value block2]] [function [value action] [word! [value block1]]]]]}
