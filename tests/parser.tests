@@ -50,3 +50,24 @@ REBOL [
 [
     test [change/part block1 block2 next block1]
 ]
+[
+    app: func [[macro] series value /part range /only /dup count] [
+        apply :insert [
+            series: series
+            value: tail value
+            part: part
+            range: range
+            only: only
+            dup: dup
+            count: count
+        ]
+    ]
+    test [
+        insert a b
+        insert/part tail a b 3
+        insert/only/dup tail a b 2
+        app a b
+        app/part a b 3
+        app/only/dup a b 2
+    ]
+]

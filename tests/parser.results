@@ -1,9 +1,130 @@
-string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} fail {[root [] [integer! [value 1]] [word! [value +]] [integer! [value 2]]]} string! {[root [] [function [value action] [integer! [value 1]] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [paren! [] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]]} string! "[root [] [path! [value system/words]]]" string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} string! {[root [] [set-word! [value a:] [integer! [value 1]]] [set-word! [value b:] [integer! [value 2]]] [function [value action] [word! [value a]] [word! [value b]]]]} string! {[root [] [function [value action] [argument [value a types #[none]]] [argument [value b types #[none]]]]]} string! {[root [] [apply [] [get-word! [value :insert]] [argument [name 
+string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} fail {[root [] [integer! [value 1]] [word! [value +]] [integer! [value 2]]]} string! {[root [] [function [value action] [integer! [value 1]] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [paren! [] [function [value action] [integer! [value 2]] [integer! [value 3]]]]]]} string! "[root [] [path! [value system/words]]]" string! {[root [] [function [value action] [integer! [value 1]] [integer! [value 2]]]]} string! {[root [] [set-word! [value a:] [integer! [value 1]]] [set-word! [value b:] [integer! [value 2]]] [function [value action] [word! [value a]] [word! [value b]]]]} string! {[root [] [function [value action] [argument [
+                value a 
+                types any
+            ]] [argument [
+                value b 
+                types any
+            ]]]]} string! {[root [] [apply [] [get-word! [value :insert]] [apply-arg [name 
                 series
-            ] [function [value action] [block! [value [1 2 3]]]]] [argument [name 
+            ] [function [value action] [block! [value [1 2 3]]]]] [apply-arg [name 
                 value
-            ] [integer! [value 4]]] [refinement [name 
+            ] [integer! [value 4]]] [apply-ref [name 
                 dup
-            ]] [argument [name 
+            ]] [apply-arg [name 
                 count
-            ] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [macro [value #[function! [[macro] a b][add a b]] args [a b] refs []] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value find/only] [block! [value [1 2 3]]] [integer! [value 2]]]]} string! {[root [] [function [value change/part] [word! [value block1]] [word! [value block2]] [function [value action] [word! [value block1]]]]]}
+            ] [integer! [value 3]]]]]} string! {[root [] [function [value action] [integer! [value 1]] [macro [value [root #[none] [] [function #[block![...]4] [value action] [argument #[block![...]4] [
+                                value a 
+                                types any
+                            ]] [argument #[block![...]5] [
+                                value b 
+                                types any
+                            ]]]] args [a b] refs []] [integer! [value 2]] [integer! [value 3]]]]]} string! {[root [] [function [value find/only] [block! [value [1 2 3]]] [integer! [value 2]]]]} string! {[root [] [function [value change/part] [word! [value block1]] [word! [value block2]] [function [value action] [word! [value block1]]]]]} string! {[root [] [function [value action] [word! [value a]] [word! [value b]]] [function [value 
+            insert/part
+        ] [function [value action] [word! [value a]]] [word! [value b]] [integer! [value 3]]] [function [value 
+            insert/only/dup
+        ] [function [value action] [word! [value a]]] [word! [value b]] [integer! [value 2]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
+                            series
+                        ] [argument #[block![...]4] [
+                                value series 
+                                types any
+                            ]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [function #[block![...]4] [value action] [argument #[block![...]4] [
+                                    value value 
+                                    types any
+                                ]]]] [apply-arg #[block![...]7] [name 
+                            part
+                        ] [argument #[block![...]4] [
+                                value part 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]8] [name 
+                            range
+                        ] [argument #[block![...]4] [
+                                value range 
+                                types any
+                            ]]] [apply-arg #[block![...]9] [name 
+                            only
+                        ] [argument #[block![...]4] [
+                                value only 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]10] [name 
+                            dup
+                        ] [argument #[block![...]4] [
+                                value dup 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]11] [name 
+                            count
+                        ] [argument #[block![...]4] [
+                                value count 
+                                types any
+                            ]]]]] args [series value] refs []] [word! [value a]] [word! [value b]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
+                            series
+                        ] [argument #[block![...]4] [
+                                value series 
+                                types any
+                            ]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [function #[block![...]4] [value action] [argument #[block![...]4] [
+                                    value value 
+                                    types any
+                                ]]]] [apply-arg #[block![...]7] [name 
+                            part
+                        ] [argument #[block![...]4] [
+                                value part 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]8] [name 
+                            range
+                        ] [argument #[block![...]4] [
+                                value range 
+                                types any
+                            ]]] [apply-arg #[block![...]9] [name 
+                            only
+                        ] [argument #[block![...]4] [
+                                value only 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]10] [name 
+                            dup
+                        ] [argument #[block![...]4] [
+                                value dup 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]11] [name 
+                            count
+                        ] [argument #[block![...]4] [
+                                value count 
+                                types any
+                            ]]]]] args [series value range] refs [part]] [word! [value a]] [word! [value b]] [integer! [value 3]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
+                            series
+                        ] [argument #[block![...]4] [
+                                value series 
+                                types any
+                            ]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [function #[block![...]4] [value action] [argument #[block![...]4] [
+                                    value value 
+                                    types any
+                                ]]]] [apply-arg #[block![...]7] [name 
+                            part
+                        ] [argument #[block![...]4] [
+                                value part 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]8] [name 
+                            range
+                        ] [argument #[block![...]4] [
+                                value range 
+                                types any
+                            ]]] [apply-arg #[block![...]9] [name 
+                            only
+                        ] [argument #[block![...]4] [
+                                value only 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]10] [name 
+                            dup
+                        ] [argument #[block![...]4] [
+                                value dup 
+                                types [#[datatype! logic!] #[datatype! none!]]
+                            ]]] [apply-arg #[block![...]11] [name 
+                            count
+                        ] [argument #[block![...]4] [
+                                value count 
+                                types any
+                            ]]]]] args [series value count] refs [only dup]] [word! [value a]] [word! [value b]] [integer! [value 2]]]]}

@@ -1,8 +1,8 @@
-Parser (front-end) for the REBOL-like language compiler
+Parser (front-end) for the Topaz language compiler
 
     Type: Module
     Purpose: {
-        Parses a REBOL-like language into a tree.
+        Parses a Topaz code block into a tree.
     }
     Author: "Gabriele Santilli"
     File: %parser.r
@@ -19,7 +19,7 @@ Parser (front-end) for the REBOL-like language compiler
 
 ===Introduction
 
-This program parses a REBOL-like code into a tree. Documentation is still scarce
+This program parses a Topaz code block or function into a tree. Documentation is still scarce
 (and will probably stay this way until successful compiler bootstrap).
 
 ===Overview
@@ -30,7 +30,7 @@ The function returns a tree that represents the code in the passed code block.
     -support-functions-
 
     parse-code-block: func [
-        "Parse a REBOL-like code block into a tree"
+        "Parse a Topaz code block into a tree"
         code [block! function!]
         rules [block! none!] "Optional niwashi rules"
 
@@ -48,6 +48,7 @@ The function returns a tree that represents the code in the passed code block.
         code: second :code
     ]
     if rules [
+        ctx/rules: rules
         define-rules ctx/niwashi rules
     ]
     parse-block ctx code
@@ -72,6 +73,7 @@ The function returns a tree that represents the code in the passed code block.
     -context-:
     make-context: does [
         context [
+            rules: none
             niwashi: make-niwashi
             words: [ ]
         ]
@@ -83,12 +85,12 @@ The function returns a tree that represents the code in the passed code block.
                 any [
                     set arg word! set types opt block! (
                         keep arg
-                        keep/only make-tree [argument [value: arg types: types]]
+                        keep/only any [types 'any]
                     )
                     |
                     set arg refinement! (
-                        keep arg: to word! arg
-                        keep/only make-tree [argument [value: arg types: reduce [logic! none!]]]
+                        keep to word! arg
+                        keep/only reduce [logic! none!]
                     )
                     |
                     string!
@@ -177,11 +179,11 @@ Fixme
     -parse-word-:
     parse-word: func [
         ctx [object!] word [word!] rest [path! none!] cont [any-block!]
-        /local arg f refs parse-special
+        /local types f refs parse-special
     ] [
         case [
-            arg: argument? word ctx [
-                parse-argument ctx arg word rest cont
+            types: argument? word ctx [
+                parse-argument ctx types word rest cont
             ]
             parse-special: special? word [
                 parse-special ctx word rest cont
@@ -211,23 +213,14 @@ Fixme
     argument?: func [word [word!] ctx [object!]] [
         select ctx/words word
     ]
-    parse-argument: func [ctx [object!] value [block!] word [word!] rest [path! none!] cont [any-block!]] [
-        either rest [
-            rest: copy rest
-            switch/default get-node value/type [
-                argument word! [
-                    ; Fixme: check types for argument?
-                    append-child ctx/niwashi [
-                        type: 'path!
-                        properties: [value: head insert rest get-node value/prop/value]
-                    ]
-                ]
-            ] [
-                ; Fixme
-                make error! "Not yet supported"
+    parse-argument: func [ctx [object!] types [block! word!] word [word!] rest [path! none!] cont [any-block!]] [
+        ; Fixme: check types? eg. when rest not none
+        append-child ctx/niwashi [
+            type: 'argument
+            properties: [
+                value: either rest [head rest] [word]
+                types: types
             ]
-        ] [
-            niclone ctx/niwashi value
         ]
         cont
     ]
@@ -298,7 +291,7 @@ Fixme
         remove-each ref refs [not find first :f to refinement! ref]
         enter-child ctx/niwashi [
             type: 'macro
-            properties: [value: :f args: args refs: refs]
+            properties: [value: parse-code-block :f ctx/rules args: args refs: refs]
         ]
         cont: gather-args ctx length? args cont
         leave-child ctx/niwashi
@@ -352,12 +345,12 @@ Fixme
         parse cont/1 [
             any [
                 set w set-word! pos: (
-                    enter-child ctx/niwashi [type: 'argument properties: [name: to word! w]]
+                    enter-child ctx/niwashi [type: 'apply-arg properties: [name: to word! w]]
                     pos: parse-step ctx pos
                     leave-child ctx/niwashi
                 ) :pos
                 |
-                set w word! (append-child ctx/niwashi [type: 'refinement properties: [name: w]])
+                set w word! (append-child ctx/niwashi [type: 'apply-ref properties: [name: w]])
             ]
         ]
         leave-child ctx/niwashi
@@ -367,13 +360,6 @@ Fixme
 ===Helper functions
 
     -helpers-:
-    niclone: func [niwashi [object!] tree [block!]] [
-        enter-child niwashi [type: get-node tree/type properties: get-node tree/properties]
-        foreach child get-node tree/childs [
-            niclone niwashi child
-        ]
-        leave-child niwashi
-    ]
     args?: func [f [any-function!] refs [path! none!] /local res r ra refs-rule] [
         refs-rule: if refs [
             [
