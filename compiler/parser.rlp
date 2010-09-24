@@ -289,6 +289,7 @@ Fixme
         args: args? :f refs
         refs: either refs [to block! refs] [[ ]]
         remove-each ref refs [not find first :f to refinement! ref]
+        ; Fixme: recursion depth?
         enter-child ctx/niwashi [
             type: 'macro
             properties: [value: parse-code-block :f ctx/rules args: args refs: refs]

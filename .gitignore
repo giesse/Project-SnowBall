@@ -22,6 +22,8 @@ bootstrap/trees.html
 bootstrap/trees.r
 bootstrap/trees-macros.html
 bootstrap/trees-macros.r
+compiler/optimizer.html
+compiler/optimizer.r
 compiler/parser.html
 compiler/parser.r
 compiler/specials.html

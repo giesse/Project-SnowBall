@@ -24,15 +24,15 @@ string! {[root [] [function [value action] [integer! [value 1]] [integer! [value
             insert/only/dup
         ] [function [value action] [word! [value a]]] [word! [value b]] [integer! [value 2]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
                             series
-                        ] [argument #[block![...]4] [
-                                value series 
-                                types any
-                            ]]] [apply-arg #[block![...]6] [name 
-                            value
                         ] [function #[block![...]4] [value action] [argument #[block![...]4] [
-                                    value value 
+                                    value series 
                                     types any
-                                ]]]] [apply-arg #[block![...]7] [name 
+                                ]]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [argument #[block![...]4] [
+                                value value 
+                                types any
+                            ]]] [apply-arg #[block![...]7] [name 
                             part
                         ] [argument #[block![...]4] [
                                 value part 
@@ -59,15 +59,15 @@ string! {[root [] [function [value action] [integer! [value 1]] [integer! [value
                                 types any
                             ]]]]] args [series value] refs []] [word! [value a]] [word! [value b]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
                             series
-                        ] [argument #[block![...]4] [
-                                value series 
-                                types any
-                            ]]] [apply-arg #[block![...]6] [name 
-                            value
                         ] [function #[block![...]4] [value action] [argument #[block![...]4] [
-                                    value value 
+                                    value series 
                                     types any
-                                ]]]] [apply-arg #[block![...]7] [name 
+                                ]]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [argument #[block![...]4] [
+                                value value 
+                                types any
+                            ]]] [apply-arg #[block![...]7] [name 
                             part
                         ] [argument #[block![...]4] [
                                 value part 
@@ -94,15 +94,15 @@ string! {[root [] [function [value action] [integer! [value 1]] [integer! [value
                                 types any
                             ]]]]] args [series value range] refs [part]] [word! [value a]] [word! [value b]] [integer! [value 3]]] [macro [value [root #[none] [] [apply #[block![...]4] [] [get-word! #[block![...]4] [value :insert]] [apply-arg #[block![...]5] [name 
                             series
-                        ] [argument #[block![...]4] [
-                                value series 
-                                types any
-                            ]]] [apply-arg #[block![...]6] [name 
-                            value
                         ] [function #[block![...]4] [value action] [argument #[block![...]4] [
-                                    value value 
+                                    value series 
                                     types any
-                                ]]]] [apply-arg #[block![...]7] [name 
+                                ]]]] [apply-arg #[block![...]6] [name 
+                            value
+                        ] [argument #[block![...]4] [
+                                value value 
+                                types any
+                            ]]] [apply-arg #[block![...]7] [name 
                             part
                         ] [argument #[block![...]4] [
                                 value part 

@@ -1,12 +1,12 @@
 REBOL [
     Type: Module
-    Title: "Tests for the compiler front-end"
+    Title: "Tests for the compiler middle-end"
     Author: "Gabriele Santilli"
-    Imports: [%compiler/parser.r %compiler/specials.r %bootstrap/trees.r]
+    Imports: [%compiler/parser.r %compiler/specials.r %bootstrap/trees.r %compiler/optimizer.r]
 ]
 
 [
-    test: func [x] [mold-tree parse-code-block :x none]
+    test: func [x] [mold-tree parse-code-block :x optimizer-rules]
     test [add 1 2]
 ]
 [
