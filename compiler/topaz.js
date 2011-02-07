@@ -28,7 +28,7 @@ function Topaz2JS(topaz_text) {
 }
 
 function TParseError(text_cursor) {
-    throw 'Parse error: ' + text_cursor.toString();
+    throw 'Parse error: ' + sys.inspect(text_cursor.toString());
 }
 
 function TLoad(topaz_text, all) {
@@ -344,9 +344,11 @@ TTextCursor.prototype.toString = function() {
     return this.text;
 }
 TTextCursor.prototype.skipSpaces = function() {
-    var spaces = /^\s*/g;
-    spaces.test(this.text);
-    this.skip(spaces.lastIndex);
+    var spaces = /^\s+/g;
+    spaces.lastIndex = 0;
+    if (spaces.test(this.text)) {
+        this.skip(spaces.lastIndex);
+    }
 }
 TTextCursor.prototype.skip = function(n) {
     this.text = this.text.substr(n);
@@ -368,10 +370,17 @@ TTextCursor.prototype.matchAndSkip = function(re, item) {
 
 // tests
 
-sys = require('sys');
-code = 'print "hello world"';
-try {
-    sys.print('>> ' + code + '\n== ' + Topaz2JS(code) + '\n');
-} catch (e) {
-    sys.print('ERROR: ' + e + '\n');
-}
+var sys = require('sys'), stdin = process.openStdin();
+stdin.setEncoding('utf8');
+sys.puts('Topaz Bootstrap Compiler test prompt. Type "quit" to exit.');
+stdin.addListener('data', function(chunk) {
+        if (chunk == 'quit\n') stdin.destroy()
+        else {
+            try {
+                sys.print('== ' + Topaz2JS(chunk) + '\n>> ');
+            } catch (e) {
+                sys.print('ERROR: ' + e + '\n>> ');
+            }
+        }
+    });
+sys.print('>> ');
