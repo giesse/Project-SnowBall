@@ -57,6 +57,7 @@ function TParseValues(text_cursor) {
 
 function TParseValue(text_cursor) {
     return TParseNumber(text_cursor) ||
+        TParseSetWord(text_cursor) ||
         TParseWord(text_cursor) ||
         TParseLitWord(text_cursor) ||
         TParseString(text_cursor) ||
@@ -80,6 +81,12 @@ function TParseWordChars(text_cursor) {
 function TParseLitWord(text_cursor) {
     var match;
     return text_cursor.matchAndSkip(/^'/) && (match = TParseWordChars(text_cursor)) && new TLitWord(match);
+}
+
+function TParseSetWord(text_cursor) {
+    var match;
+    return (match = text_cursor.matchAndSkip(/^([!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*):/, 1)) &&
+        new TSetWord(match);
 }
 
 function TParseString(text_cursor) {
@@ -225,7 +232,21 @@ TWord.prototype = new TValue;
 TWord.prototype.typename = 'word!';
 TWord.prototype.compile = function(block) {
     var f = TFunctions[this.word];
-    return f ? f(block.next()) : {expr: new JSGetVariable(this.word), next: block.next()};
+    return f ? f(block.next()) : {expr: new JSVariable(this.word), next: block.next()};
+}
+
+// TSetWord
+
+function TSetWord(w) {
+    this.word = w.toLowerCase();
+}
+
+TSetWord.prototype = new TValue;
+TSetWord.prototype.typename = 'set-word!';
+TSetWord.prototype.compile = function(block) {
+    block = block.next();
+    var compiled = block.first().compile(block);
+    return {expr: new JSAssignment(new JSVariable(this.word), compiled.expr), next: compiled.next};
 }
 
 // TLitWord
@@ -246,11 +267,66 @@ TFunctions = {
         }
         var compiled = block.first().compile(block);
         return {
-            expr: new JSFunCall(new JSDot(new JSGetVariable('sys'), 'print'), compiled.expr),
+            expr: new JSFunCall(new JSDot(new JSVariable('sys'), 'print'), [compiled.expr]),
             next: compiled.next
+        }
+    },
+    "function": function(block) {
+        if (block.length() < 3) {
+            throw 'Not enough arguments for FUNCTION';
+        }
+        var args = block.first();
+        block = block.next();
+        var locals = block.first();
+        block = block.next();
+        var body = block.first();
+        if (args instanceof TBlock && locals instanceof TBlock && body instanceof TBlock) {
+            return {
+                expr: new JSFunDef(TBlock2Vars(args), TBlock2Vars(locals), TCompile(body)),
+                next: block.next()
+            }
+        } else {
+            throw 'FUNCTION wants three literal blocks';
+        }
+    },
+    none: function(block) {
+        return {
+            expr: new JSNull(),
+            next: block
         }
     }
 };
+
+function TUserFuncCompiler(name, nargs) {
+    return function(block) {
+        var args = [], compiled;
+        for (var i = 0; i < nargs; i++) {
+            if (block.isEmpty()) {
+                throw 'Not enough arguments for ' + name;
+            }
+            compiled = block.first().compile(block);
+            args.push(compiled.expr);
+            block = compiled.next;
+        }
+        return {
+            expr: new JSFunCall(new JSVariable(name), args),
+            next: block
+        }
+    }
+}
+
+function TBlock2Vars(block) {
+    var vars = [], v;
+    while (!block.isEmpty()) {
+        v = block.first();
+        if (!(v instanceof TWord)) {
+            throw 'Expected block of words';
+        }
+        vars.push(v.word);
+        block = block.next();
+    }
+    return vars;
+}
 
 // JSEmptyExpr
 
@@ -281,13 +357,13 @@ JSCompound.prototype.toString = function() {
     return this.expr1.toString() + ';' + this.expr2.toString();
 }
 
-// JSGetVariable
+// JSVariable
 
-function JSGetVariable(name) {
+function JSVariable(name) {
     this.name = name;
 }
 
-JSGetVariable.prototype.toString = function() {
+JSVariable.prototype.toString = function() {
     return this.name;
 }
 
@@ -304,9 +380,9 @@ JSDot.prototype.toString = function() {
 
 // JSFunCall
 
-function JSFunCall(expr /* , ... */) {
+function JSFunCall(expr, args) {
     this.funcExpr = expr;
-    this.args     = Array.prototype.slice.call(arguments, 1);
+    this.args     = args;
 }
 
 JSFunCall.prototype.toString = function() {
@@ -329,6 +405,56 @@ function JSString(s) {
 
 JSString.prototype.toString = function() {
     return JSON.stringify(this.str);
+}
+
+// JSAssignment
+
+function JSAssignment(expr1, expr2) {
+    this.expr1 = expr1;
+    this.expr2 = expr2;
+    // special case - remember it's a function
+    if (expr1 instanceof JSVariable && expr2 instanceof JSFunDef) {
+        TFunctions[expr1.toString()] = TUserFuncCompiler(expr1.toString(), expr2.args.length);
+    }
+}
+
+JSAssignment.prototype.toString = function() {
+    return this.expr1.toString() + '=' + this.expr2.toString();
+}
+
+// JSFunDef
+
+function JSFunDef(args, locals, body) {
+    this.args   = args;
+    this.locals = locals;
+    this.body   = body;
+}
+
+JSFunDef.prototype.toString = function() {
+    var res = 'function(';
+    if (this.args.length > 0) {
+        res += this.args[0];
+        for (var i = 1; i < this.args.length; i++) {
+            res += ',' + this.args[i];
+        }
+    }
+    res += '){';
+    if (this.locals.length > 0) {
+        res += 'var ' + this.locals[0];
+        for (var i = 1; i < this.locals.length; i++) {
+            res += ',' + this.locals[i];
+        }
+        res += ';';
+    }
+    return res + this.body.toString() + '}';
+}
+
+// JSNull
+
+function JSNull() {}
+
+JSNull.prototype.toString = function() {
+    return 'null';
 }
 
 // TTextCursor (because regular expressions suck)
@@ -370,12 +496,22 @@ TTextCursor.prototype.matchAndSkip = function(re, item) {
 
 // tests
 
-var sys = require('sys'), stdin = process.openStdin();
+var sys = require('sys'), stdin = process.openStdin(), fs = require('fs');
 stdin.setEncoding('utf8');
 sys.puts('Topaz Bootstrap Compiler test prompt. Type "quit" to exit.');
 stdin.addListener('data', function(chunk) {
-        if (chunk == 'quit\n') stdin.destroy()
-        else {
+        var res;
+        if (chunk == 'quit\n') stdin.destroy();
+        else if (res = /^compile (.*)\n$/.exec(chunk)) {
+            res = res[1];
+            try {
+                sys.print('** Compiling ' + res + ' **\n');
+                sys.print('===========================\n' + Topaz2JS(fs.readFileSync(res, 'utf8')) +
+                    '\n===========================\n>> ');
+            } catch (e) {
+                sys.print('ERROR: ' + e + '\n>> ');
+            }
+        } else {
             try {
                 sys.print('== ' + Topaz2JS(chunk) + '\n>> ');
             } catch (e) {
