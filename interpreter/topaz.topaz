@@ -1,0 +1,30 @@
+parse-values: function [text] [] [
+    none
+]
+
+error: function [type message where] [] [
+    throw join "*** " join type join " error: " join message join "^/*** Where: " where
+]
+
+bind: function [words context extend?] [] [
+    words
+]
+
+system-words: none
+
+empty?: function [series] [] [
+    equal? 0 length? series
+]
+
+load: function [text] [values] [
+    set [values text] parse-values text
+    if not empty? text [
+        error "Syntax" "Parse error" text
+    ]
+    bind values system-words true
+    either equal? 1 length? values [
+        first values
+    ] [
+        values
+    ]
+]

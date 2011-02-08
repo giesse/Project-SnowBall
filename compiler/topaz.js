@@ -294,6 +294,137 @@ TFunctions = {
             expr: new JSNull(),
             next: block
         }
+    },
+    "throw": function(block) {
+        if (block.isEmpty()) {
+            throw 'THROW is missing its argument';
+        }
+        var compiled = block.first().compile(block);
+        return {
+            expr: new JSThrow(compiled.expr),
+            next: compiled.next
+        }
+    },
+    join: function(block) {
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for JOIN';
+        }
+        var arg1 = block.first().compile(block);
+        block = arg1.next;
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for JOIN';
+        }
+        var arg2 = block.first().compile(block);
+        block = arg2.next;
+        return {
+            expr: new JSOp('+', arg1.expr, arg2.expr),
+            next: block
+        };
+    },
+    set: function(block) {
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for SET';
+        }
+        var word = block.first();
+        block = block.next();
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for SET';
+        }
+        var value = block.first().compile(block);
+        block = value.next;
+        if (word instanceof TLitWord) {
+            return {
+                expr: new JSAssignment(new JSVariable(word.name), value.expr),
+                next: block
+            }
+        } else if (word instanceof TBlock) {
+            return {
+                expr: new JSMultiAssignment(TBlock2Vars(word), value.expr),
+                next: block
+            }
+        } else {
+            throw 'SET wants a literal lit-word! or literal block!';
+        }
+    },
+    "if": function(block) {
+        if (block.isEmpty()) throw 'Not enough arguments for IF';
+        var cond = block.first().compile(block);
+        block = cond.next;
+        if (block.isEmpty()) throw 'Not enough arguments for IF';
+        var body = block.first();
+        block = block.next();
+        if (body instanceof TBlock) {
+            return {
+                expr: new JSIfElse(cond.expr, TCompile(body), null),
+                next: block
+            }
+        } else {
+            throw 'IF wants a literal block! for its body';
+        }
+    },
+    either: function(block) {
+        if (block.isEmpty()) throw 'Not enough arguments for EITHER';
+        var cond = block.first().compile(block);
+        block = cond.next;
+        if (block.length() < 2) throw 'Not enough arguments for EITHER';
+        var truebody = block.first();
+        block = block.next();
+        var falsebody = block.first();
+        block = block.next();
+        if (truebody instanceof TBlock && falsebody instanceof TBlock) {
+            return {
+                expr: new JSIfElse(cond.expr, TCompile(truebody), TCompile(falsebody)),
+                next: block
+            }
+        } else {
+            throw 'EITHER wants a literal block! for both its body arguments';
+        }
+    },
+    not: function(block) {
+        if (block.isEmpty()) {
+            throw 'NOT is missing its argument';
+        }
+        var compiled = block.first().compile(block);
+        return {
+            expr: new JSNegate(compiled.expr),
+            next: compiled.next
+        }
+    },
+    "equal?": function(block) {
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for EQUAL?';
+        }
+        var arg1 = block.first().compile(block);
+        block = arg1.next;
+        if (block.isEmpty()) {
+            throw 'Not enough arguments for EQUAL?';
+        }
+        var arg2 = block.first().compile(block);
+        block = arg2.next;
+        return {
+            expr: new JSOp('==', arg1.expr, arg2.expr),
+            next: block
+        };
+    },
+    "length?": function(block) {
+        if (block.isEmpty()) {
+            throw 'LENGTH? is missing its argument';
+        }
+        var compiled = block.first().compile(block);
+        return {
+            expr: new JSDot(compiled.expr, 'length'),
+            next: compiled.next
+        }
+    },
+    first: function(block) {
+        if (block.isEmpty()) {
+            throw 'FIRST is missing its argument';
+        }
+        var compiled = block.first().compile(block);
+        return {
+            expr: new JSPick(compiled.expr, new JSNumber(0)),
+            next: compiled.next
+        }
     }
 };
 
@@ -455,6 +586,79 @@ function JSNull() {}
 
 JSNull.prototype.toString = function() {
     return 'null';
+}
+
+// JSThrow
+
+function JSThrow(expr) {
+    this.expr = expr;
+}
+
+JSThrow.prototype.toString = function() {
+    return 'throw ' + this.expr.toString();
+}
+
+// JSOp
+
+function JSOp(name, expr1, expr2) {
+    this.name  = name;
+    this.expr1 = expr1;
+    this.expr2 = expr2;
+}
+
+JSOp.prototype.toString = function() {
+    return this.expr1.toString() + this.name + this.expr2.toString();
+}
+
+// JSMultiAssignment
+
+function JSMultiAssignment(vars, expr) {
+    if (vars.length < 2) throw 'MultiAssignment with less than 2 vars?';
+    this.vars = vars;
+    this.expr = expr;
+}
+
+JSMultiAssignment.prototype.toString = function() {
+    var res = 'var _tmp=' + this.expr.toString() + ';' + this.vars[0] + '=_tmp[0]';
+    for (var i = 1; i < this.vars.length; i++) {
+        res += ';' + this.vars[i] + '=_tmp[' + i + ']';
+    }
+    return res;
+}
+
+// JSIfElse
+
+function JSIfElse(cond, truebody, falsebody) {
+    this.cond      = cond;
+    this.truebody  = truebody;
+    this.falsebody = falsebody;
+}
+
+JSIfElse.prototype.toString = function() {
+    var res = 'if(' + this.cond.toString() + '){' + this.truebody.toString() + '}';
+    if (this.falsebody) res += 'else{' + this.falsebody.toString() + '}';
+    return res;
+}
+
+// JSNegate
+
+function JSNegate(expr) {
+    this.expr = expr;
+}
+
+JSNegate.prototype.toString = function() {
+    return '!' + this.expr.toString();
+}
+
+// JSPick
+
+function JSPick(expr, index) {
+    this.expr  = expr;
+    this.index = index;
+}
+
+JSPick.prototype.toString = function() {
+    return this.expr.toString() + '[' + this.index.toString() + ']';
 }
 
 // TTextCursor (because regular expressions suck)
