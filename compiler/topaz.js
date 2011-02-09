@@ -150,7 +150,7 @@ function TCompile(block) {
             expr = new JSCompound(expr, compiled.expr);
             block = compiled.next;
         }
-        return new JSCompound(expr, new JSEmptyExpr());
+        return new JSStatement(expr);
     }
 }
 
@@ -282,7 +282,7 @@ TFunctions = {
         var body = block.first();
         if (args instanceof TBlock && locals instanceof TBlock && body instanceof TBlock) {
             return {
-                expr: new JSFunDef(TBlock2Vars(args), TBlock2Vars(locals), TCompile(body)),
+                expr: new JSFunDef(TBlock2Vars(args), TBlock2Vars(locals), TCompile(body).toJSReturn()),
                 next: block.next()
             }
         } else {
@@ -459,13 +459,31 @@ function TBlock2Vars(block) {
     return vars;
 }
 
+// JSExpr
+
+function JSExpr() {}
+
+JSExpr.prototype.toString = function() {
+    return '';
+}
+JSExpr.prototype.toJSReturn = function() {
+    return new JSReturn(this);
+}
+
+// JSExprNoReturn
+
+function JSExprNoReturn() {}
+
+JSExprNoReturn.prototype = new JSExpr;
+JSExprNoReturn.prototype.toJSReturn = function() {
+    return this;
+}
+
 // JSEmptyExpr
 
 function JSEmptyExpr() {}
 
-JSEmptyExpr.prototype.toString = function() {
-    return '';
-}
+JSEmptyExpr.prototype = new JSExprNoReturn;
 
 // JSNumber
 
@@ -473,6 +491,7 @@ function JSNumber(n) {
     this.num = n;
 }
 
+JSNumber.prototype = new JSExpr;
 JSNumber.prototype.toString = function() {
     return this.num.toString();
 }
@@ -484,18 +503,28 @@ function JSCompound(expr1, expr2) {
     this.expr2 = expr2;
 }
 
+JSCompound.prototype = new JSExpr;
 JSCompound.prototype.toString = function() {
     return this.expr1.toString() + ';' + this.expr2.toString();
+}
+JSCompound.prototype.toJSReturn = function() {
+    return new JSCompound(this.expr1, this.expr2.toJSReturn());
 }
 
 // JSVariable
 
 function JSVariable(name) {
-    this.name = name;
+    this.topaz_name = name;
+    this.name = name.replace(/-(.)/g, function(match, chr) {return chr.toUpperCase();}).replace(/^(.)(.*)\?$/,
+            function(match, chr, rest) {return 'is' + chr.toUpperCase() + rest;});
 }
 
+JSVariable.prototype = new JSExpr;
 JSVariable.prototype.toString = function() {
     return this.name;
+}
+JSVariable.prototype.rememberFunction = function(nargs) {
+    TFunctions[this.topaz_name] = TUserFuncCompiler(this.topaz_name, nargs);
 }
 
 // JSDot
@@ -505,6 +534,7 @@ function JSDot(expr, name) {
     this.name = name;
 }
 
+JSDot.prototype = new JSExpr;
 JSDot.prototype.toString = function() {
     return this.expr.toString() + '.' + this.name;
 }
@@ -516,6 +546,7 @@ function JSFunCall(expr, args) {
     this.args     = args;
 }
 
+JSFunCall.prototype = new JSExpr;
 JSFunCall.prototype.toString = function() {
     var result = this.funcExpr.toString() + '(';
     if (this.args.length > 0) {
@@ -534,6 +565,7 @@ function JSString(s) {
     this.str = s;
 }
 
+JSString.prototype = new JSExpr;
 JSString.prototype.toString = function() {
     return JSON.stringify(this.str);
 }
@@ -545,10 +577,11 @@ function JSAssignment(expr1, expr2) {
     this.expr2 = expr2;
     // special case - remember it's a function
     if (expr1 instanceof JSVariable && expr2 instanceof JSFunDef) {
-        TFunctions[expr1.toString()] = TUserFuncCompiler(expr1.toString(), expr2.args.length);
+        expr1.rememberFunction(expr2.getNargs());
     }
 }
 
+JSAssignment.prototype = new JSExpr;
 JSAssignment.prototype.toString = function() {
     return this.expr1.toString() + '=' + this.expr2.toString();
 }
@@ -561,6 +594,7 @@ function JSFunDef(args, locals, body) {
     this.body   = body;
 }
 
+JSFunDef.prototype = new JSExpr;
 JSFunDef.prototype.toString = function() {
     var res = 'function(';
     if (this.args.length > 0) {
@@ -579,11 +613,15 @@ JSFunDef.prototype.toString = function() {
     }
     return res + this.body.toString() + '}';
 }
+JSFunDef.prototype.getNargs = function() {
+    return this.args.length;
+}
 
 // JSNull
 
 function JSNull() {}
 
+JSNull.prototype = new JSExpr;
 JSNull.prototype.toString = function() {
     return 'null';
 }
@@ -594,6 +632,7 @@ function JSThrow(expr) {
     this.expr = expr;
 }
 
+JSThrow.prototype = new JSExprNoReturn;
 JSThrow.prototype.toString = function() {
     return 'throw ' + this.expr.toString();
 }
@@ -606,6 +645,7 @@ function JSOp(name, expr1, expr2) {
     this.expr2 = expr2;
 }
 
+JSOp.prototype = new JSExpr;
 JSOp.prototype.toString = function() {
     return this.expr1.toString() + this.name + this.expr2.toString();
 }
@@ -618,12 +658,16 @@ function JSMultiAssignment(vars, expr) {
     this.expr = expr;
 }
 
+JSMultiAssignment.prototype = new JSExpr;
 JSMultiAssignment.prototype.toString = function() {
     var res = 'var _tmp=' + this.expr.toString() + ';' + this.vars[0] + '=_tmp[0]';
     for (var i = 1; i < this.vars.length; i++) {
         res += ';' + this.vars[i] + '=_tmp[' + i + ']';
     }
     return res;
+}
+JSMultiAssignment.prototype.toJSReturn = function() {
+    return new JSCompound(this, new JSReturn(new JSVariable('_tmp')));
 }
 
 // JSIfElse
@@ -634,10 +678,14 @@ function JSIfElse(cond, truebody, falsebody) {
     this.falsebody = falsebody;
 }
 
+JSIfElse.prototype = new JSExpr;
 JSIfElse.prototype.toString = function() {
     var res = 'if(' + this.cond.toString() + '){' + this.truebody.toString() + '}';
     if (this.falsebody) res += 'else{' + this.falsebody.toString() + '}';
     return res;
+}
+JSIfElse.prototype.toJSReturn = function() {
+    return new JSIfElse(this.cond, this.truebody.toJSReturn(), this.falsebody && this.falsebody.toJSReturn());
 }
 
 // JSNegate
@@ -646,6 +694,7 @@ function JSNegate(expr) {
     this.expr = expr;
 }
 
+JSNegate.prototype = new JSExpr;
 JSNegate.prototype.toString = function() {
     return '!' + this.expr.toString();
 }
@@ -657,8 +706,34 @@ function JSPick(expr, index) {
     this.index = index;
 }
 
+JSPick.prototype = new JSExpr;
 JSPick.prototype.toString = function() {
     return this.expr.toString() + '[' + this.index.toString() + ']';
+}
+
+// JSStatement
+
+function JSStatement(expr) {
+    this.expr = expr;
+}
+
+JSStatement.prototype = new JSExpr;
+JSStatement.prototype.toString = function() {
+    return this.expr.toString() + ';';
+}
+JSStatement.prototype.toJSReturn = function() {
+    return new JSStatement(this.expr.toJSReturn());
+}
+
+// JSReturn
+
+function JSReturn(expr) {
+    this.expr = expr;
+}
+
+JSReturn.prototype = new JSExprNoReturn; // oh the irony
+JSReturn.prototype.toString = function() {
+    return 'return ' + this.expr.toString();
 }
 
 // TTextCursor (because regular expressions suck)
