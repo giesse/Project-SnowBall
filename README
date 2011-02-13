@@ -1,5 +1,12 @@
 This project is in the boostrap phase, which consists
-in developing a Topaz language compiler in REBOL.
+in developing a minimal Topaz-like compiler in Javascript
+(I'm using nodejs actually), with the goal of compiling
+a Topaz interpreter written in Topaz (well, a subset of it for now).
 
 More details about Topaz will be available once the bootstrap
 is complete.
+
+(Most of the files here are remnants from an initial attempt
+at a REBOL implementation of the compiler, but I changed my
+mind since then. I'm not removing them since I'll need them
+later on.)
