@@ -1,9 +1,106 @@
-parse-values: function [text] [] [
-    none
-]
-
 error: function [type message where] [] [
     throw join "*** " join type join " error: " join message join "^/*** Where: " where
+]
+
+datatype!: none
+
+make-type: function [name] [] [
+    make-struct [
+        type: datatype!
+        name: name
+        make: none
+        insert: none
+        head: none
+        pick: none
+        length-of: none
+    ]
+]
+datatype!: make-type "datatype!"
+datatype!/type: datatype!
+
+make: function [type arguments] [] [
+    apply 'type/make [arguments]
+]
+insert: function [series value] [] [
+    apply 'series/type/insert [series value]
+]
+head: function [series] [] [
+    apply 'series/type/head [series]
+]
+pick: function [series pos] [] [
+    apply 'series/type/pick [series pos]
+]
+length-of: function [series] [] [
+    apply 'series/type/length-of [series]
+]
+
+block!: make-type "block!"
+block!/make: function [arguments] [] [
+    make-struct [
+        type: block!
+        values: make-array
+        pos: 0
+        newlines: make-array
+    ]
+]
+block!/insert: function [block value] [] [
+    make-struct [
+        type: block!
+        values: insert-array block/values block/pos value
+        pos: block/pos + 1
+        newlines: insert-array block/newlines block/pos false
+    ]
+]
+block!/head: function [block] [] [
+    make-struct [
+        type: block!
+        values: block/values
+        pos: 0
+        newlines: block/newlines
+    ]
+]
+block!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+block!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
+first: function [series] [] [
+    pick series 0
+]
+
+new-line: function [block newline?] [] [
+    poke-array block/newlines block/pos newline?
+]
+
+skip-spaces: function [text] [] [
+    reduce [text false]
+]
+
+empty-array?: function [array] [] [
+    0 = length-of-array array
+]
+
+parse-value: function [text] [] [
+    reduce [none text]
+]
+
+parse-values: function [text] [values value newline?] [
+    values: make block! none
+    set [text newline?] skip-spaces text
+    new-line values newline?
+    while [all [not empty-array? text  #"]" = first text]] [
+        set [value text] parse-value text
+        either value [
+            set [text newline?] skip-spaces text
+            values: insert values value
+            new-line values newline?
+        ] [
+            error "Syntax" "Parse error" text
+        ]
+    ]
+    reduce [head values text]
 ]
 
 bind: function [words context extend?] [] [
@@ -12,17 +109,13 @@ bind: function [words context extend?] [] [
 
 system-words: none
 
-empty?: function [series] [] [
-    equal? 0 length? series
-]
-
 load: function [text] [values] [
     set [values text] parse-values text
-    if not empty? text [
+    if not empty-array? text [
         error "Syntax" "Parse error" text
     ]
     bind values system-words true
-    either equal? 1 length? values [
+    either 1 = length-of values [
         first values
     ] [
         values

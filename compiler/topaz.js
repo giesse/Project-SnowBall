@@ -44,7 +44,7 @@ function TLoad(topaz_text, all) {
 function TParseValues(text_cursor) {
     var values = new TBlock(), parsed;
     text_cursor.skipSpaces();
-    while (!text_cursor.isTail() && !text_cursor.match(/^]/)) {
+    while (!text_cursor.isTail() && !text_cursor.match(/^[\]\)]/)) {
         if (parsed = TParseValue(text_cursor)) {
             text_cursor.skipSpaces();
             values.append(parsed);
@@ -55,13 +55,28 @@ function TParseValues(text_cursor) {
     return values;
 }
 
+function TParsePathElement(text_cursor) {
+    return TParseNumber(text_cursor) ||
+        TParseWord(text_cursor) ||
+        TParseString(text_cursor) ||
+        TParseBlock(text_cursor);
+}
+
 function TParseValue(text_cursor) {
     return TParseNumber(text_cursor) ||
         TParseSetWord(text_cursor) ||
+        TParsePath(text_cursor) ||
         TParseWord(text_cursor) ||
         TParseLitWord(text_cursor) ||
         TParseString(text_cursor) ||
-        TParseBlock(text_cursor);
+        TParseBlock(text_cursor) ||
+        TParseParen(text_cursor) ||
+        TParseChar(text_cursor);
+}
+
+function TParseChar(text_cursor) {
+    var match = text_cursor.matchAndSkip(/^#"(.)"/, 1);
+    return match && new TChar(match);
 }
 
 function TParseNumber(text_cursor) {
@@ -70,23 +85,47 @@ function TParseNumber(text_cursor) {
 }
 
 function TParseWord(text_cursor) {
-    var match = TParseWordChars(text_cursor);
-    return match && new TWord(match);
-}
-
-function TParseWordChars(text_cursor) {
-    return text_cursor.matchAndSkip(/^[!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*/);
+    var match;
+    return (match = text_cursor.matchAndSkip(/^[!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*/)) &&
+        new TWord(match);
 }
 
 function TParseLitWord(text_cursor) {
     var match;
-    return text_cursor.matchAndSkip(/^'/) && (match = TParseWordChars(text_cursor)) && new TLitWord(match);
+    return (match = text_cursor.matchAndSkip(/^'([!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*)/, 1)) &&
+        new TLitWord(match);
 }
 
 function TParseSetWord(text_cursor) {
     var match;
     return (match = text_cursor.matchAndSkip(/^([!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*):/, 1)) &&
         new TSetWord(match);
+}
+
+function TParsePath(text_cursor) {
+    var lit = text_cursor.match(/^'/),
+        match = text_cursor.matchAndSkip(/^'?([!&*+\-.<=>?A-Z^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^_`a-z|~-ÿ]*)\//, 1), value,
+        element;
+    if (match) {
+        value = new TPath();
+        value.append(new TWord(match));
+        if (!text_cursor.isTail()) {
+            if (element = TParsePathElement(text_cursor)) {
+                value.append(element);
+            } else {
+                TParseError(text_cursor);
+            }
+        }
+        while (!text_cursor.isTail() && text_cursor.matchAndSkip(/^\//)) {
+            if (element = TParsePathElement(text_cursor)) {
+                value.append(element);
+            } else {
+                TParseError(text_cursor);
+            }
+        }
+        return lit ? value.toLitPath() : (text_cursor.matchAndSkip(/^:/) ? value.toSetPath() : value);
+    }
+    return null;
 }
 
 function TParseString(text_cursor) {
@@ -129,29 +168,57 @@ function TUnescape(str) {
     return i == 0 ? str : result + str.substr(i);
 }
 
-function TParseBlock(text_cursor) {
-    if (text_cursor.matchAndSkip(/^\[/)) {
+function TParseAnyBlock(text_cursor, open, close, closestr) {
+    if (text_cursor.matchAndSkip(open)) {
         var values = TParseValues(text_cursor);
-        if (!text_cursor.matchAndSkip(/^]/)) {
-            throw 'Missing ]: ' + text_cursor.toString();
+        if (!text_cursor.matchAndSkip(close)) {
+            throw 'Missing ' + closestr + ': ' + text_cursor.toString();
         }
         return values;
     } else return null;
+}
+
+function TParseBlock(text_cursor) {
+    return TParseAnyBlock(text_cursor, /^\[/, /^]/, ']');
+}
+
+function TParseParen(text_cursor) {
+    var paren = TParseAnyBlock(text_cursor, /^\(/, /^\)/, ')');
+    return paren && paren.toParen();
 }
 
 function TCompile(block) {
     if (block.isEmpty())
         return new JSEmptyExpr();
     else {
-        var compiled = block.first().compile(block), expr = compiled.expr;
+        var compiled = TCompileStep(block), expr = compiled.expr;
         block = compiled.next;
         while (!block.isEmpty()) {
-            compiled = block.first().compile(block);
+            compiled = TCompileStep(block);
             expr = new JSCompound(expr, compiled.expr);
             block = compiled.next;
         }
         return new JSStatement(expr);
     }
+}
+
+function TCompileStep(block) {
+    var compiled = block.first().compile(block), op;
+    block = compiled.next;
+    while (!block.isEmpty() && (op = block.first()) && op instanceof TWord && (op = TOps[op.word])) {
+        block = block.next();
+        if (block.isEmpty()) throw 'Operator missing its second argument';
+        var arg2 = block.first().compile(block);
+        compiled.next = block = arg2.next;
+        compiled.expr = new JSOp(op, compiled.expr, arg2.expr);
+    }
+    return compiled;
+}
+
+TOps = {
+    "+": "+",
+    "=": "==",
+    "-": "-"
 }
 
 // TValue
@@ -166,7 +233,9 @@ function TInternalError(action) {
     };
 }
 
-TValue.prototype.compile = TInternalError('compile()');
+TValue.prototype.compile = function(block) {
+    return {expr: new JSDummy(this), next: block.next()};
+}
 TValue.prototype.isEmpty = TInternalError('isEmpty()');
 TValue.prototype.first   = TInternalError('first()');
 TValue.prototype.length  = TInternalError('length()');
@@ -197,6 +266,75 @@ TBlock.prototype.append = function(value) {
 TBlock.prototype.next = function() {
     return new TBlock(this.values, this.pos + 1);
 }
+TBlock.prototype.toParen = function() {
+    return new TParen(this.values, this.pos);
+}
+
+// TParen
+
+function TParen(values, pos) {
+    TBlock.call(this, values, pos);
+}
+
+TParen.prototype = new TBlock;
+TParen.prototype.typename = 'paren!';
+TParen.prototype.compile = function(block) {
+    if (this.isEmpty()) throw 'Cannot compile empty paren!';
+    var compiled = TCompileStep(this);
+    if (!compiled.next.isEmpty()) throw 'Cannot compile paren!s with more than one expression';
+    return {expr: compiled.expr, next: block.next()};
+}
+
+// TPath
+
+function TPath(values, pos) {
+    TBlock.call(this, values, pos);
+}
+
+TPath.prototype = new TBlock;
+TPath.prototype.typename = 'path!';
+TPath.prototype.toSetPath = function() {
+    return new TSetPath(this.values, this.pos);
+}
+TPath.prototype.toLitPath = function() {
+    return new TLitPath(this.values, this.pos);
+}
+TPath.prototype.compile = function(block) {
+    return {expr: this.toExpr(), next: block.next()};
+}
+TPath.prototype.toExpr = function() {
+    if (this.values.length < 2) throw 'Internal error, this should not happen. (path! with less than two values)';
+    var expr = new JSDot(this.values[0].toExpr(), this.values[1].word);
+    for (var i = 2; i < this.values.length; i++) {
+        expr = new JSDot(expr, this.values[i].word);
+    }
+    return expr;
+}
+
+// TSetPath
+
+function TSetPath(values, pos) {
+    TBlock.call(this, values, pos);
+}
+
+TSetPath.prototype = new TBlock;
+TSetPath.prototype.typename = 'set-path!';
+TSetPath.prototype.compile = function(block) {
+    block = block.next();
+    var compiled = TCompileStep(block);
+    return {expr: new JSAssignment(this.toExpr(), compiled.expr), next: compiled.next};
+}
+TSetPath.prototype.toExpr = TPath.prototype.toExpr;
+
+// TLitPath
+
+function TLitPath(values, pos) {
+    TBlock.call(this, values, pos);
+}
+
+TLitPath.prototype = new TBlock;
+TLitPath.prototype.typename = 'lit-path!';
+TLitPath.prototype.toExpr = TPath.prototype.toExpr;
 
 // TNumber
 
@@ -222,6 +360,18 @@ TString.prototype.compile = function(block) {
     return {expr: new JSString(this.str), next: block.next()};
 }
 
+// TChar
+
+function TChar(c) {
+    this.chr = c;
+}
+
+TChar.prototype = new TValue;
+TChar.prototype.typename = 'char!';
+TChar.prototype.compile = function(block) {
+    return {expr: new JSString(this.chr), next: block.next()};
+}
+
 // TWord
 
 function TWord(w) {
@@ -232,7 +382,10 @@ TWord.prototype = new TValue;
 TWord.prototype.typename = 'word!';
 TWord.prototype.compile = function(block) {
     var f = TFunctions[this.word];
-    return f ? f(block.next()) : {expr: new JSVariable(this.word), next: block.next()};
+    return f ? f(block.next()) : {expr: this.toExpr(), next: block.next()};
+}
+TWord.prototype.toExpr = function() {
+    return new JSVariable(this.word);
 }
 
 // TSetWord
@@ -241,12 +394,12 @@ function TSetWord(w) {
     this.word = w.toLowerCase();
 }
 
-TSetWord.prototype = new TValue;
+TSetWord.prototype = new TWord('');
 TSetWord.prototype.typename = 'set-word!';
 TSetWord.prototype.compile = function(block) {
     block = block.next();
-    var compiled = block.first().compile(block);
-    return {expr: new JSAssignment(new JSVariable(this.word), compiled.expr), next: compiled.next};
+    var compiled = TCompileStep(block);
+    return {expr: new JSAssignment(this.toExpr(), compiled.expr), next: compiled.next};
 }
 
 // TLitWord
@@ -257,191 +410,164 @@ function TLitWord(w) {
 
 TLitWord.prototype = new TValue;
 TLitWord.prototype.typename = 'lit-word!';
+TLitWord.prototype.toExpr = function() {
+    return new JSVariable(this.word);
+}
 
 // TFunctions
 
-TFunctions = {
-    print: function(block) {
+function TCollectArguments(name, block, nargs) {
+    var args = [], compiled;
+    for (var i = 0; i < nargs; i++) {
         if (block.isEmpty()) {
-            throw 'PRINT is missing its argument';
+            throw 'Not enough arguments for ' + name.toUpperCase();
         }
-        var compiled = block.first().compile(block);
-        return {
-            expr: new JSFunCall(new JSDot(new JSVariable('sys'), 'print'), [compiled.expr]),
-            next: compiled.next
-        }
-    },
-    "function": function(block) {
-        if (block.length() < 3) {
-            throw 'Not enough arguments for FUNCTION';
-        }
-        var args = block.first();
-        block = block.next();
-        var locals = block.first();
-        block = block.next();
-        var body = block.first();
-        if (args instanceof TBlock && locals instanceof TBlock && body instanceof TBlock) {
-            return {
-                expr: new JSFunDef(TBlock2Vars(args), TBlock2Vars(locals), TCompile(body).toJSReturn()),
-                next: block.next()
-            }
+        compiled = TCompileStep(block);
+        args.push(compiled.expr);
+        block = compiled.next;
+    }
+    return {args: args, next: block};
+}
+function TMakeFunction(name, f) {
+    var nargs = f.length;
+    return function(block) {
+        var collected = TCollectArguments(name, block, nargs);
+        return {expr: f.apply(null, collected.args), next: collected.next};
+    }
+}
+
+TFunctions = {
+    print: TMakeFunction('print', function(expr) {
+        return new JSFunCall(new JSDot(new JSVariable('sys'), 'print'), [expr]);
+    }),
+    "function": TMakeFunction('function', function(args, locals, body) {
+        if (args instanceof JSDummy && args.value instanceof TBlock &&
+            locals instanceof JSDummy && locals.value instanceof TBlock &&
+            body instanceof JSDummy && body.value instanceof TBlock) {
+            return new JSFunDef(TBlock2Vars(args.value), TBlock2Vars(locals.value), TCompile(body.value).toJSReturn());
         } else {
             throw 'FUNCTION wants three literal blocks';
         }
-    },
-    none: function(block) {
-        return {
-            expr: new JSNull(),
-            next: block
-        }
-    },
-    "throw": function(block) {
-        if (block.isEmpty()) {
-            throw 'THROW is missing its argument';
-        }
-        var compiled = block.first().compile(block);
-        return {
-            expr: new JSThrow(compiled.expr),
-            next: compiled.next
-        }
-    },
-    join: function(block) {
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for JOIN';
-        }
-        var arg1 = block.first().compile(block);
-        block = arg1.next;
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for JOIN';
-        }
-        var arg2 = block.first().compile(block);
-        block = arg2.next;
-        return {
-            expr: new JSOp('+', arg1.expr, arg2.expr),
-            next: block
-        };
-    },
-    set: function(block) {
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for SET';
-        }
-        var word = block.first();
-        block = block.next();
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for SET';
-        }
-        var value = block.first().compile(block);
-        block = value.next;
-        if (word instanceof TLitWord) {
-            return {
-                expr: new JSAssignment(new JSVariable(word.name), value.expr),
-                next: block
-            }
-        } else if (word instanceof TBlock) {
-            return {
-                expr: new JSMultiAssignment(TBlock2Vars(word), value.expr),
-                next: block
+    }),
+    none: TMakeFunction('none', function() {return new JSNull();}),
+    "throw": TMakeFunction('throw', function(expr) {return new JSThrow(expr);}),
+    join: TMakeFunction('join', function(arg1, arg2) {return new JSOp('+', arg1, arg2);}),
+    set: TMakeFunction('set', function(word, value) {
+        if (word instanceof JSDummy) {
+            word = word.value;
+            if (word instanceof TLitWord) {
+                return new JSAssignment(new JSVariable(word.name), value);
+            } else if (word instanceof TBlock) {
+                return new JSMultiAssignment(TBlock2Vars(word), value);
+            } else {
+                throw 'SET wants a literal lit-word! or literal block!';
             }
         } else {
             throw 'SET wants a literal lit-word! or literal block!';
         }
-    },
-    "if": function(block) {
-        if (block.isEmpty()) throw 'Not enough arguments for IF';
-        var cond = block.first().compile(block);
-        block = cond.next;
-        if (block.isEmpty()) throw 'Not enough arguments for IF';
-        var body = block.first();
-        block = block.next();
-        if (body instanceof TBlock) {
-            return {
-                expr: new JSIfElse(cond.expr, TCompile(body), null),
-                next: block
-            }
+    }),
+    "if": TMakeFunction('if', function(cond, body) {
+        if (body instanceof JSDummy && body.value instanceof TBlock) {
+            return new JSIfElse(cond, TCompile(body.value), null);
         } else {
             throw 'IF wants a literal block! for its body';
         }
-    },
-    either: function(block) {
-        if (block.isEmpty()) throw 'Not enough arguments for EITHER';
-        var cond = block.first().compile(block);
-        block = cond.next;
-        if (block.length() < 2) throw 'Not enough arguments for EITHER';
-        var truebody = block.first();
-        block = block.next();
-        var falsebody = block.first();
-        block = block.next();
-        if (truebody instanceof TBlock && falsebody instanceof TBlock) {
-            return {
-                expr: new JSIfElse(cond.expr, TCompile(truebody), TCompile(falsebody)),
-                next: block
-            }
+    }),
+    either: TMakeFunction('either', function(cond, truebody, falsebody) {
+        if (truebody instanceof JSDummy && truebody.value instanceof TBlock &&
+            falsebody instanceof JSDummy && falsebody.value instanceof TBlock) {
+            return new JSIfElse(cond, TCompile(truebody.value), TCompile(falsebody.value));
         } else {
             throw 'EITHER wants a literal block! for both its body arguments';
         }
-    },
-    not: function(block) {
-        if (block.isEmpty()) {
-            throw 'NOT is missing its argument';
+    }),
+    not: TMakeFunction('not', function(expr) {return new JSNegate(expr);}),
+    "length-of-array": TMakeFunction('length-of-array', function(expr) {return new JSDot(expr, 'length');}),
+    "first-of-array": TMakeFunction('first-of-array', function(expr) {return new JSPick(expr, new JSNumber(0));}),
+    "make-struct": TMakeFunction('make-struct', function(spec) {
+        if (!(spec instanceof JSDummy) || !(spec.value instanceof TBlock))
+            throw 'MAKE-STRUCT wants a literal block for its spec argument';
+        return new JSObject(TParseStructSpec(spec.value));
+    }),
+    apply: TMakeFunction('apply', function(fname, args) {
+        if (!(fname instanceof JSDummy) || !(fname.value instanceof TLitWord || fname.value instanceof TLitPath))
+            throw 'APPLY wants a literal lit-word! or lit-path! for the function name';
+        if (!(args instanceof JSDummy) || !(args.value instanceof TBlock))
+            throw 'APPLY wants a literal block! for the function arguments';
+        return new JSFunCall(fname.value.toExpr(), TReduce(args.value));
+    }),
+    reduce: TMakeFunction('reduce', function(block) {
+        if (!(block instanceof JSDummy) || !(block.value instanceof TBlock))
+            throw 'REDUCE wants a literal block! for its argument';
+        return new JSArray(TReduce(block.value));
+    }),
+    "while": TMakeFunction('while', function(condblock, body) {
+        if (condblock instanceof JSDummy && condblock.value instanceof TBlock &&
+            body instanceof JSDummy && body.value instanceof TBlock) {
+            if (condblock.value.isEmpty()) throw 'WHILE\'s condition block cannot be empty';
+            var compiled = TCompileStep(condblock.value);
+            if (!compiled.next.isEmpty()) throw 'WHILE\'s condition block can only have one expression';
+            return new JSWhile(compiled.expr, TCompile(body.value));
+        } else {
+            throw 'WHILE wants a literal block! for both its arguments';
         }
-        var compiled = block.first().compile(block);
-        return {
-            expr: new JSNegate(compiled.expr),
-            next: compiled.next
+    }),
+    "insert-array": TMakeFunction('insert-array', function(arr, pos, value) {
+        return new JSFunCall(new JSDot(arr, 'splice'), [pos, new JSNumber(0), value]);
+    }),
+    "make-array": TMakeFunction('make-array', function() {return new JSArray([]);}),
+    "poke-array": TMakeFunction('poke-array', function(arr, pos, value) {
+        return new JSAssignment(new JSPick(arr, pos), value);
+    }),
+    "pick-array": TMakeFunction('pick-array', function(arr, pos) {return new JSPick(arr, pos);}),
+    all: TMakeFunction('all', function(block) {
+        if (!(block instanceof JSDummy) || !(block.value instanceof TBlock))
+            throw 'ALL wants a literal block! for its argument';
+        block = block.value;
+        if (block.isEmpty()) throw 'ALL needs at least one expression';
+        var compiled = TCompileStep(block), expr = compiled.expr;
+        block = compiled.next;
+        while (!block.isEmpty()) {
+            compiled = TCompileStep(block);
+            expr = new JSOp('&&', expr, compiled.expr);
+            block = compiled.next;
         }
-    },
-    "equal?": function(block) {
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for EQUAL?';
-        }
-        var arg1 = block.first().compile(block);
-        block = arg1.next;
-        if (block.isEmpty()) {
-            throw 'Not enough arguments for EQUAL?';
-        }
-        var arg2 = block.first().compile(block);
-        block = arg2.next;
-        return {
-            expr: new JSOp('==', arg1.expr, arg2.expr),
-            next: block
-        };
-    },
-    "length?": function(block) {
-        if (block.isEmpty()) {
-            throw 'LENGTH? is missing its argument';
-        }
-        var compiled = block.first().compile(block);
-        return {
-            expr: new JSDot(compiled.expr, 'length'),
-            next: compiled.next
-        }
-    },
-    first: function(block) {
-        if (block.isEmpty()) {
-            throw 'FIRST is missing its argument';
-        }
-        var compiled = block.first().compile(block);
-        return {
-            expr: new JSPick(compiled.expr, new JSNumber(0)),
-            next: compiled.next
-        }
-    }
+        return expr;
+    })
 };
+
+function TParseStructSpec(block) {
+    var struct = {};
+    while (!block.isEmpty()) {
+        var name = block.first();
+        if (!(name instanceof TSetWord))
+            throw 'Invalid struct spec, expected set-word! not ' + name.typename;
+        block = block.next();
+        if (block.isEmpty())
+            throw 'Struct field ' + name.word.toUpperCase() + ' is missing its value';
+        var compiled = TCompileStep(block);
+        block = compiled.next;
+        struct[name.word] = compiled.expr;
+    }
+    return struct;
+}
+
+function TReduce(block) {
+    var exprs = [];
+    while (!block.isEmpty()) {
+        var compiled = TCompileStep(block);
+        exprs.push(compiled.expr);
+        block = compiled.next;
+    }
+    return exprs;
+}
 
 function TUserFuncCompiler(name, nargs) {
     return function(block) {
-        var args = [], compiled;
-        for (var i = 0; i < nargs; i++) {
-            if (block.isEmpty()) {
-                throw 'Not enough arguments for ' + name;
-            }
-            compiled = block.first().compile(block);
-            args.push(compiled.expr);
-            block = compiled.next;
-        }
+        var collected = TCollectArguments(name, block, nargs);
         return {
-            expr: new JSFunCall(new JSVariable(name), args),
-            next: block
+            expr: new JSFunCall(new JSVariable(name), collected.args),
+            next: collected.next
         }
     }
 }
@@ -453,7 +579,7 @@ function TBlock2Vars(block) {
         if (!(v instanceof TWord)) {
             throw 'Expected block of words';
         }
-        vars.push(v.word);
+        vars.push(JSConvertVarName(v.word));
         block = block.next();
     }
     return vars;
@@ -513,10 +639,17 @@ JSCompound.prototype.toJSReturn = function() {
 
 // JSVariable
 
+function JSConvertVarName(name) {
+    name = JSReservedNames[name] || name;
+    return name.replace(/-(.)/g, function(match, chr) {return chr.toUpperCase();}).replace(/^(.)(.*)\?$/,
+            function(match, chr, rest) {return 'is' + chr.toUpperCase() + rest;}).replace('!', '_type');
+}
+JSReservedNames = {
+    "arguments": '_arguments'
+}
 function JSVariable(name) {
     this.topaz_name = name;
-    this.name = name.replace(/-(.)/g, function(match, chr) {return chr.toUpperCase();}).replace(/^(.)(.*)\?$/,
-            function(match, chr, rest) {return 'is' + chr.toUpperCase() + rest;});
+    this.name = JSConvertVarName(name);
 }
 
 JSVariable.prototype = new JSExpr;
@@ -531,7 +664,7 @@ JSVariable.prototype.rememberFunction = function(nargs) {
 
 function JSDot(expr, name) {
     this.expr = expr;
-    this.name = name;
+    this.name = JSConvertVarName(name);
 }
 
 JSDot.prototype = new JSExpr;
@@ -685,7 +818,23 @@ JSIfElse.prototype.toString = function() {
     return res;
 }
 JSIfElse.prototype.toJSReturn = function() {
-    return new JSIfElse(this.cond, this.truebody.toJSReturn(), this.falsebody && this.falsebody.toJSReturn());
+    return new JSIfElse(this.cond, this.truebody.toJSReturn(),
+            (this.falsebody && this.falsebody.toJSReturn()) || new JSReturn(new JSNull()));
+}
+
+// JSWhile
+
+function JSWhile(cond, body) {
+    this.cond = cond;
+    this.body = body;
+}
+
+JSWhile.prototype = new JSExpr;
+JSWhile.prototype.toString = function() {
+    return 'while(' + this.cond.toString() + '){' + this.body.toString() + '}';
+}
+JSWhile.prototype.toJSReturn = function() {
+    throw 'Problem: toJSReturn on JSWhile';
 }
 
 // JSNegate
@@ -734,6 +883,55 @@ function JSReturn(expr) {
 JSReturn.prototype = new JSExprNoReturn; // oh the irony
 JSReturn.prototype.toString = function() {
     return 'return ' + this.expr.toString();
+}
+
+// JSDummy
+
+function JSDummy(value) {
+    this.value = value;
+}
+
+JSDummy.prototype = new JSExprNoReturn;
+JSDummy.prototype.toString = function() {
+    throw 'Internal error - this should not happen. (toString() on JSDummy)';
+}
+
+// JSArray
+
+function JSArray(exprs) {
+    this.exprs = exprs;
+}
+
+JSArray.prototype = new JSExpr;
+JSArray.prototype.toString = function() {
+    var res = '[';
+    if (this.exprs.length > 0) {
+        res += this.exprs[0].toString();
+    }
+    for (var i = 1; i < this.exprs.length; i++) {
+        res += ',' + this.exprs[i].toString();
+    }
+    res += ']';
+    return res;
+}
+
+// JSObject
+
+function JSObject(struct) {
+    this.struct = struct;
+}
+
+JSObject.prototype = new JSExpr;
+JSObject.prototype.toString = function() {
+    var res = '{', keys = Object.keys(this.struct);
+    if (keys.length > 0) {
+        res += JSConvertVarName(keys[0]) + ':' + this.struct[keys[0]].toString();
+    }
+    for (var i = 1; i < keys.length; i++) {
+        res += ',' + JSConvertVarName(keys[i]) + ':' + this.struct[keys[i]].toString();
+    }
+    res += '}';
+    return res;
 }
 
 // TTextCursor (because regular expressions suck)
