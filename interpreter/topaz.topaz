@@ -74,8 +74,14 @@ new-line: function [block newline?] [] [
     poke-array block/newlines block/pos newline?
 ]
 
-skip-spaces: function [text] [] [
-    reduce [text false]
+skip-spaces: function [text] [t newline?] [
+    until [
+        not any [
+            match 'text charset " ^-"
+            all [match 'text "^/" newline?: true]
+        ]
+    ]
+    reduce [text newline?]
 ]
 
 empty-array?: function [array] [] [

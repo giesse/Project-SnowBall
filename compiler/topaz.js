@@ -249,7 +249,7 @@ function TBlock(values, pos) {
     this.pos    = pos    || 0;
 }
 
-TBlock.prototype = new TValue;
+TBlock.prototype.__proto__ = TValue.prototype;
 TBlock.prototype.typename = 'block!';
 TBlock.prototype.isEmpty = function() {
     return this.values.length == this.pos;
@@ -276,7 +276,7 @@ function TParen(values, pos) {
     TBlock.call(this, values, pos);
 }
 
-TParen.prototype = new TBlock;
+TParen.prototype.__proto__ = TBlock.prototype;
 TParen.prototype.typename = 'paren!';
 TParen.prototype.compile = function(block) {
     if (this.isEmpty()) throw 'Cannot compile empty paren!';
@@ -291,7 +291,7 @@ function TPath(values, pos) {
     TBlock.call(this, values, pos);
 }
 
-TPath.prototype = new TBlock;
+TPath.prototype.__proto__ = TBlock.prototype;
 TPath.prototype.typename = 'path!';
 TPath.prototype.toSetPath = function() {
     return new TSetPath(this.values, this.pos);
@@ -317,7 +317,7 @@ function TSetPath(values, pos) {
     TBlock.call(this, values, pos);
 }
 
-TSetPath.prototype = new TBlock;
+TSetPath.prototype.__proto__ = TBlock.prototype;
 TSetPath.prototype.typename = 'set-path!';
 TSetPath.prototype.compile = function(block) {
     block = block.next();
@@ -332,7 +332,7 @@ function TLitPath(values, pos) {
     TBlock.call(this, values, pos);
 }
 
-TLitPath.prototype = new TBlock;
+TLitPath.prototype.__proto__ = TBlock.prototype;
 TLitPath.prototype.typename = 'lit-path!';
 TLitPath.prototype.toExpr = TPath.prototype.toExpr;
 
@@ -342,7 +342,7 @@ function TNumber(n) {
     this.num = n;
 }
 
-TNumber.prototype = new TValue;
+TNumber.prototype.__proto__ = TValue.prototype;
 TNumber.prototype.typename = 'number!';
 TNumber.prototype.compile = function(block) {
     return {expr: new JSNumber(this.num), next: block.next()};
@@ -354,7 +354,7 @@ function TString(s) {
     this.str = s;
 }
 
-TString.prototype = new TValue;
+TString.prototype.__proto__ = TValue.prototype;
 TString.prototype.typename = 'string!';
 TString.prototype.compile = function(block) {
     return {expr: new JSString(this.str), next: block.next()};
@@ -366,7 +366,7 @@ function TChar(c) {
     this.chr = c;
 }
 
-TChar.prototype = new TValue;
+TChar.prototype.__proto__ = TValue.prototype;
 TChar.prototype.typename = 'char!';
 TChar.prototype.compile = function(block) {
     return {expr: new JSString(this.chr), next: block.next()};
@@ -378,7 +378,7 @@ function TWord(w) {
     this.word = w.toLowerCase();
 }
 
-TWord.prototype = new TValue;
+TWord.prototype.__proto__ = TValue.prototype;
 TWord.prototype.typename = 'word!';
 TWord.prototype.compile = function(block) {
     var f = TFunctions[this.word];
@@ -394,7 +394,7 @@ function TSetWord(w) {
     this.word = w.toLowerCase();
 }
 
-TSetWord.prototype = new TWord('');
+TSetWord.prototype.__proto__ = TWord.prototype;
 TSetWord.prototype.typename = 'set-word!';
 TSetWord.prototype.compile = function(block) {
     block = block.next();
@@ -408,7 +408,7 @@ function TLitWord(w) {
     this.word = w.toLowerCase();
 }
 
-TLitWord.prototype = new TValue;
+TLitWord.prototype.__proto__ = TValue.prototype;
 TLitWord.prototype.typename = 'lit-word!';
 TLitWord.prototype.toExpr = function() {
     return new JSVariable(this.word);
@@ -512,6 +512,14 @@ TFunctions = {
             throw 'WHILE wants a literal block! for both its arguments';
         }
     }),
+    until: TMakeFunction('until', function(body) {
+        if (body instanceof JSDummy && body.value instanceof TBlock) {
+            if (body.value.isEmpty()) throw 'UNTIL\'s block cannot be empty';
+            return TCompile(body.value).toJSUntil();
+        } else {
+            throw 'UNTIL wants a literal block! for its argument';
+        }
+    }),
     "insert-array": TMakeFunction('insert-array', function(arr, pos, value) {
         return new JSFunCall(new JSDot(arr, 'splice'), [pos, new JSNumber(0), value]);
     }),
@@ -533,6 +541,26 @@ TFunctions = {
             block = compiled.next;
         }
         return expr;
+    }),
+    any: TMakeFunction('any', function(block) {
+        if (!(block instanceof JSDummy) || !(block.value instanceof TBlock))
+            throw 'ANY wants a literal block! for its argument';
+        block = block.value;
+        if (block.isEmpty()) throw 'ANY needs at least one expression';
+        var compiled = TCompileStep(block), expr = compiled.expr;
+        block = compiled.next;
+        while (!block.isEmpty()) {
+            compiled = TCompileStep(block);
+            expr = new JSOp('||', expr, compiled.expr);
+            block = compiled.next;
+        }
+        return expr;
+    }),
+    match: TMakeFunction('match', function(word, expr) {
+        return new JSNull();
+    }),
+    charset: TMakeFunction('charset', function(expr) {
+        return new JSNull();
     })
 };
 
@@ -595,12 +623,15 @@ JSExpr.prototype.toString = function() {
 JSExpr.prototype.toJSReturn = function() {
     return new JSReturn(this);
 }
+JSExpr.prototype.toJSUntil = function() {
+    return new JSDoWhile(new JSEmptyExpr, new JSNegate(this));
+}
 
 // JSExprNoReturn
 
 function JSExprNoReturn() {}
 
-JSExprNoReturn.prototype = new JSExpr;
+JSExprNoReturn.prototype.__proto__ = JSExpr.prototype;
 JSExprNoReturn.prototype.toJSReturn = function() {
     return this;
 }
@@ -609,7 +640,7 @@ JSExprNoReturn.prototype.toJSReturn = function() {
 
 function JSEmptyExpr() {}
 
-JSEmptyExpr.prototype = new JSExprNoReturn;
+JSEmptyExpr.prototype.__proto__ = JSExprNoReturn.prototype;
 
 // JSNumber
 
@@ -617,7 +648,7 @@ function JSNumber(n) {
     this.num = n;
 }
 
-JSNumber.prototype = new JSExpr;
+JSNumber.prototype.__proto__ = JSExpr.prototype;
 JSNumber.prototype.toString = function() {
     return this.num.toString();
 }
@@ -629,12 +660,15 @@ function JSCompound(expr1, expr2) {
     this.expr2 = expr2;
 }
 
-JSCompound.prototype = new JSExpr;
+JSCompound.prototype.__proto__ = JSExpr.prototype;
 JSCompound.prototype.toString = function() {
     return this.expr1.toString() + ';' + this.expr2.toString();
 }
 JSCompound.prototype.toJSReturn = function() {
     return new JSCompound(this.expr1, this.expr2.toJSReturn());
+}
+JSCompound.prototype.toJSUntil = function() {
+    return new JSDoWhile(this.expr1, new JSNegate(this.expr2));
 }
 
 // JSVariable
@@ -652,7 +686,7 @@ function JSVariable(name) {
     this.name = JSConvertVarName(name);
 }
 
-JSVariable.prototype = new JSExpr;
+JSVariable.prototype.__proto__ = JSExpr.prototype;
 JSVariable.prototype.toString = function() {
     return this.name;
 }
@@ -667,7 +701,7 @@ function JSDot(expr, name) {
     this.name = JSConvertVarName(name);
 }
 
-JSDot.prototype = new JSExpr;
+JSDot.prototype.__proto__ = JSExpr.prototype;
 JSDot.prototype.toString = function() {
     return this.expr.toString() + '.' + this.name;
 }
@@ -679,7 +713,7 @@ function JSFunCall(expr, args) {
     this.args     = args;
 }
 
-JSFunCall.prototype = new JSExpr;
+JSFunCall.prototype.__proto__ = JSExpr.prototype;
 JSFunCall.prototype.toString = function() {
     var result = this.funcExpr.toString() + '(';
     if (this.args.length > 0) {
@@ -698,7 +732,7 @@ function JSString(s) {
     this.str = s;
 }
 
-JSString.prototype = new JSExpr;
+JSString.prototype.__proto__ = JSExpr.prototype;
 JSString.prototype.toString = function() {
     return JSON.stringify(this.str);
 }
@@ -714,7 +748,7 @@ function JSAssignment(expr1, expr2) {
     }
 }
 
-JSAssignment.prototype = new JSExpr;
+JSAssignment.prototype.__proto__ = JSExpr.prototype;
 JSAssignment.prototype.toString = function() {
     return this.expr1.toString() + '=' + this.expr2.toString();
 }
@@ -727,7 +761,7 @@ function JSFunDef(args, locals, body) {
     this.body   = body;
 }
 
-JSFunDef.prototype = new JSExpr;
+JSFunDef.prototype.__proto__ = JSExpr.prototype;
 JSFunDef.prototype.toString = function() {
     var res = 'function(';
     if (this.args.length > 0) {
@@ -754,7 +788,7 @@ JSFunDef.prototype.getNargs = function() {
 
 function JSNull() {}
 
-JSNull.prototype = new JSExpr;
+JSNull.prototype.__proto__ = JSExpr.prototype;
 JSNull.prototype.toString = function() {
     return 'null';
 }
@@ -765,7 +799,7 @@ function JSThrow(expr) {
     this.expr = expr;
 }
 
-JSThrow.prototype = new JSExprNoReturn;
+JSThrow.prototype.__proto__ = JSExprNoReturn.prototype;
 JSThrow.prototype.toString = function() {
     return 'throw ' + this.expr.toString();
 }
@@ -778,7 +812,7 @@ function JSOp(name, expr1, expr2) {
     this.expr2 = expr2;
 }
 
-JSOp.prototype = new JSExpr;
+JSOp.prototype.__proto__ = JSExpr.prototype;
 JSOp.prototype.toString = function() {
     return this.expr1.toString() + this.name + this.expr2.toString();
 }
@@ -791,7 +825,7 @@ function JSMultiAssignment(vars, expr) {
     this.expr = expr;
 }
 
-JSMultiAssignment.prototype = new JSExpr;
+JSMultiAssignment.prototype.__proto__ = JSExpr.prototype;
 JSMultiAssignment.prototype.toString = function() {
     var res = 'var _tmp=' + this.expr.toString() + ';' + this.vars[0] + '=_tmp[0]';
     for (var i = 1; i < this.vars.length; i++) {
@@ -811,7 +845,7 @@ function JSIfElse(cond, truebody, falsebody) {
     this.falsebody = falsebody;
 }
 
-JSIfElse.prototype = new JSExpr;
+JSIfElse.prototype.__proto__ = JSExpr.prototype;
 JSIfElse.prototype.toString = function() {
     var res = 'if(' + this.cond.toString() + '){' + this.truebody.toString() + '}';
     if (this.falsebody) res += 'else{' + this.falsebody.toString() + '}';
@@ -829,7 +863,7 @@ function JSWhile(cond, body) {
     this.body = body;
 }
 
-JSWhile.prototype = new JSExpr;
+JSWhile.prototype.__proto__ = JSExpr.prototype;
 JSWhile.prototype.toString = function() {
     return 'while(' + this.cond.toString() + '){' + this.body.toString() + '}';
 }
@@ -843,7 +877,7 @@ function JSNegate(expr) {
     this.expr = expr;
 }
 
-JSNegate.prototype = new JSExpr;
+JSNegate.prototype.__proto__ = JSExpr.prototype;
 JSNegate.prototype.toString = function() {
     return '!' + this.expr.toString();
 }
@@ -855,7 +889,7 @@ function JSPick(expr, index) {
     this.index = index;
 }
 
-JSPick.prototype = new JSExpr;
+JSPick.prototype.__proto__ = JSExpr.prototype;
 JSPick.prototype.toString = function() {
     return this.expr.toString() + '[' + this.index.toString() + ']';
 }
@@ -866,12 +900,15 @@ function JSStatement(expr) {
     this.expr = expr;
 }
 
-JSStatement.prototype = new JSExpr;
+JSStatement.prototype.__proto__ = JSExpr.prototype;
 JSStatement.prototype.toString = function() {
     return this.expr.toString() + ';';
 }
 JSStatement.prototype.toJSReturn = function() {
     return new JSStatement(this.expr.toJSReturn());
+}
+JSStatement.prototype.toJSUntil = function() {
+    return new JSStatement(this.expr.toJSUntil());
 }
 
 // JSReturn
@@ -880,7 +917,7 @@ function JSReturn(expr) {
     this.expr = expr;
 }
 
-JSReturn.prototype = new JSExprNoReturn; // oh the irony
+JSReturn.prototype.__proto__ = JSExprNoReturn.prototype; // oh the irony
 JSReturn.prototype.toString = function() {
     return 'return ' + this.expr.toString();
 }
@@ -891,7 +928,7 @@ function JSDummy(value) {
     this.value = value;
 }
 
-JSDummy.prototype = new JSExprNoReturn;
+JSDummy.prototype.__proto__ = JSExprNoReturn.prototype;
 JSDummy.prototype.toString = function() {
     throw 'Internal error - this should not happen. (toString() on JSDummy)';
 }
@@ -902,7 +939,7 @@ function JSArray(exprs) {
     this.exprs = exprs;
 }
 
-JSArray.prototype = new JSExpr;
+JSArray.prototype.__proto__ = JSExpr.prototype;
 JSArray.prototype.toString = function() {
     var res = '[';
     if (this.exprs.length > 0) {
@@ -921,7 +958,7 @@ function JSObject(struct) {
     this.struct = struct;
 }
 
-JSObject.prototype = new JSExpr;
+JSObject.prototype.__proto__ = JSExpr.prototype;
 JSObject.prototype.toString = function() {
     var res = '{', keys = Object.keys(this.struct);
     if (keys.length > 0) {
@@ -932,6 +969,21 @@ JSObject.prototype.toString = function() {
     }
     res += '}';
     return res;
+}
+
+// JSDoWhile
+
+function JSDoWhile(body, cond) {
+    this.cond = cond;
+    this.body = body;
+}
+
+JSDoWhile.prototype.__proto__ = JSExpr.prototype;
+JSDoWhile.prototype.toString = function() {
+    return 'do{' + this.body.toString() + '}while(' + this.cond.toString() + ')';
+}
+JSDoWhile.prototype.toJSReturn = function() {
+    throw 'Problem: toJSReturn on JSDoWhile';
 }
 
 // TTextCursor (because regular expressions suck)
