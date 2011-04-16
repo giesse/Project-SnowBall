@@ -220,7 +220,8 @@ function TCompileStep(block) {
 TOps = {
     "+": "+",
     "=": "==",
-    "-": "-"
+    "-": "-",
+    ">": ">"
 }
 
 // TValue
@@ -452,6 +453,8 @@ TFunctions = {
         }
     }),
     none: TMakeFunction('none', function() {return new JSNull();}),
+    "true": TMakeFunction('true', function() {return new JSTrue();}),
+    "false": TMakeFunction('false', function() {return new JSFalse();}),
     "throw": TMakeFunction('throw', function(expr) {return new JSThrow(expr);}),
     join: TMakeFunction('join', function(arg1, arg2) {return new JSOp('+', arg1, arg2);}),
     set: TMakeFunction('set', function(word, value) {
@@ -557,9 +560,6 @@ TFunctions = {
             block = compiled.next;
         }
         return expr;
-    }),
-    match: TMakeFunction('match', function(word, expr) {
-        return new JSNull();
     }),
     charset: TMakeFunction('charset', function(expr) {
         if (!(expr instanceof JSString))
@@ -812,6 +812,24 @@ JSNull.prototype.toString = function() {
     return 'null';
 }
 
+// JSTrue
+
+function JSTrue() {}
+
+JSTrue.prototype.__proto__ = JSExpr.prototype;
+JSTrue.prototype.toString = function() {
+    return 'true';
+}
+
+// JSFalse
+
+function JSFalse() {}
+
+JSFalse.prototype.__proto__ = JSExpr.prototype;
+JSFalse.prototype.toString = function() {
+    return 'false';
+}
+
 // JSThrow
 
 function JSThrow(expr) {
@@ -872,7 +890,7 @@ JSIfElse.prototype.toString = function() {
 }
 JSIfElse.prototype.toJSReturn = function() {
     return new JSIfElse(this.cond, this.truebody.toJSReturn(),
-            (this.falsebody && this.falsebody.toJSReturn()) || new JSReturn(new JSNull()));
+            (this.falsebody && this.falsebody.toJSReturn()) || new JSStatement(new JSReturn(new JSNull())));
 }
 
 // JSWhile
@@ -939,6 +957,7 @@ JSStatement.prototype.toJSUntil = function() {
 
 function JSReturn(expr) {
     this.expr = expr;
+    if (expr instanceof JSAssignment) expr.statement = false;
 }
 
 JSReturn.prototype.__proto__ = JSExprNoReturn.prototype; // oh the irony

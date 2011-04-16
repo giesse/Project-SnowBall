@@ -33,6 +33,9 @@ pick: function [series pos] [] [
 length-of: function [series] [] [
     apply 'series/type/length-of [series]
 ]
+empty?: function [series] [] [
+    0 = length-of series
+]
 
 block!: make-type "block!"
 block!/make: function [arguments] [] [
@@ -66,6 +69,21 @@ block!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
 
+string!: make-type "string!"
+string!/make: function [arguments] [] [
+    make-struct [
+        type: string!
+        string: arguments
+        pos: 0
+    ]
+]
+string!/length-of: function [string] [] [
+    (length-of-array string/string) - string/pos
+]
+string!/pick: function [string pos] [] [
+    pick-array string/string string/pos + pos
+]
+
 first: function [series] [] [
     pick series 0
 ]
@@ -74,11 +92,23 @@ new-line: function [block newline?] [] [
     poke-array block/newlines block/pos newline?
 ]
 
-skip-spaces: function [text] [t newline?] [
+match-c: function [text chset] [t] [
+    t: length-of-array pick-array apply 'chset/exec [apply 'text/string/substr [text/pos]] 0
+    text/pos: text/pos + t
+    t > 0
+]
+match-s: function [text str] [] [
+    if str = apply 'text/string/substr [text/pos length-of-array str] [
+        text/pos: text/pos + length-of-array str
+        true
+    ]
+]
+
+skip-spaces: function [text] [newline?] [
     until [
         not any [
-            match 'text charset " ^-"
-            all [match 'text "^/" newline?: true]
+            match-c text charset " ^-"
+            all [match-s text "^/" newline?: true]
         ]
     ]
     reduce [text newline?]
@@ -96,14 +126,14 @@ parse-values: function [text] [values value newline?] [
     values: make block! none
     set [text newline?] skip-spaces text
     new-line values newline?
-    while [all [not empty-array? text  #"]" = first text]] [
+    while [all [not empty? text  #"]" = first text]] [
         set [value text] parse-value text
         either value [
             set [text newline?] skip-spaces text
             values: insert values value
             new-line values newline?
         ] [
-            error "Syntax" "Parse error" text
+            error "Syntax" "Parse error" text/string
         ]
     ]
     reduce [head values text]
@@ -117,8 +147,8 @@ system-words: none
 
 load: function [text] [values] [
     set [values text] parse-values text
-    if not empty-array? text [
-        error "Syntax" "Parse error" text
+    if not empty? text [
+        error "Syntax" "Parse error" text/string
     ]
     bind values system-words true
     either 1 = length-of values [
