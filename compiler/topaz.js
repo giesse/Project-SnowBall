@@ -59,7 +59,9 @@ function TParsePathElement(text_cursor) {
     return TParseNumber(text_cursor) ||
         TParseWord(text_cursor) ||
         TParseString(text_cursor) ||
-        TParseBlock(text_cursor);
+        TParseBlock(text_cursor) ||
+        TParseParen(text_cursor) ||
+        TParseChar(text_cursor);
 }
 
 function TParseValue(text_cursor) {
@@ -75,7 +77,7 @@ function TParseValue(text_cursor) {
 }
 
 function TParseChar(text_cursor) {
-    var match = text_cursor.matchAndSkip(/^#"(.)"/, 1);
+    var match = text_cursor.matchAndSkip(/^#"(\^?.|\^\([0-9A-Fa-f]+\))"/, 1);
     return match && new TChar(match);
 }
 
@@ -363,13 +365,13 @@ TString.prototype.compile = function(block) {
 // TChar
 
 function TChar(c) {
-    this.chr = c;
+    this.chr = TUnescape(c);
 }
 
 TChar.prototype.__proto__ = TValue.prototype;
 TChar.prototype.typename = 'char!';
 TChar.prototype.compile = function(block) {
-    return {expr: new JSString(this.chr), next: block.next()};
+    return {expr: new JSChar(this.chr), next: block.next()};
 }
 
 // TWord
@@ -560,7 +562,9 @@ TFunctions = {
         return new JSNull();
     }),
     charset: TMakeFunction('charset', function(expr) {
-        return new JSNull();
+        if (!(expr instanceof JSString))
+            throw 'CHARSET wants a literal string! as its argument';
+        return new JSCharset(expr.str);
     })
 };
 
@@ -662,6 +666,8 @@ function JSCompound(expr1, expr2) {
 
 JSCompound.prototype.__proto__ = JSExpr.prototype;
 JSCompound.prototype.toString = function() {
+    if (this.expr1 instanceof JSAssignment) this.expr1.statement = true;
+    if (this.expr2 instanceof JSAssignment) this.expr2.statement = true;
     return this.expr1.toString() + ';' + this.expr2.toString();
 }
 JSCompound.prototype.toJSReturn = function() {
@@ -737,11 +743,20 @@ JSString.prototype.toString = function() {
     return JSON.stringify(this.str);
 }
 
+// JSChar
+
+function JSChar(c) {
+    JSString.call(this, c);
+}
+
+JSChar.prototype.__proto__ = JSString.prototype;
+
 // JSAssignment
 
 function JSAssignment(expr1, expr2) {
     this.expr1 = expr1;
     this.expr2 = expr2;
+    this.statement = false;
     // special case - remember it's a function
     if (expr1 instanceof JSVariable && expr2 instanceof JSFunDef) {
         expr1.rememberFunction(expr2.getNargs());
@@ -750,7 +765,11 @@ function JSAssignment(expr1, expr2) {
 
 JSAssignment.prototype.__proto__ = JSExpr.prototype;
 JSAssignment.prototype.toString = function() {
-    return this.expr1.toString() + '=' + this.expr2.toString();
+    if (this.statement) {
+        return this.expr1.toString() + '=' + this.expr2.toString();
+    } else {
+        return '(' + this.expr1.toString() + '=' + this.expr2.toString() + ')';
+    }
 }
 
 // JSFunDef
@@ -814,7 +833,7 @@ function JSOp(name, expr1, expr2) {
 
 JSOp.prototype.__proto__ = JSExpr.prototype;
 JSOp.prototype.toString = function() {
-    return this.expr1.toString() + this.name + this.expr2.toString();
+    return '(' + this.expr1.toString() + this.name + this.expr2.toString() + ')';
 }
 
 // JSMultiAssignment
@@ -879,7 +898,11 @@ function JSNegate(expr) {
 
 JSNegate.prototype.__proto__ = JSExpr.prototype;
 JSNegate.prototype.toString = function() {
-    return '!' + this.expr.toString();
+    if (this.expr instanceof JSNegate) {
+        return this.expr.expr.toString();
+    } else {
+        return '!' + this.expr.toString();
+    }
 }
 
 // JSPick
@@ -898,6 +921,7 @@ JSPick.prototype.toString = function() {
 
 function JSStatement(expr) {
     this.expr = expr;
+    if (expr instanceof JSAssignment) expr.statement = true;
 }
 
 JSStatement.prototype.__proto__ = JSExpr.prototype;
@@ -984,6 +1008,18 @@ JSDoWhile.prototype.toString = function() {
 }
 JSDoWhile.prototype.toJSReturn = function() {
     throw 'Problem: toJSReturn on JSDoWhile';
+}
+
+// JSCharset
+
+function JSCharset(chars) {
+    this.chars = chars;
+}
+
+JSCharset.prototype.__proto__ = JSExpr.prototype;
+JSCharset.prototype.toString = function() {
+    var chars = JSON.stringify(this.chars);
+    return '/^[' + chars.substr(1, chars.length - 2) + ']+/';
 }
 
 // TTextCursor (because regular expressions suck)
