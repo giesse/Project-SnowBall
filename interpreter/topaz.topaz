@@ -13,6 +13,7 @@ make-type: function [name] [] [
         head: none
         pick: none
         length-of: none
+        skip: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -35,6 +36,9 @@ length-of: function [series] [] [
 ]
 empty?: function [series] [] [
     0 = length-of series
+]
+skip: function [series amount] [] [
+    apply 'series/type/skip [series amount]
 ]
 
 block!: make-type "block!"
@@ -69,6 +73,125 @@ block!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
 
+paren!: make-type "paren!"
+paren!/make: function [arguments] [] [
+    make-struct [
+        type: paren!
+        values: make-array
+        pos: 0
+        newlines: make-array
+    ]
+]
+paren!/insert: function [block value] [] [
+    make-struct [
+        type: paren!
+        values: insert-array block/values block/pos value
+        pos: block/pos + 1
+        newlines: insert-array block/newlines block/pos false
+    ]
+]
+paren!/head: function [block] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: 0
+        newlines: block/newlines
+    ]
+]
+paren!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+paren!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
+path!: make-type "path!"
+path!/make: function [arguments] [] [
+    make-struct [
+        type: path!
+        values: make-array
+        pos: 0
+    ]
+]
+path!/insert: function [block value] [] [
+    make-struct [
+        type: path!
+        values: insert-array block/values block/pos value
+        pos: block/pos + 1
+    ]
+]
+path!/head: function [block] [] [
+    make-struct [
+        type: path!
+        values: block/values
+        pos: 0
+    ]
+]
+path!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+path!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
+set-path!: make-type "set-path!"
+set-path!/make: function [arguments] [] [
+    make-struct [
+        type: set-path!
+        values: make-array
+        pos: 0
+    ]
+]
+set-path!/insert: function [block value] [] [
+    make-struct [
+        type: set-path!
+        values: insert-array block/values block/pos value
+        pos: block/pos + 1
+    ]
+]
+set-path!/head: function [block] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: 0
+    ]
+]
+set-path!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+set-path!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
+lit-path!: make-type "lit-path!"
+lit-path!/make: function [arguments] [] [
+    make-struct [
+        type: lit-path!
+        values: make-array
+        pos: 0
+    ]
+]
+lit-path!/insert: function [block value] [] [
+    make-struct [
+        type: lit-path!
+        values: insert-array block/values block/pos value
+        pos: block/pos + 1
+    ]
+]
+lit-path!/head: function [block] [] [
+    make-struct [
+        type: lit-path!
+        values: block/values
+        pos: 0
+    ]
+]
+lit-path!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+lit-path!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
 string!: make-type "string!"
 string!/make: function [arguments] [] [
     make-struct [
@@ -83,6 +206,49 @@ string!/length-of: function [string] [] [
 string!/pick: function [string pos] [] [
     pick-array string/string string/pos + pos
 ]
+string!/skip: function [string amount] [] [
+    make-struct [
+        type: string!
+        string: string/string
+        pos: string/pos + amount
+    ]
+]
+
+number!: make-type "number!"
+number!/make: function [arguments] [] [
+    make-struct [
+        type: number!
+        number: arguments
+    ]
+]
+
+word!: make-type "word!"
+word!/make: function [arguments] [] [
+    make-struct [
+        type: word!
+        word: arguments
+    ]
+]
+
+set-word!: make-type "set-word!"
+set-word!/make: function [arguments] [] [
+    make-struct [
+        type: set-word!
+        word: arguments
+    ]
+]
+
+lit-word!: make-type "lit-word!"
+lit-word!/make: function [arguments] [] [
+    make-struct [
+        type: lit-word!
+        word: arguments
+    ]
+]
+
+to-js-string: function [string] [] [
+    apply 'string/string/substr [string/pos]
+]
 
 first: function [series] [] [
     pick series 0
@@ -92,24 +258,20 @@ new-line: function [block newline?] [] [
     poke-array block/newlines block/pos newline?
 ]
 
-match-c: function [text chset] [t] [
-    t: length-of-array pick-array apply 'chset/exec [apply 'text/string/substr [text/pos]] 0
-    text/pos: text/pos + t
-    t > 0
+exec-re: function [str re] [] [
+    apply 're/exec [str]
 ]
-match-s: function [text str] [] [
-    if str = apply 'text/string/substr [text/pos length-of-array str] [
-        text/pos: text/pos + length-of-array str
-        true
-    ]
+test-re: function [str re] [] [
+    apply 're/test [str]
 ]
 
-skip-spaces: function [text] [newline?] [
-    until [
-        not any [
-            match-c text charset " ^-"
-            all [match-s text "^/" newline?: true]
-        ]
+skip-spaces: function [text] [t newline?] [
+    t: exec-re to-js-string text regexp "^^\s+"
+    newline?: false
+    if t [
+        t: pick-array t 0
+        newline?: test-re t regexp "\n"
+        text: skip text length-of-array t
     ]
     reduce [text newline?]
 ]
@@ -118,22 +280,162 @@ empty-array?: function [array] [] [
     0 = length-of-array array
 ]
 
-parse-value: function [text] [] [
-    reduce [none text]
+parse-number: function [text] [t] [
+    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?"
+    if all [t  0 < length-of-array t: pick-array t 0] [
+        reduce [
+            make number! apply 'parse-float [t]
+            skip text length-of-array t
+        ]
+    ]
 ]
 
-parse-values: function [text] [values value newline?] [
-    values: make block! none
+parse-word-chars: function [text] [t] [
+    if t: exec-re to-js-string text regexp "^^[!&*+\-.<=>?A-Z^^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^^_`a-z|~-ÿ]*" [
+        pick-array t 0
+    ]
+]
+
+parse-word: function [text] [w] [
+    if w: parse-word-chars text [
+        reduce [
+            make word! w
+            skip text length-of-array w
+        ]
+    ]
+]
+
+parse-set-word: function [text] [w] [
+    if all [w: parse-word-chars text  #":" = pick text length-of-array w] [
+        reduce [
+            make set-word! w
+            skip text 1 + length-of-array w
+        ]
+    ]
+]
+
+parse-lit-word: function [text] [w] [
+    if all [#"'" = first text  w: parse-word-chars skip text 1] [
+        reduce [
+            make lit-word! w
+            skip text 1 + length-of-array w
+        ]
+    ]
+]
+
+parse-path-element: function [text] [] [
+    any [
+        parse-number   text
+        parse-word     text
+        parse-string   text
+        parse-block    text
+        parse-paren    text
+        parse-char     text
+    ]
+]
+
+parse-set-path: function [text] [path value] [
+    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
+        path: make set-path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        if all [not empty? text  #":" = first text] [
+            reduce [head values text]
+        ]
+    ]
+]
+
+parse-path: function [text] [path value] [
+    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
+        path: make path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        reduce [head values text]
+    ]
+]
+
+parse-lit-path: function [text] [path value] [
+    if all [#"'" = first text  value: parse-word-chars skip text 1  #"/" = pick text length-of-array value] [
+        path: make lit-path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        reduce [head values text]
+    ]
+]
+
+parse-values: function [values text] [] []
+
+parse-block: function [text] [values] [
+    if #"[" = first text [
+        set [values text] parse-values make block! none skip text 1
+        if #"]" <> first text [
+            error "Syntax" "Missing ]" to-js-string text
+        ]
+        values
+    ]
+]
+
+parse-paren: function [text] [values] [
+    if #"(" = first text [
+        set [values text] parse-values make paren! none skip text 1
+        if #")" <> first text [
+            error "Syntax" "Missing )" to-js-string text
+        ]
+        values
+    ]
+]
+
+parse-value: function [text] [] [
+    any [
+        parse-number   text
+        parse-set-word text
+        parse-set-path text
+        parse-path     text
+        parse-lit-path text
+        parse-word     text
+        parse-lit-word text
+        parse-string   text
+        parse-block    text
+        parse-paren    text
+        parse-char     text
+    ]
+]
+
+parse-values: function [values text] [value newline?] [
     set [text newline?] skip-spaces text
     new-line values newline?
-    while [all [not empty? text  #"]" = first text]] [
+    while [all [not empty? text  #"]" <> first text  #")" <> first text]] [
         set [value text] parse-value text
         either value [
             set [text newline?] skip-spaces text
             values: insert values value
             new-line values newline?
         ] [
-            error "Syntax" "Parse error" text/string
+            error "Syntax" "Parse error" to-js-string text
         ]
     ]
     reduce [head values text]
@@ -146,9 +448,9 @@ bind: function [words context extend?] [] [
 system-words: none
 
 load: function [text] [values] [
-    set [values text] parse-values text
+    set [values text] parse-values make block! none text
     if not empty? text [
-        error "Syntax" "Parse error" text/string
+        error "Syntax" "Parse error" to-js-string text
     ]
     bind values system-words true
     either 1 = length-of values [

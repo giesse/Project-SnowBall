@@ -221,7 +221,9 @@ TOps = {
     "+": "+",
     "=": "==",
     "-": "-",
-    ">": ">"
+    ">": ">",
+    "<": "<",
+    "<>": "!="
 }
 
 // TValue
@@ -561,10 +563,10 @@ TFunctions = {
         }
         return expr;
     }),
-    charset: TMakeFunction('charset', function(expr) {
+    "regexp": TMakeFunction('regexp', function(expr) {
         if (!(expr instanceof JSString))
-            throw 'CHARSET wants a literal string! as its argument';
-        return new JSCharset(expr.str);
+            throw 'REGEXP wants a literal string! as its argument';
+        return new JSRegExp(expr.str);
     })
 };
 
@@ -1029,16 +1031,15 @@ JSDoWhile.prototype.toJSReturn = function() {
     throw 'Problem: toJSReturn on JSDoWhile';
 }
 
-// JSCharset
+// JSRegExp
 
-function JSCharset(chars) {
-    this.chars = chars;
+function JSRegExp(re) {
+    this.re = re;
 }
 
-JSCharset.prototype.__proto__ = JSExpr.prototype;
-JSCharset.prototype.toString = function() {
-    var chars = JSON.stringify(this.chars);
-    return '/^[' + chars.substr(1, chars.length - 2) + ']+/';
+JSRegExp.prototype.__proto__ = JSExpr.prototype;
+JSRegExp.prototype.toString = function() {
+    return '/' + this.re + '/';
 }
 
 // TTextCursor (because regular expressions suck)
