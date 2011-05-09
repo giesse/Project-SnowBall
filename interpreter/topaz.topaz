@@ -214,6 +214,14 @@ string!/skip: function [string amount] [] [
     ]
 ]
 
+char!: make-type "char!"
+char!/make: function [arguments] [] [
+    make-struct [
+        type: char!
+        string: arguments
+    ]
+]
+
 number!: make-type "number!"
 number!/make: function [arguments] [] [
     make-struct [
@@ -323,6 +331,102 @@ parse-lit-word: function [text] [w] [
     ]
 ]
 
+parse-values: function [values text] [] []
+
+parse-block: function [text] [values] [
+    if #"[" = first text [
+        set [values text] parse-values make block! none skip text 1
+        if #"]" <> first text [
+            error "Syntax" "Missing ]" to-js-string text
+        ]
+        reduce [values skip text 1]
+    ]
+]
+
+parse-paren: function [text] [values] [
+    if #"(" = first text [
+        set [values text] parse-values make paren! none skip text 1
+        if #")" <> first text [
+            error "Syntax" "Missing )" to-js-string text
+        ]
+        reduce [values skip text 1]
+    ]
+]
+
+unescape: function [str] [result i j ch p] [
+    result: ""
+    i: 0
+    while [0 <= j: apply 'str/index-of [#"^^" i]] [
+        result: join result apply 'str/substr [i j - i]
+        ch: pick-array str j + 1
+        switch ch [
+            #"/" [
+                result: join result #"^/"
+                i: j + 2
+            ]
+            #"-" [
+                result: join result #"^-"
+                i: j + 2
+            ]
+            #"^^" [
+                result: join result #"^^"
+                i: j + 2
+            ]
+            #"!" [
+                result: join result #"^!"
+                i: j + 2
+            ]
+        ] [
+            case [
+                all [ch >= #"@"  ch <= #"_"] [
+                    result: join result apply 'String/from-char-code [(apply 'ch/char-code-at [0]) - 64]
+                    i: j + 2
+                ]
+                all [
+                    ch = #"("
+                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)"
+                ] [
+                    result: join result apply 'String/from-char-code [apply 'parse-int [pick-array p 1 16]]
+                    i: j + 1 + length-of-array pick-array p 0
+                ]
+                'else [
+                    result: join result ch
+                    i: j + 2
+                ]
+            ]
+        ]
+    ]
+    either i = 0 [
+        str
+    ] [
+        join result apply 'str/substr [i]
+    ]
+]
+
+parse-string: function [text] [t] [
+    if #"^"" = pick text 0 [
+        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^""
+        either t [
+            reduce [
+                make string! unescape pick-array t 1
+                skip text length-of-array pick-array t 0
+            ]
+        ] [
+            error "Syntax" "Missing ^"" to-js-string text
+        ]
+    ]
+]
+
+parse-char: function [text] [ch] [
+    ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^""
+    if ch [
+        reduce [
+            make char! unescape pick-array ch 1
+            skip text length-of-array pick-array ch 0
+        ]
+    ]
+]
+
 parse-path-element: function [text] [] [
     any [
         parse-number   text
@@ -384,28 +488,6 @@ parse-lit-path: function [text] [path value] [
             ]
         ]
         reduce [head values text]
-    ]
-]
-
-parse-values: function [values text] [] []
-
-parse-block: function [text] [values] [
-    if #"[" = first text [
-        set [values text] parse-values make block! none skip text 1
-        if #"]" <> first text [
-            error "Syntax" "Missing ]" to-js-string text
-        ]
-        values
-    ]
-]
-
-parse-paren: function [text] [values] [
-    if #"(" = first text [
-        set [values text] parse-values make paren! none skip text 1
-        if #")" <> first text [
-            error "Syntax" "Missing )" to-js-string text
-        ]
-        values
     ]
 ]
 

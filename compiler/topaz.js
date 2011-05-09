@@ -132,7 +132,7 @@ function TParsePath(text_cursor) {
 
 function TParseString(text_cursor) {
     var match = text_cursor.matchAndSkip(/^"(([^"^\f\n\r]*|\^\([0-9A-Fa-f]+\)|\^[^\f\n\r])*)"/, 1);
-    if (match) {
+    if (match || match === '') {
         return new TString(TUnescape(match));
     } else if (text_cursor.match(/^"/)) {
         throw 'Missing ": ' + text_cursor.toString();
@@ -223,7 +223,9 @@ TOps = {
     "-": "-",
     ">": ">",
     "<": "<",
-    "<>": "!="
+    "<>": "!=",
+    ">=": ">=",
+    "<=": "<="
 }
 
 // TValue
@@ -567,6 +569,36 @@ TFunctions = {
         if (!(expr instanceof JSString))
             throw 'REGEXP wants a literal string! as its argument';
         return new JSRegExp(expr.str);
+    }),
+    "switch": TMakeFunction('switch', function(value, cases, def) {
+        if (!(cases instanceof JSDummy) || !(cases.value instanceof TBlock) ||
+            !(def instanceof JSDummy) || !(def.value instanceof TBlock))
+            throw 'SWITCH wants literal block!s for its arguments';
+        cases = cases.value;
+        def = def.value;
+        var compiledCases = [];
+        while (!cases.isEmpty()) {
+            var v = TCompileStep(cases), e = TCompile(v.next.first());
+            compiledCases.push({value: v.expr, expr: e});
+            cases = v.next.next();
+        }
+        return new JSSwitch(value, compiledCases, TCompile(def));
+    }),
+    "case": TMakeFunction('case', function(cases) {
+        if (!(cases instanceof JSDummy) || !(cases.value instanceof TBlock))
+            throw 'CASE wants a literal block! for its argument';
+        cases = cases.value;
+        var compiledCases = [], elseCase = null;
+        while (!cases.isEmpty()) {
+            var cond = TCompileStep(cases), e = TCompile(cond.next.first());
+            if (cond.expr instanceof JSDummy && cond.expr.value instanceof TLitWord) {
+                elseCase = e
+            } else {
+                compiledCases.push({cond: cond.expr, expr: e});
+            }
+            cases = cond.next.next();
+        }
+        return new JSIfElseMulti(compiledCases, elseCase);
     })
 };
 
@@ -1040,6 +1072,55 @@ function JSRegExp(re) {
 JSRegExp.prototype.__proto__ = JSExpr.prototype;
 JSRegExp.prototype.toString = function() {
     return '/' + this.re + '/';
+}
+
+// JSSwitch
+
+function JSSwitch(value, cases, def) {
+    this.value = value;
+    this.cases = cases;
+    this.def   = def;
+}
+
+JSSwitch.prototype.__proto__ == JSExpr.prototype;
+JSSwitch.prototype.toString = function() {
+    var result = 'switch(' + this.value.toString() + '){', i;
+    for (i = 0; i < this.cases.length; i++) {
+        result += 'case ' + this.cases[i].value.toString() + ':' + this.cases[i].expr.toString() + 'break;';
+    }
+    return result + 'default:' + this.def.toString() + '}';
+}
+JSSwitch.prototype.toJSReturn = function() {
+    var cases = [], i;
+    for (i = 0; i < this.cases.length; i++) {
+        cases.push({value: this.cases[i].value, expr: this.cases[i].expr.toJSReturn()});
+    }
+    return new JSSwitch(this.value, cases, this.def.toJSReturn());
+}
+
+// JSIfElseMulti
+
+function JSIfElseMulti(cases, elseCase) {
+    this.cases    = cases;
+    this.elseCase = elseCase;
+}
+
+JSIfElseMulti.prototype.__proto__ == JSExpr.prototype;
+JSIfElseMulti.prototype.toString = function() {
+    var result = 'if(' + this.cases[0].cond.toString() + '){' + this.cases[0].expr.toString() + '}', i;
+    for (i = 1; i < this.cases.length; i++) {
+        result += 'else if(' + this.cases[i].cond.toString() + '){' + this.cases[i].expr.toString() + '}';
+    }
+    if (this.elseCase) result += 'else{' + this.elseCase.toString() + '}';
+    return result;
+}
+JSIfElseMulti.prototype.toJSReturn = function() {
+    var cases = [], i;
+    for (i = 0; i < this.cases.length; i++) {
+        cases.push({cond: this.cases[i].cond, expr: this.cases[i].expr.toJSReturn()});
+    }
+    return new JSIfElseMulti(cases, this.elseCase ? this.elseCase.toJSReturn() :
+            new JSStatement(new JSReturn(new JSNull())));
 }
 
 // TTextCursor (because regular expressions suck)
