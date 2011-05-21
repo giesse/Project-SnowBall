@@ -1,3 +1,4 @@
+
 error: function [type message where] [] [
     throw join "*** " join type join " error: " join message join "^/*** Where: " where
 ]
@@ -14,6 +15,7 @@ make-type: function [name] [] [
         pick: none
         length-of: none
         skip: none
+        mold: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -40,6 +42,14 @@ empty?: function [series] [] [
 skip: function [series amount] [] [
     apply 'series/type/skip [series amount]
 ]
+mold: function [value] [] [
+    make string! apply 'value/type/mold [value ""]
+]
+
+probe: function [value] [] [
+    print apply 'value/type/mold [value ""]
+    print "^/"
+]
 
 block!: make-type "block!"
 block!/make: function [arguments] [] [
@@ -51,11 +61,13 @@ block!/make: function [arguments] [] [
     ]
 ]
 block!/insert: function [block value] [] [
+    insert-array block/values block/pos value
+    insert-array block/newlines block/pos false
     make-struct [
         type: block!
-        values: insert-array block/values block/pos value
+        values: block/values
         pos: block/pos + 1
-        newlines: insert-array block/newlines block/pos false
+        newlines: block/newlines
     ]
 ]
 block!/head: function [block] [] [
@@ -72,6 +84,33 @@ block!/pick: function [block pos] [] [
 block!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
+mold-value: function [value indent] [] [
+    apply 'value/type/mold [value indent]
+]
+mold-step1: function [result values pos indent sep] [] [
+    join result join sep mold-value pick-array values pos indent
+]
+mold-step2: function [result values newlines pos indent sep nlsep] [] [
+    if pick-array newlines pos [
+        sep: join nlsep indent
+    ]
+    mold-step1 result values pos indent sep
+]
+block!/mold: function [block indent] [result pos ind] [
+    result: "["
+    pos: block/pos
+    ind: join indent "    "
+    if pos < length-of-array block/values [
+        result: mold-step2 result block/values block/newlines pos ind "" #"^/"
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
+            pos: pos + 1
+        ]
+    ]
+    if pick-array block/newlines pos [result: join result join #"^/" indent]
+    join result #"]"
+]
 
 paren!: make-type "paren!"
 paren!/make: function [arguments] [] [
@@ -83,11 +122,13 @@ paren!/make: function [arguments] [] [
     ]
 ]
 paren!/insert: function [block value] [] [
+    insert-array block/values block/pos value
+    insert-array block/newlines block/pos false
     make-struct [
         type: paren!
-        values: insert-array block/values block/pos value
+        values: block/values
         pos: block/pos + 1
-        newlines: insert-array block/newlines block/pos false
+        newlines: block/newlines
     ]
 ]
 paren!/head: function [block] [] [
@@ -104,6 +145,21 @@ paren!/pick: function [block pos] [] [
 paren!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
+paren!/mold: function [block indent] [result pos ind] [
+    result: "("
+    pos: block/pos
+    ind: join indent "    "
+    if pos < length-of-array block/values [
+        result: mold-step2 result block/values block/newlines pos ind "" #"^/"
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
+            pos: pos + 1
+        ]
+    ]
+    if pick-array block/newlines pos [result: join result join #"^/" indent]
+    join result #")"
+]
 
 path!: make-type "path!"
 path!/make: function [arguments] [] [
@@ -114,9 +170,10 @@ path!/make: function [arguments] [] [
     ]
 ]
 path!/insert: function [block value] [] [
+    insert-array block/values block/pos value
     make-struct [
         type: path!
-        values: insert-array block/values block/pos value
+        values: block/values
         pos: block/pos + 1
     ]
 ]
@@ -133,6 +190,19 @@ path!/pick: function [block pos] [] [
 path!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
+path!/mold: function [block indent] [result pos] [
+    result: ""
+    pos: block/pos
+    if pos < length-of-array block/values [
+        result: mold-step1 result block/values pos indent ""
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step1 result block/values pos indent #"/"
+            pos: pos + 1
+        ]
+    ]
+    result
+]
 
 set-path!: make-type "set-path!"
 set-path!/make: function [arguments] [] [
@@ -143,9 +213,10 @@ set-path!/make: function [arguments] [] [
     ]
 ]
 set-path!/insert: function [block value] [] [
+    insert-array block/values block/pos value
     make-struct [
         type: set-path!
-        values: insert-array block/values block/pos value
+        values: block/values
         pos: block/pos + 1
     ]
 ]
@@ -162,6 +233,19 @@ set-path!/pick: function [block pos] [] [
 set-path!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
+set-path!/mold: function [block indent] [result pos] [
+    result: ""
+    pos: block/pos
+    if pos < length-of-array block/values [
+        result: mold-step1 result block/values pos indent ""
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step1 result block/values pos indent #"/"
+            pos: pos + 1
+        ]
+    ]
+    join result #":"
+]
 
 lit-path!: make-type "lit-path!"
 lit-path!/make: function [arguments] [] [
@@ -172,9 +256,10 @@ lit-path!/make: function [arguments] [] [
     ]
 ]
 lit-path!/insert: function [block value] [] [
+    insert-array block/values block/pos value
     make-struct [
         type: lit-path!
-        values: insert-array block/values block/pos value
+        values: block/values
         pos: block/pos + 1
     ]
 ]
@@ -190,6 +275,19 @@ lit-path!/pick: function [block pos] [] [
 ]
 lit-path!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
+]
+lit-path!/mold: function [block indent] [result pos] [
+    result: "'"
+    pos: block/pos
+    if pos < length-of-array block/values [
+        result: mold-step1 result block/values pos indent ""
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step1 result block/values pos indent #"/"
+            pos: pos + 1
+        ]
+    ]
+    result
 ]
 
 string!: make-type "string!"
@@ -213,6 +311,42 @@ string!/skip: function [string amount] [] [
         pos: string/pos + amount
     ]
 ]
+escape: function [str] [re result match i] [
+    re: regexp "[\x00-\x19^^^"]" "mg"
+    result: ""
+    i: 0
+    while [match: apply 're/exec [str]] [
+        result: join result apply 'str/substr [i match/index - i]
+        switch pick-array str match/index [
+            #"^^" [
+                result: join result "^^^^"
+            ]
+            #"^/" [
+                result: join result "^^/"
+            ]
+            #"^"" [
+                result: join result "^^^""
+            ]
+            #"^-" [
+                result: join result "^^-"
+            ]
+            #"^!" [
+                result: join result "^^!"
+            ]
+        ] [
+            result: join result join #"^^" apply 'String/from-char-code [(apply 'str/char-code-at [match/index]) + 64]
+        ]
+        i: match/index + 1
+    ]
+    either i = 0 [
+        str
+    ] [
+        join result apply 'str/substr [i]
+    ]
+]
+string!/mold: function [string indent] [] [
+    join "^"" join escape string/string #"^""
+]
 
 char!: make-type "char!"
 char!/make: function [arguments] [] [
@@ -220,6 +354,9 @@ char!/make: function [arguments] [] [
         type: char!
         string: arguments
     ]
+]
+char!/mold: function [char indent] [] [
+    join "#^"" join escape char/string "^""
 ]
 
 number!: make-type "number!"
@@ -229,6 +366,9 @@ number!/make: function [arguments] [] [
         number: arguments
     ]
 ]
+number!/mold: function [number indent] [] [
+    join "" number/number
+]
 
 word!: make-type "word!"
 word!/make: function [arguments] [] [
@@ -236,6 +376,9 @@ word!/make: function [arguments] [] [
         type: word!
         word: arguments
     ]
+]
+word!/mold: function [word indent] [] [
+    word/word
 ]
 
 set-word!: make-type "set-word!"
@@ -245,6 +388,9 @@ set-word!/make: function [arguments] [] [
         word: arguments
     ]
 ]
+set-word!/mold: function [word indent] [] [
+    join word/word #":"
+]
 
 lit-word!: make-type "lit-word!"
 lit-word!/make: function [arguments] [] [
@@ -252,6 +398,9 @@ lit-word!/make: function [arguments] [] [
         type: lit-word!
         word: arguments
     ]
+]
+lit-word!/mold: function [word indent] [] [
+    join "'" word/word
 ]
 
 to-js-string: function [string] [] [
@@ -265,6 +414,11 @@ first: function [series] [] [
 new-line: function [block newline?] [] [
     poke-array block/newlines block/pos newline?
 ]
+insert-nl: function [block value newline?] [] [
+    block: insert block value
+    poke-array block/newlines block/pos - 1 newline?
+    block
+]
 
 exec-re: function [str re] [] [
     apply 're/exec [str]
@@ -274,11 +428,11 @@ test-re: function [str re] [] [
 ]
 
 skip-spaces: function [text] [t newline?] [
-    t: exec-re to-js-string text regexp "^^\s+"
+    t: exec-re to-js-string text regexp "^^\s+" ""
     newline?: false
     if t [
         t: pick-array t 0
-        newline?: test-re t regexp "\n"
+        newline?: test-re t regexp "\n" ""
         text: skip text length-of-array t
     ]
     reduce [text newline?]
@@ -289,7 +443,7 @@ empty-array?: function [array] [] [
 ]
 
 parse-number: function [text] [t] [
-    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?"
+    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""
     if all [t  0 < length-of-array t: pick-array t 0] [
         reduce [
             make number! apply 'parse-float [t]
@@ -299,7 +453,7 @@ parse-number: function [text] [t] [
 ]
 
 parse-word-chars: function [text] [t] [
-    if t: exec-re to-js-string text regexp "^^[!&*+\-.<=>?A-Z^^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^^_`a-z|~-ÿ]*" [
+    if t: exec-re to-js-string text regexp "^^[!&*+\-.<=>?A-Z^^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^^_`a-z|~-ÿ]*" "" [
         pick-array t 0
     ]
 ]
@@ -384,7 +538,7 @@ unescape: function [str] [result i j ch p] [
                 ]
                 all [
                     ch = #"("
-                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)"
+                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
                 ] [
                     result: join result apply 'String/from-char-code [apply 'parse-int [pick-array p 1 16]]
                     i: j + 1 + length-of-array pick-array p 0
@@ -405,7 +559,7 @@ unescape: function [str] [result i j ch p] [
 
 parse-string: function [text] [t] [
     if #"^"" = pick text 0 [
-        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^""
+        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^"" ""
         either t [
             reduce [
                 make string! unescape pick-array t 1
@@ -418,7 +572,7 @@ parse-string: function [text] [t] [
 ]
 
 parse-char: function [text] [ch] [
-    ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^""
+    ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^"" ""
     if ch [
         reduce [
             make char! unescape pick-array ch 1
@@ -452,7 +606,7 @@ parse-set-path: function [text] [path value] [
             ]
         ]
         if all [not empty? text  #":" = first text] [
-            reduce [head values text]
+            reduce [head path skip text 1]
         ]
     ]
 ]
@@ -470,15 +624,15 @@ parse-path: function [text] [path value] [
                 error "Syntax" "Parse error" to-js-string text
             ]
         ]
-        reduce [head values text]
+        reduce [head path text]
     ]
 ]
 
 parse-lit-path: function [text] [path value] [
-    if all [#"'" = first text  value: parse-word-chars skip text 1  #"/" = pick text length-of-array value] [
+    if all [#"'" = first text  value: parse-word-chars skip text 1  #"/" = pick text 1 + length-of-array value] [
         path: make lit-path! none
         path: insert path make word! value
-        text: skip text length-of-array value
+        text: skip text 1 + length-of-array value
         while [all [not empty? text  #"/" = first text]] [
             set [value text] parse-path-element skip text 1
             either value [
@@ -487,7 +641,7 @@ parse-lit-path: function [text] [path value] [
                 error "Syntax" "Parse error" to-js-string text
             ]
         ]
-        reduce [head values text]
+        reduce [head path text]
     ]
 ]
 
@@ -509,17 +663,16 @@ parse-value: function [text] [] [
 
 parse-values: function [values text] [value newline?] [
     set [text newline?] skip-spaces text
-    new-line values newline?
     while [all [not empty? text  #"]" <> first text  #")" <> first text]] [
         set [value text] parse-value text
         either value [
+            values: insert-nl values value newline?
             set [text newline?] skip-spaces text
-            values: insert values value
-            new-line values newline?
         ] [
             error "Syntax" "Parse error" to-js-string text
         ]
     ]
+    new-line values newline?
     reduce [head values text]
 ]
 

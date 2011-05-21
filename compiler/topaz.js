@@ -565,10 +565,11 @@ TFunctions = {
         }
         return expr;
     }),
-    "regexp": TMakeFunction('regexp', function(expr) {
-        if (!(expr instanceof JSString))
-            throw 'REGEXP wants a literal string! as its argument';
-        return new JSRegExp(expr.str);
+    "regexp": TMakeFunction('regexp', function(expr, flags) {
+        if (expr instanceof JSString && flags instanceof JSString)
+            return new JSRegExp(expr.str, flags.str);
+        else
+            throw 'REGEXP wants literal string!s for both its arguments';
     }),
     "switch": TMakeFunction('switch', function(value, cases, def) {
         if (!(cases instanceof JSDummy) || !(cases.value instanceof TBlock) ||
@@ -1065,13 +1066,14 @@ JSDoWhile.prototype.toJSReturn = function() {
 
 // JSRegExp
 
-function JSRegExp(re) {
+function JSRegExp(re, flags) {
     this.re = re;
+    this.flags = flags;
 }
 
 JSRegExp.prototype.__proto__ = JSExpr.prototype;
 JSRegExp.prototype.toString = function() {
-    return '/' + this.re + '/';
+    return '/' + this.re + '/' + this.flags;
 }
 
 // JSSwitch
