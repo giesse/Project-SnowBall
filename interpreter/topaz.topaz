@@ -16,6 +16,9 @@ make-type: function [name] [] [
         length-of: none
         skip: none
         mold: none
+        do: none
+        get-path: none
+        set-path: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -42,8 +45,38 @@ empty?: function [series] [] [
 skip: function [series amount] [] [
     apply 'series/type/skip [series amount]
 ]
+mold-value: function [value indent] [] [
+    apply 'value/type/mold [value indent]
+]
 mold: function [value] [] [
-    make string! apply 'value/type/mold [value ""]
+    make string! mold-value value ""
+]
+do-step: function [value block] [] [
+    apply 'value/type/do [value block]
+]
+do: function [block] [] []
+get: function [word] [] [none]
+get-path: function [value selector] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: do selector
+        ]
+        "get-word!" [
+            selector: get selector
+        ]
+    ] []
+    apply 'value/type/get-path [value selector]
+]
+set-path: function [value selector set-to] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: do selector
+        ]
+        "get-word!" [
+            selector: get selector
+        ]
+    ] []
+    apply 'value/type/set-path [value selector set-to]
 ]
 
 probe: function [value] [] [
@@ -78,14 +111,19 @@ block!/head: function [block] [] [
         newlines: block/newlines
     ]
 ]
+block!/skip: function [block amount] [] [
+    make-struct [
+        type: block!
+        values: block/values
+        pos: block/pos + amount
+        newlines: block/newlines
+    ]
+]
 block!/pick: function [block pos] [] [
     pick-array block/values block/pos + pos
 ]
 block!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
-]
-mold-value: function [value indent] [] [
-    apply 'value/type/mold [value indent]
 ]
 mold-step1: function [result values pos indent sep] [] [
     join result join sep mold-value pick-array values pos indent
@@ -110,6 +148,9 @@ block!/mold: function [block indent] [result pos ind] [
     ]
     if pick-array block/newlines pos [result: join result join #"^/" indent]
     join result #"]"
+]
+block!/do: function [block container] [] [
+    reduce [block skip container 1]
 ]
 
 paren!: make-type "paren!"
@@ -139,6 +180,14 @@ paren!/head: function [block] [] [
         newlines: block/newlines
     ]
 ]
+paren!/skip: function [block amount] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: block/pos + amount
+        newlines: block/newlines
+    ]
+]
 paren!/pick: function [block pos] [] [
     pick-array block/values block/pos + pos
 ]
@@ -159,6 +208,9 @@ paren!/mold: function [block indent] [result pos ind] [
     ]
     if pick-array block/newlines pos [result: join result join #"^/" indent]
     join result #")"
+]
+paren!/do: function [paren block] [] [
+    reduce [do paren skip block 1]
 ]
 
 path!: make-type "path!"
@@ -184,6 +236,13 @@ path!/head: function [block] [] [
         pos: 0
     ]
 ]
+path!/skip: function [block amount] [] [
+    make-struct [
+        type: path!
+        values: block/values
+        pos: block/pos + amount
+    ]
+]
 path!/pick: function [block pos] [] [
     pick-array block/values block/pos + pos
 ]
@@ -202,6 +261,19 @@ path!/mold: function [block indent] [result pos] [
         ]
     ]
     result
+]
+path!/do: function [path block] [value] [
+    value: get first path
+    path: skip path 1
+    while [not empty? path] [
+        value: get-path value first path
+        path: skip path 1
+    ]
+    either value/type/name = "function!" [
+        apply 'value/type/do [value block]
+    ] [
+        reduce [value skip block 1]
+    ]
 ]
 
 set-path!: make-type "set-path!"
@@ -227,6 +299,13 @@ set-path!/head: function [block] [] [
         pos: 0
     ]
 ]
+set-path!/skip: function [block amount] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: block/pos + amount
+    ]
+]
 set-path!/pick: function [block pos] [] [
     pick-array block/values block/pos + pos
 ]
@@ -245,6 +324,19 @@ set-path!/mold: function [block indent] [result pos] [
         ]
     ]
     join result #":"
+]
+set-path!/do: function [path block] [value set-to] [
+    value: get first path
+    path: skip path 1
+    while [1 < length-of path] [
+        value: get-path value first path
+        path: skip path 1
+    ]
+    block: skip block 1
+    if empty? block [error "Script" "set-path needs a value" mold-value skip block -1 ""]
+    set [set-to block] do-step first block block
+    set-path value first path set-to
+    reduce [set-to block]
 ]
 
 lit-path!: make-type "lit-path!"
@@ -270,6 +362,13 @@ lit-path!/head: function [block] [] [
         pos: 0
     ]
 ]
+lit-path!/skip: function [block amount] [] [
+    make-struct [
+        type: lit-path!
+        values: block/values
+        pos: block/pos + amount
+    ]
+]
 lit-path!/pick: function [block pos] [] [
     pick-array block/values block/pos + pos
 ]
@@ -288,6 +387,14 @@ lit-path!/mold: function [block indent] [result pos] [
         ]
     ]
     result
+]
+lit-path!/do: function [path block] [] [
+    path: make-struct [
+        type: path!
+        values: path/values
+        pos: path/pos
+    ]
+    reduce [path skip block 1]
 ]
 
 string!: make-type "string!"
@@ -347,6 +454,9 @@ escape: function [str] [re result match i] [
 string!/mold: function [string indent] [] [
     join "^"" join escape string/string #"^""
 ]
+string!/do: function [string block] [] [
+    reduce [string skip block 1]
+]
 
 char!: make-type "char!"
 char!/make: function [arguments] [] [
@@ -357,6 +467,9 @@ char!/make: function [arguments] [] [
 ]
 char!/mold: function [char indent] [] [
     join "#^"" join escape char/string "^""
+]
+char!/do: function [char block] [] [
+    reduce [char skip block 1]
 ]
 
 number!: make-type "number!"
@@ -369,6 +482,9 @@ number!/make: function [arguments] [] [
 number!/mold: function [number indent] [] [
     join "" number/number
 ]
+number!/do: function [number block] [] [
+    reduce [number skip block 1]
+]
 
 word!: make-type "word!"
 word!/make: function [arguments] [] [
@@ -379,6 +495,14 @@ word!/make: function [arguments] [] [
 ]
 word!/mold: function [word indent] [] [
     word/word
+]
+word!/do: function [word block] [] [
+    word: get word
+    either word/type/name = "function!" [
+        apply 'word/type/do [word block]
+    ] [
+        reduce [word skip block 1]
+    ]
 ]
 
 set-word!: make-type "set-word!"
@@ -391,6 +515,14 @@ set-word!/make: function [arguments] [] [
 set-word!/mold: function [word indent] [] [
     join word/word #":"
 ]
+set-word: function [word value] [] []
+set-word!/do: function [word block] [set-to] [
+    block: skip block 1
+    if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
+    set [set-to block] do-step first block block
+    set-word word set-to
+    reduce [set-to block]
+]
 
 lit-word!: make-type "lit-word!"
 lit-word!/make: function [arguments] [] [
@@ -401,6 +533,13 @@ lit-word!/make: function [arguments] [] [
 ]
 lit-word!/mold: function [word indent] [] [
     join "'" word/word
+]
+lit-word!/do: function [word block] [] [
+    word: make-struct [
+        type: word!
+        word: word/word
+    ]
+    reduce [word skip block 1]
 ]
 
 to-js-string: function [string] [] [
@@ -693,4 +832,12 @@ load: function [text] [values] [
     ] [
         values
     ]
+]
+
+do: function [block] [result] [
+    result: none
+    while [not empty? block] [
+        set [result block] do-step first block block
+    ]
+    result
 ]

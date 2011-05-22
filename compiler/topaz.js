@@ -720,7 +720,8 @@ function JSConvertVarName(name) {
             function(match, chr, rest) {return 'is' + chr.toUpperCase() + rest;}).replace('!', '_type');
 }
 JSReservedNames = {
-    "arguments": '_arguments'
+    "arguments": '_arguments',
+    "do": '_do'
 }
 function JSVariable(name) {
     this.topaz_name = name;
