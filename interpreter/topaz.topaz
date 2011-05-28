@@ -19,6 +19,7 @@ make-type: function [name] [] [
         do: none
         get-path: none
         set-path: none
+        bind: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -55,7 +56,12 @@ do-step: function [value block] [] [
     apply 'value/type/do [value block]
 ]
 do: function [block] [] []
-get: function [word] [] [none]
+get: function [word] [] [
+    if not word/context [
+        error "Script" "Word has no context" word/word
+    ]
+    pick-array word/context/values word/offset
+]
 get-path: function [value selector] [] [
     switch selector/type/name [
         "paren!" [
@@ -77,6 +83,9 @@ set-path: function [value selector set-to] [] [
         ]
     ] []
     apply 'value/type/set-path [value selector set-to]
+]
+bind: function [words context extend?] [] [
+    apply 'words/type/bind [words context extend?]
 ]
 
 probe: function [value] [] [
@@ -152,6 +161,14 @@ block!/mold: function [block indent] [result pos ind] [
 block!/do: function [block container] [] [
     reduce [block skip container 1]
 ]
+block!/bind: function [words context extend?] [pos] [
+    pos: words/pos
+    while [pos < length-of-array words/values] [
+        bind pick-array words/values pos context extend?
+        pos: pos + 1
+    ]
+    words
+]
 
 paren!: make-type "paren!"
 paren!/make: function [arguments] [] [
@@ -212,6 +229,14 @@ paren!/mold: function [block indent] [result pos ind] [
 paren!/do: function [paren block] [] [
     reduce [do paren skip block 1]
 ]
+paren!/bind: function [words context extend?] [pos] [
+    pos: words/pos
+    while [pos < length-of-array words/values] [
+        bind pick-array words/values pos context extend?
+        pos: pos + 1
+    ]
+    words
+]
 
 path!: make-type "path!"
 path!/make: function [arguments] [] [
@@ -262,6 +287,9 @@ path!/mold: function [block indent] [result pos] [
     ]
     result
 ]
+first: function [series] [] [
+    pick series 0
+]
 path!/do: function [path block] [value] [
     value: get first path
     path: skip path 1
@@ -274,6 +302,10 @@ path!/do: function [path block] [value] [
     ] [
         reduce [value skip block 1]
     ]
+]
+path!/bind: function [path context extend?] [] [
+    bind pick-array path/values 0 context extend?
+    path
 ]
 
 set-path!: make-type "set-path!"
@@ -338,6 +370,10 @@ set-path!/do: function [path block] [value set-to] [
     set-path value first path set-to
     reduce [set-to block]
 ]
+set-path!/bind: function [path context extend?] [] [
+    bind pick-array path/values 0 context extend?
+    path
+]
 
 lit-path!: make-type "lit-path!"
 lit-path!/make: function [arguments] [] [
@@ -395,6 +431,10 @@ lit-path!/do: function [path block] [] [
         pos: path/pos
     ]
     reduce [path skip block 1]
+]
+lit-path!/bind: function [path context extend?] [] [
+    bind pick-array path/values 0 context extend?
+    path
 ]
 
 string!: make-type "string!"
@@ -457,6 +497,9 @@ string!/mold: function [string indent] [] [
 string!/do: function [string block] [] [
     reduce [string skip block 1]
 ]
+string!/bind: function [value context extend?] [] [
+    value
+]
 
 char!: make-type "char!"
 char!/make: function [arguments] [] [
@@ -470,6 +513,9 @@ char!/mold: function [char indent] [] [
 ]
 char!/do: function [char block] [] [
     reduce [char skip block 1]
+]
+char!/bind: function [value context extend?] [] [
+    value
 ]
 
 number!: make-type "number!"
@@ -485,12 +531,17 @@ number!/mold: function [number indent] [] [
 number!/do: function [number block] [] [
     reduce [number skip block 1]
 ]
+number!/bind: function [value context extend?] [] [
+    value
+]
 
 word!: make-type "word!"
 word!/make: function [arguments] [] [
     make-struct [
         type: word!
         word: arguments
+        context: none
+        offset: none
     ]
 ]
 word!/mold: function [word indent] [] [
@@ -504,18 +555,53 @@ word!/do: function [word block] [] [
         reduce [word skip block 1]
     ]
 ]
+make-context: function [] [] [
+    make-struct [
+        words: make-array
+        values: make-array
+        stack: make-array
+    ]
+]
+add-word: function [context word value] [l] [
+    l: length-of-array context/words
+    poke-array context/words l word/word
+    poke-array context/values l value
+    l
+]
+bind-word: function [context word add?] [offset] [
+    offset: apply 'context/words/index-of [word/word]
+    if all [add? offset < 0] [
+        offset: add-word context word none
+    ]
+    if offset >= 0 [
+        word/context: context
+        word/offset: offset
+    ]
+    word
+]
+word!/bind: function [word context extend?] [] [
+    bind-word context word extend?
+]
 
 set-word!: make-type "set-word!"
 set-word!/make: function [arguments] [] [
     make-struct [
         type: set-word!
         word: arguments
+        context: none
+        offset: none
     ]
 ]
 set-word!/mold: function [word indent] [] [
     join word/word #":"
 ]
-set-word: function [word value] [] []
+set-word: function [word value] [] [
+    if not word/context [
+        error "Script" "Word has no context" word/word
+    ]
+    poke-array word/context/values word/offset value
+    value
+]
 set-word!/do: function [word block] [set-to] [
     block: skip block 1
     if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
@@ -523,12 +609,17 @@ set-word!/do: function [word block] [set-to] [
     set-word word set-to
     reduce [set-to block]
 ]
+set-word!/bind: function [word context extend?] [] [
+    bind-word context word extend?
+]
 
 lit-word!: make-type "lit-word!"
 lit-word!/make: function [arguments] [] [
     make-struct [
         type: lit-word!
         word: arguments
+        context: none
+        offset: none
     ]
 ]
 lit-word!/mold: function [word indent] [] [
@@ -541,13 +632,12 @@ lit-word!/do: function [word block] [] [
     ]
     reduce [word skip block 1]
 ]
+lit-word!/bind: function [word context extend?] [] [
+    bind-word context word extend?
+]
 
 to-js-string: function [string] [] [
     apply 'string/string/substr [string/pos]
-]
-
-first: function [series] [] [
-    pick series 0
 ]
 
 new-line: function [block newline?] [] [
@@ -815,11 +905,7 @@ parse-values: function [values text] [value newline?] [
     reduce [head values text]
 ]
 
-bind: function [words context extend?] [] [
-    words
-]
-
-system-words: none
+system-words: make-context
 
 load: function [text] [values] [
     set [values text] parse-values make block! none text
