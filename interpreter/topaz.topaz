@@ -20,6 +20,7 @@ make-type: function [name] [] [
         get-path: none
         set-path: none
         bind: none
+        tail: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -87,6 +88,9 @@ set-path: function [value selector set-to] [] [
 bind: function [words context extend?] [] [
     apply 'words/type/bind [words context extend?]
 ]
+tail: function [series] [] [
+    apply 'series/type/tail [series]
+]
 
 probe: function [value] [] [
     print apply 'value/type/mold [value ""]
@@ -117,6 +121,14 @@ block!/head: function [block] [] [
         type: block!
         values: block/values
         pos: 0
+        newlines: block/newlines
+    ]
+]
+block!/tail: function [block] [] [
+    make-struct [
+        type: block!
+        values: block/values
+        pos: length-of-array block/values
         newlines: block/newlines
     ]
 ]
@@ -197,6 +209,14 @@ paren!/head: function [block] [] [
         newlines: block/newlines
     ]
 ]
+paren!/tail: function [block] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: length-of-array block/values
+        newlines: block/newlines
+    ]
+]
 paren!/skip: function [block amount] [] [
     make-struct [
         type: paren!
@@ -259,6 +279,13 @@ path!/head: function [block] [] [
         type: path!
         values: block/values
         pos: 0
+    ]
+]
+path!/tail: function [block] [] [
+    make-struct [
+        type: path!
+        values: block/values
+        pos: length-of-array block/values
     ]
 ]
 path!/skip: function [block amount] [] [
@@ -331,6 +358,13 @@ set-path!/head: function [block] [] [
         pos: 0
     ]
 ]
+set-path!/tail: function [block] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: length-of-array block/values
+    ]
+]
 set-path!/skip: function [block amount] [] [
     make-struct [
         type: set-path!
@@ -396,6 +430,13 @@ lit-path!/head: function [block] [] [
         type: lit-path!
         values: block/values
         pos: 0
+    ]
+]
+lit-path!/tail: function [block] [] [
+    make-struct [
+        type: lit-path!
+        values: block/values
+        pos: length-of-array block/values
     ]
 ]
 lit-path!/skip: function [block amount] [] [
@@ -549,10 +590,16 @@ word!/mold: function [word indent] [] [
 ]
 word!/do: function [word block] [] [
     word: get word
-    either word/type/name = "function!" [
-        apply 'word/type/do [word block]
-    ] [
-        reduce [word skip block 1]
+    case [
+        not word [
+            error "Script" "Word has no value" mold-value block ""
+        ]
+        word/type/name = "function!" [
+            apply 'word/type/do [word block]
+        ]
+        'else [
+            reduce [word skip block 1]
+        ]
     ]
 ]
 make-context: function [] [] [
@@ -568,8 +615,11 @@ add-word: function [context word value] [l] [
     poke-array context/values l value
     l
 ]
+get-word-offset: function [context word] [] [
+    apply 'context/words/index-of [word]
+]
 bind-word: function [context word add?] [offset] [
-    offset: apply 'context/words/index-of [word/word]
+    offset: get-word-offset context word/word
     if all [add? offset < 0] [
         offset: add-word context word none
     ]
@@ -634,6 +684,85 @@ lit-word!/do: function [word block] [] [
 ]
 lit-word!/bind: function [word context extend?] [] [
     bind-word context word extend?
+]
+
+function!: make-type "function!"
+append: function [block value] [] [
+    head insert tail block value
+]
+collect-set-words: function [set-words block] [value] [
+    while [not empty? block] [
+        value: first block
+        switch value/type/name [
+            "set-word!" [
+                append set-words value
+            ]
+            "block!" [collect-set-words set-words value]
+            "paren!" [collect-set-words set-words value]
+        ] []
+        block: skip block 1
+    ]
+    set-words
+]
+function!/make: function [arguments] [spec body context word] [
+    set [spec body] arguments
+    context: make-context
+    while [not empty? spec] [
+        word: first spec
+        if word/type/name <> "word!" [
+            error "Script" "Invalid function spec" mold-value spec ""
+        ]
+        if 0 <= get-word-offset context word/word [
+            error "Script" "Duplicate function argument name" mold-value spec ""
+        ]
+        add-word context word none
+        spec: skip spec 1
+    ]
+    bind collect-set-words make block! none body context true
+    make-struct [
+        type: function!
+        context: context
+        spec: bind head spec context false
+        body: bind body context false
+    ]
+]
+function!/mold: function [func indent] [] [
+    join "func " join mold-value func/spec indent join " " mold-value func/body indent
+]
+clone-array: function [arr] [] [
+    apply 'arr/concat []
+]
+push-context: function [context] [] [
+    poke-array context/stack length-of-array context/stack context/values
+    context/values: clone-array pick-array context/stack 0
+]
+pop-array: function [arr] [] [
+    apply 'arr/pop []
+]
+pop-context: function [context] [] [
+    context/values: pop-array context/stack
+]
+collect-arguments: function [spec block] [value orig-block] [
+    orig-block: block
+    while [not empty? spec] [
+        if empty? block [
+            error "Script" "Not enough arguments for function" mold-value orig-block ""
+        ]
+        set [value block] do-step first block block
+        set-word first spec value
+        spec: skip spec 1
+    ]
+    block
+]
+function!/do: function [func block] [result] [
+    push-context func/context
+    block: collect-arguments func/spec skip block 1
+    result: do func/body
+    pop-context func/context
+    reduce [result block]
+]
+function!/bind: function [func context extend?] [] [
+    func
 ]
 
 to-js-string: function [string] [] [
