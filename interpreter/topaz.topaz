@@ -21,10 +21,23 @@ make-type: function [name] [] [
         set-path: none
         bind: none
         tail: none
+        topaz-make: none
     ]
 ]
 datatype!: make-type "datatype!"
 datatype!/type: datatype!
+datatype!/mold: function [type indent] [] [
+    type/name
+]
+datatype!/do: function [type block] [] [
+    reduce [type skip block 1]
+]
+datatype!/bind: function [type context extend?] [] [
+    type
+]
+datatype!/topaz-make: function [ignored] [] [
+    error "Script" "Cannot make datatypes (yet)" ""
+]
 
 make: function [type arguments] [] [
     apply 'type/make [arguments]
@@ -105,6 +118,9 @@ block!/make: function [arguments] [] [
         pos: 0
         newlines: make-array
     ]
+]
+block!/topaz-make: function [ignored] [] [
+    apply 'block!/make [none]
 ]
 block!/insert: function [block value] [] [
     insert-array block/values block/pos value
@@ -191,6 +207,9 @@ paren!/make: function [arguments] [] [
         newlines: make-array
     ]
 ]
+paren!/topaz-make: function [ignored] [] [
+    apply 'paren!/make [none]
+]
 paren!/insert: function [block value] [] [
     insert-array block/values block/pos value
     insert-array block/newlines block/pos false
@@ -265,6 +284,9 @@ path!/make: function [arguments] [] [
         values: make-array
         pos: 0
     ]
+]
+path!/topaz-make: function [ignored] [] [
+    apply 'path!/make [none]
 ]
 path!/insert: function [block value] [] [
     insert-array block/values block/pos value
@@ -343,6 +365,9 @@ set-path!/make: function [arguments] [] [
         pos: 0
     ]
 ]
+set-path!/topaz-make: function [ignored] [] [
+    apply 'set-path!/make [none]
+]
 set-path!/insert: function [block value] [] [
     insert-array block/values block/pos value
     make-struct [
@@ -417,6 +442,9 @@ lit-path!/make: function [arguments] [] [
         pos: 0
     ]
 ]
+lit-path!/topaz-make: function [ignored] [] [
+    apply 'lit-path!/make [none]
+]
 lit-path!/insert: function [block value] [] [
     insert-array block/values block/pos value
     make-struct [
@@ -486,6 +514,9 @@ string!/make: function [arguments] [] [
         pos: 0
     ]
 ]
+string!/topaz-make: function [ignored] [] [
+    apply 'string!/make [""]
+]
 string!/length-of: function [string] [] [
     (length-of-array string/string) - string/pos
 ]
@@ -522,7 +553,7 @@ escape: function [str] [re result match i] [
                 result: join result "^^!"
             ]
         ] [
-            result: join result join #"^^" apply 'String/from-char-code [(apply 'str/char-code-at [match/index]) + 64]
+            result: join result join #"^^" to-char (apply 'str/char-code-at [match/index]) + 64
         ]
         i: match/index + 1
     ]
@@ -549,6 +580,9 @@ char!/make: function [arguments] [] [
         string: arguments
     ]
 ]
+char!/topaz-make: function [number] [] [
+    apply 'char!/make [to-char number/number]
+]
 char!/mold: function [char indent] [] [
     join "#^"" join escape char/string "^""
 ]
@@ -565,6 +599,9 @@ number!/make: function [arguments] [] [
         type: number!
         number: arguments
     ]
+]
+number!/topaz-make: function [ignored] [] [
+    apply 'number!/make [0]
 ]
 number!/mold: function [number indent] [] [
     join "" number/number
@@ -585,6 +622,9 @@ word!/make: function [arguments] [] [
         offset: none
     ]
 ]
+word!/topaz-make: function [string] [] [
+    apply 'word!/make [string/string]
+]
 word!/mold: function [word indent] [] [
     word/word
 ]
@@ -594,7 +634,7 @@ word!/do: function [word block] [] [
         not word [
             error "Script" "Word has no value" mold-value block ""
         ]
-        word/type/name = "function!" [
+        any [word/type/name = "function!" word/type/name = "native!"] [
             apply 'word/type/do [word block]
         ]
         'else [
@@ -642,6 +682,9 @@ set-word!/make: function [arguments] [] [
         offset: none
     ]
 ]
+set-word!/topaz-make: function [string] [] [
+    apply 'set-word!/make [string/string]
+]
 set-word!/mold: function [word indent] [] [
     join word/word #":"
 ]
@@ -672,6 +715,9 @@ lit-word!/make: function [arguments] [] [
         offset: none
     ]
 ]
+lit-word!/topaz-make: function [string] [] [
+    apply 'lit-word!/make [string/string]
+]
 lit-word!/mold: function [word indent] [] [
     join "'" word/word
 ]
@@ -679,6 +725,8 @@ lit-word!/do: function [word block] [] [
     word: make-struct [
         type: word!
         word: word/word
+        context: word/context
+        offset: word/offset
     ]
     reduce [word skip block 1]
 ]
@@ -722,9 +770,12 @@ function!/make: function [arguments] [spec body context word] [
     make-struct [
         type: function!
         context: context
-        spec: bind head spec context false
+        spec: head spec
         body: bind body context false
     ]
+]
+function!/topaz-make: function [block] [] [
+    apply 'function!/make [block/values]
 ]
 function!/mold: function [func indent] [] [
     join "func " join mold-value func/spec indent join " " mold-value func/body indent
@@ -742,26 +793,51 @@ pop-array: function [arr] [] [
 pop-context: function [context] [] [
     context/values: pop-array context/stack
 ]
-collect-arguments: function [spec block] [value orig-block] [
-    orig-block: block
-    while [not empty? spec] [
+collect-arguments: function [n target block] [value orig-block i] [
+    orig-block: skip block -1
+    i: 0
+    while [i < n] [
         if empty? block [
             error "Script" "Not enough arguments for function" mold-value orig-block ""
         ]
         set [value block] do-step first block block
-        set-word first spec value
-        spec: skip spec 1
+        poke-array target i value
+        i: i + 1
     ]
     block
 ]
 function!/do: function [func block] [result] [
     push-context func/context
-    block: collect-arguments func/spec skip block 1
+    block: collect-arguments length-of func/spec func/context/values skip block 1
     result: do func/body
     pop-context func/context
     reduce [result block]
 ]
 function!/bind: function [func context extend?] [] [
+    func
+]
+
+native!: make-type "native!"
+native!/make: function [arguments] [spec f] [
+    set [spec f] arguments
+    make-struct [
+        type: native!
+        args: make-array
+        spec: spec
+        func: f
+    ]
+]
+native!/topaz-make: function [ignored] [] [
+    error "Script" "Cannot make natives (yet)" ""
+]
+native!/mold: function [func indent] [] [
+    join "native " mold-value func/spec indent
+]
+native!/do: function [func block] [] [
+    block: collect-arguments length-of func/spec func/args skip block 1
+    reduce [apply 'func/func [func/args] block]
+]
+native!/bind: function [func context extend?] [] [
     func
 ]
 
@@ -891,14 +967,14 @@ unescape: function [str] [result i j ch p] [
         ] [
             case [
                 all [ch >= #"@"  ch <= #"_"] [
-                    result: join result apply 'String/from-char-code [(apply 'ch/char-code-at [0]) - 64]
+                    result: join result to-char (apply 'ch/char-code-at [0]) - 64
                     i: j + 2
                 ]
                 all [
                     ch = #"("
                     p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
                 ] [
-                    result: join result apply 'String/from-char-code [apply 'parse-int [pick-array p 1 16]]
+                    result: join result to-char apply 'parse-int [pick-array p 1 16]
                     i: j + 1 + length-of-array pick-array p 0
                 ]
                 'else [
@@ -1056,3 +1132,139 @@ do: function [block] [result] [
     ]
     result
 ]
+
+words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce"
+
+set-word pick words 0 datatype!
+set-word pick words 1 make native! reduce [
+    load make string! "type arguments"
+    function [arguments] [type args] [
+        set [type args] arguments
+        apply 'type/topaz-make [args]
+    ]
+]
+set-word pick words 2 make native! reduce [
+    load make string! "series value"
+    function [arguments] [series value] [
+        set [series value] arguments
+        insert series value
+    ]
+]
+set-word pick words 3 make native! reduce [
+    load make string! "[series]"
+    function [arguments] [] [head pick-array arguments 0]
+]
+set-word pick words 4 make native! reduce [
+    load make string! "series pos"
+    function [arguments] [series pos] [
+        set [series pos] arguments
+        pick series pos/number
+    ]
+]
+set-word pick words 5 make native! reduce [
+    load make string! "[series]"
+    function [arguments] [] [
+        make number! length-of pick-array arguments 0
+    ]
+]
+set-word pick words 6 make native! reduce [
+    load make string! "[series]"
+    function [arguments] [] [
+        empty? pick-array arguments 0
+    ]
+]
+set-word pick words 7 make native! reduce [
+    load make string! "series amount"
+    function [arguments] [series amount] [
+        set [series amount] arguments
+        skip series amount/number
+    ]
+]
+set-word pick words 8 make native! reduce [
+    load make string! "[value]"
+    function [arguments] [] [
+        mold pick-array arguments 0
+    ]
+]
+set-word pick words 9 make native! reduce [
+    load make string! "[block]"
+    function [arguments] [] [
+        do pick-array arguments 0
+    ]
+]
+set-word pick words 10 make native! reduce [
+    load make string! "[word]"
+    function [arguments] [word value] [
+        value: get word: pick-array arguments 0
+        if not value [
+            error "Script" "Word has no value" mold-value word ""
+        ]
+        value
+    ]
+]
+set-word pick words 11 make native! reduce [
+    load make string! "[words context]"
+    function [arguments] [words context extend?] [
+        set [words context] arguments
+        bind words context/context false
+    ]
+]
+set-word pick words 12 make native! reduce [
+    load make string! "[series]"
+    function [arguments] [] [
+        tail pick-array arguments 0
+    ]
+]
+set-word pick words 13 make native! reduce [
+    load make string! "[value]"
+    function [arguments] [value] [
+        probe value: pick-array arguments 0
+        value
+    ]
+]
+set-word pick words 14 block!
+set-word pick words 15 paren!
+set-word pick words 16 path!
+set-word pick words 17 make native! reduce [
+    load make string! "[series]"
+    function [arguments] [] [
+        first pick-array arguments 0
+    ]
+]
+set-word pick words 18 set-path!
+set-word pick words 19 lit-path!
+set-word pick words 20 string!
+set-word pick words 21 char!
+set-word pick words 22 number!
+set-word pick words 23 word!
+set-word pick words 24 set-word!
+set-word pick words 25 lit-word!
+set-word pick words 26 function!
+set-word pick words 27 make native! reduce [
+    load make string! "series value"
+    function [arguments] [series value] [
+        set [series value] arguments
+        append series value
+    ]
+]
+set-word pick words 28 native!
+set-word pick words 29 make native! reduce [
+    load make string! "[text]"
+    function [arguments] [] [
+        load pick-array arguments 0
+    ]
+]
+set-word pick words 30 make native! reduce [
+    load make string! "[block]"
+    function [arguments] [block result value] [
+        block: pick-array arguments 0
+        result: make block! none
+        while [not empty? block] [
+            set [value block] do-step first block block
+            append result value
+        ]
+        result
+    ]
+]
+
+do load make string! "func: make function! [[spec body] [make function! reduce [spec body]]]"

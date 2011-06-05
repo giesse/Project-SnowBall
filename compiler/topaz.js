@@ -600,6 +600,9 @@ TFunctions = {
             cases = cond.next.next();
         }
         return new JSIfElseMulti(compiledCases, elseCase);
+    }),
+    "to-char": TMakeFunction('to-char', function(charCode) {
+        return new JSFunCall(new JSDot(new JSVariable('String'), 'fromCharCode'), [charCode]);
     })
 };
 
