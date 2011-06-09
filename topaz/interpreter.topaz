@@ -1268,3 +1268,64 @@ set-word pick words 30 make native! reduce [
 ]
 
 do load make string! "func: make function! [[spec body] [make function! reduce [spec body]]]"
+
+
+sys: apply 'require ["sys"]
+fs: apply 'require ["fs"]
+probe load make string! apply 'fs/read-file-sync ["topaz/interpreter.topaz" "utf8"]
+
+test-topaz: function [text] [loaded] [
+    loaded: load make string! text
+    print ">> " probe loaded
+    try [
+        loaded: do loaded
+        print "== " probe loaded
+    ] 'err [
+        print join err #"^/"
+    ]
+]
+
+test-topaz "'word [1 2 3] (1 2 3) 'lit/path ^"string^" #^"C^""
+test-topaz "a: 1 a"
+test-topaz "make datatype! 0"
+test-topaz "insert [] 1"
+test-topaz "head []"
+test-topaz "pick [1 2 3] 1"
+test-topaz "length-of [1 2 3]"
+test-topaz "empty? []"
+test-topaz "skip [1 2 3] 1"
+test-topaz "skip [1 2 3] 2"
+test-topaz "head skip [1 2 3] 2"
+test-topaz "mold [1 2 3]"
+test-topaz "mold 'a/path"
+test-topaz "mold 'a-word"
+test-topaz "do [pick [1 2 3] 1]"
+test-topaz "get 'datatype!"
+test-topaz "get 'make"
+test-topaz "get 'insert"
+test-topaz "get 'block!"
+test-topaz "get 'func"
+test-topaz "tail [1 2 3]"
+test-topaz "probe [1 2 3]"
+test-topaz "make block! 0"
+test-topaz "make paren! 0"
+test-topaz "make path! 0"
+test-topaz "first [1 2 3]"
+test-topaz "make set-path! 0"
+test-topaz "make lit-path! 0"
+test-topaz "make string! 0"
+test-topaz "make char! 64"
+test-topaz "make number! 64"
+test-topaz "make word! ^"bla^""
+test-topaz "make set-word! ^"bla^""
+test-topaz "make lit-word! ^"bla^""
+test-topaz "make function! [[a b] [a]]"
+test-topaz "append [1 2 3] 4"
+test-topaz "make native! 0"
+test-topaz "load ^"1 2 3^""
+test-topaz "reduce [1 2 3]"
+test-topaz "reduce [get 'datatype! get 'make get 'func append [1 2 3] 4]"
+test-topaz "f: func [a b c] [reduce [a b c]]"
+test-topaz "f 1 2 3"
+test-topaz "f 'a 'b 'c"
+test-topaz "f f 1 2 3 f 4 5 6 f 7 8 9"

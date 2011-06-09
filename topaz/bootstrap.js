@@ -603,6 +603,13 @@ TFunctions = {
     }),
     "to-char": TMakeFunction('to-char', function(charCode) {
         return new JSFunCall(new JSDot(new JSVariable('String'), 'fromCharCode'), [charCode]);
+    }),
+    "try": TMakeFunction('try', function(code, word, def) {
+        if (!(code instanceof JSDummy) || !(code.value instanceof TBlock) ||
+            !(word instanceof JSDummy) || !(word.value instanceof TLitWord) ||
+            !(def  instanceof JSDummy) || !(def.value  instanceof TBlock))
+            throw 'TRY wants literals for its three arguments (block!, lit-word!, block!)';
+        return new JSTry(TCompile(code.value), word.value.toExpr(), TCompile(def.value));
     })
 };
 
@@ -1129,6 +1136,22 @@ JSIfElseMulti.prototype.toJSReturn = function() {
             new JSStatement(new JSReturn(new JSNull())));
 }
 
+// JSTry
+
+function JSTry(code, err, def) {
+    this.code = code;
+    this.err  = err;
+    this.def  = def;
+}
+
+JSTry.prototype.__proto__ = JSExpr.prototype;
+JSTry.prototype.toString = function() {
+    return 'try{' + this.code.toString() + '}catch(' + this.err.toString() + '){' + this.def.toString() + '}';
+}
+JSTry.prototype.toJSReturn = function() {
+    return new JSTry(this.code.toJSReturn(), this.err, this.def.toJSReturn());
+}
+
 // TTextCursor (because regular expressions suck)
 
 function TTextCursor(text) {
@@ -1166,29 +1189,12 @@ TTextCursor.prototype.matchAndSkip = function(re, item) {
 }
 
 
-// tests
+// Compile topaz/interpreter.topaz
 
-var sys = require('sys'), stdin = process.openStdin(), fs = require('fs');
-stdin.setEncoding('utf8');
-sys.puts('Topaz Bootstrap Compiler test prompt. Type "quit" to exit.');
-stdin.addListener('data', function(chunk) {
-        var res;
-        if (chunk == 'quit\n') stdin.destroy();
-        else if (res = /^compile (.*)\n$/.exec(chunk)) {
-            res = res[1];
-            try {
-                sys.print('** Compiling ' + res + ' **\n');
-                sys.print('===========================\n' + Topaz2JS(fs.readFileSync(res, 'utf8')) +
-                    '\n===========================\n>> ');
-            } catch (e) {
-                sys.print('ERROR: ' + e + '\n>> ');
-            }
-        } else {
-            try {
-                sys.print('== ' + Topaz2JS(chunk) + '\n>> ');
-            } catch (e) {
-                sys.print('ERROR: ' + e + '\n>> ');
-            }
-        }
-    });
-sys.print('>> ');
+var sys = require('sys'), fs = require('fs');
+sys.puts('Topaz Bootstrap Compiler - compiling topaz/interpreter.topaz...');
+try {
+    fs.writeFileSync('topaz/interpreter.js', Topaz2JS(fs.readFileSync('topaz/interpreter.topaz', 'utf8')), 'utf8');
+} catch (e) {
+    sys.puts('ERROR: ' + e);
+}
