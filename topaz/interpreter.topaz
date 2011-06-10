@@ -862,7 +862,7 @@ test-re: function [str re] [] [
 ]
 
 skip-spaces: function [text] [t newline?] [
-    t: exec-re to-js-string text regexp "^^\s+" ""
+    t: exec-re to-js-string text regexp "^^(\s|;.*\n)+" ""
     newline?: false
     if t [
         t: pick-array t 0
@@ -1329,3 +1329,4 @@ test-topaz "f: func [a b c] [reduce [a b c]]"
 test-topaz "f 1 2 3"
 test-topaz "f 'a 'b 'c"
 test-topaz "f f 1 2 3 f 4 5 6 f 7 8 9"
+test-topaz "load ^"1 2 3 ; 4 5 6^^/ 7 8 9^""
