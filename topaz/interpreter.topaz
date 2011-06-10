@@ -1112,13 +1112,13 @@ parse-values: function [values text] [value newline?] [
 
 system-words: make-context
 
-load: function [text] [values] [
+load: function [text all?] [values] [
     set [values text] parse-values make block! none text
     if not empty? text [
         error "Syntax" "Parse error" to-js-string text
     ]
     bind values system-words true
-    either 1 = length-of values [
+    either all [not all? 1 = length-of values] [
         first values
     ] [
         values
@@ -1147,67 +1147,67 @@ run-test: function [block] [] [
     ]
 ]
 
-words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test"
+words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test" true
 
 set-word pick words 0 datatype!
 set-word pick words 1 make native! reduce [
-    load make string! "type arguments"
+    load make string! "type arguments" true
     function [arguments] [type args] [
         set [type args] arguments
         apply 'type/topaz-make [args]
     ]
 ]
 set-word pick words 2 make native! reduce [
-    load make string! "series value"
+    load make string! "series value" true
     function [arguments] [series value] [
         set [series value] arguments
         insert series value
     ]
 ]
 set-word pick words 3 make native! reduce [
-    load make string! "[series]"
+    load make string! "series" true
     function [arguments] [] [head pick-array arguments 0]
 ]
 set-word pick words 4 make native! reduce [
-    load make string! "series pos"
+    load make string! "series pos" true
     function [arguments] [series pos] [
         set [series pos] arguments
         pick series pos/number
     ]
 ]
 set-word pick words 5 make native! reduce [
-    load make string! "[series]"
+    load make string! "series" true
     function [arguments] [] [
         make number! length-of pick-array arguments 0
     ]
 ]
 set-word pick words 6 make native! reduce [
-    load make string! "[series]"
+    load make string! "series" true
     function [arguments] [] [
         empty? pick-array arguments 0
     ]
 ]
 set-word pick words 7 make native! reduce [
-    load make string! "series amount"
+    load make string! "series amount" true
     function [arguments] [series amount] [
         set [series amount] arguments
         skip series amount/number
     ]
 ]
 set-word pick words 8 make native! reduce [
-    load make string! "[value]"
+    load make string! "value" true
     function [arguments] [] [
         mold pick-array arguments 0
     ]
 ]
 set-word pick words 9 make native! reduce [
-    load make string! "[block]"
+    load make string! "block" true
     function [arguments] [] [
         do pick-array arguments 0
     ]
 ]
 set-word pick words 10 make native! reduce [
-    load make string! "[word]"
+    load make string! "word" true
     function [arguments] [word value] [
         value: get word: pick-array arguments 0
         if not value [
@@ -1217,20 +1217,20 @@ set-word pick words 10 make native! reduce [
     ]
 ]
 set-word pick words 11 make native! reduce [
-    load make string! "[words context]"
+    load make string! "words context" true
     function [arguments] [words context extend?] [
         set [words context] arguments
         bind words context/context false
     ]
 ]
 set-word pick words 12 make native! reduce [
-    load make string! "[series]"
+    load make string! "series" true
     function [arguments] [] [
         tail pick-array arguments 0
     ]
 ]
 set-word pick words 13 make native! reduce [
-    load make string! "[value]"
+    load make string! "value" true
     function [arguments] [value] [
         probe value: pick-array arguments 0
         value
@@ -1240,7 +1240,7 @@ set-word pick words 14 block!
 set-word pick words 15 paren!
 set-word pick words 16 path!
 set-word pick words 17 make native! reduce [
-    load make string! "[series]"
+    load make string! "series" true
     function [arguments] [] [
         first pick-array arguments 0
     ]
@@ -1255,7 +1255,7 @@ set-word pick words 24 set-word!
 set-word pick words 25 lit-word!
 set-word pick words 26 function!
 set-word pick words 27 make native! reduce [
-    load make string! "series value"
+    load make string! "series value" true
     function [arguments] [series value] [
         set [series value] arguments
         append series value
@@ -1263,13 +1263,13 @@ set-word pick words 27 make native! reduce [
 ]
 set-word pick words 28 native!
 set-word pick words 29 make native! reduce [
-    load make string! "[text]"
+    load make string! "text" true
     function [arguments] [] [
-        load pick-array arguments 0
+        load pick-array arguments 0 false
     ]
 ]
 set-word pick words 30 make native! reduce [
-    load make string! "[block]"
+    load make string! "block" true
     function [arguments] [block result value] [
         block: pick-array arguments 0
         result: make block! none
@@ -1281,13 +1281,13 @@ set-word pick words 30 make native! reduce [
     ]
 ]
 set-word pick words 31 make native! reduce [
-    load make string! "[filename]"
+    load make string! "filename" true
     function [arguments] [] [
         read to-js-string pick-array arguments 0
     ]
 ]
 set-word pick words 32 make native! reduce [
-    load make string! "[block]"
+    load make string! "block" true
     function [arguments] [] [
         run-test pick-array arguments 0
     ]
@@ -1297,10 +1297,10 @@ set-word pick words 32 make native! reduce [
 sys: apply 'require ["sys"]
 fs: apply 'require ["fs"]
 
-do load read "topaz/init.topaz"
+do load read "topaz/init.topaz" true
 
 either 2 < length-of-array process/argv [
-    do load read pick-array process/argv 2
+    do load read pick-array process/argv 2 true
 ] [
     print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License^/"
     stdin: apply 'process/open-stdin []
@@ -1312,7 +1312,7 @@ either 2 < length-of-array process/argv [
                 apply 'stdin/destroy []
             ] [
                 try [
-                    chunk: do load make string! chunk
+                    chunk: do load make string! chunk true
                     print "== " probe chunk
                     print ">> "
                 ] 'e [
