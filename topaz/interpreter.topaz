@@ -1298,4 +1298,28 @@ sys: apply 'require ["sys"]
 fs: apply 'require ["fs"]
 
 do load read "topaz/init.topaz"
-do load read "topaz/tests.topaz"
+
+either 2 < length-of-array process/argv [
+    do load read pick-array process/argv 2
+] [
+    print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License^/"
+    stdin: apply 'process/open-stdin []
+    apply 'stdin/set-encoding ["utf8"]
+    apply 'stdin/add-listener [
+        "data"
+        function [chunk] [res] [
+            either chunk = "quit^/" [
+                apply 'stdin/destroy []
+            ] [
+                try [
+                    chunk: do load make string! chunk
+                    print "== " probe chunk
+                    print ">> "
+                ] 'e [
+                    print join e "^/>> "
+                ]
+            ]
+        ]
+    ]
+    print ">> "
+]
