@@ -1,0 +1,3 @@
+; Topaz Interpreter Initialization
+
+func: make function! [[spec body] [make function! reduce [spec body]]]
