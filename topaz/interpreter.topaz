@@ -1,6 +1,18 @@
 
+print: function [text] [] [
+    apply 'sys/print [text]
+]
+
+length-of-array: function [arr] [] [
+    arr/length
+]
+
+insert-array: function [arr pos value] [] [
+    apply 'arr/splice [pos 0 value]
+]
+
 error: function [type message where] [] [
-    throw join "*** " join type join " error: " join message join "^/*** Where: " where
+    throw rejoin ["*** " type " error: " message "^/*** Where: " where]
 ]
 
 datatype!: none
@@ -43,6 +55,26 @@ ast-value: function [value] [] [
     make-struct [
         value: value
         fun-def?: false
+        to-js: function [node statement? return?] [res] [
+            switch node/value/type/name [
+                "string!" [
+                    res: apply 'JSON/stringify [node/value/string]
+                ]
+                "char!" [
+                    res: apply 'JSON/stringify [node/value/string]
+                ]
+                "number!" [
+                    res: apply 'node/value/number/to-string []
+                ]
+            ] [
+                error "JS emitter" rejoin ["Cannot represent " node/value/type/name " values in JS"] ""
+            ]
+            either return? [
+                rejoin ["return " res ";"]
+            ] [
+                res
+            ]
+        ]
     ]
 ]
 datatype!/compile: function [type block] [] [
@@ -186,18 +218,18 @@ block!/length-of: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
 mold-step1: function [result values pos indent sep] [] [
-    join result join sep mold-value pick-array values pos indent
+    rejoin [result sep mold-value pick-array values pos indent]
 ]
 mold-step2: function [result values newlines pos indent sep nlsep] [] [
     if pick-array newlines pos [
-        sep: join nlsep indent
+        sep: nlsep + indent
     ]
     mold-step1 result values pos indent sep
 ]
 block!/mold: function [block indent] [result pos ind] [
     result: "["
     pos: block/pos
-    ind: join indent "    "
+    ind: indent + "    "
     if pos < length-of-array block/values [
         result: mold-step2 result block/values block/newlines pos ind "" #"^/"
         pos: pos + 1
@@ -206,8 +238,8 @@ block!/mold: function [block indent] [result pos ind] [
             pos: pos + 1
         ]
     ]
-    if pick-array block/newlines pos [result: join result join #"^/" indent]
-    join result #"]"
+    if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
+    result + #"]"
 ]
 block!/do: function [block container] [] [
     reduce [block skip container 1]
@@ -279,7 +311,7 @@ paren!/length-of: function [block] [] [
 paren!/mold: function [block indent] [result pos ind] [
     result: "("
     pos: block/pos
-    ind: join indent "    "
+    ind: indent + "    "
     if pos < length-of-array block/values [
         result: mold-step2 result block/values block/newlines pos ind "" #"^/"
         pos: pos + 1
@@ -288,8 +320,8 @@ paren!/mold: function [block indent] [result pos ind] [
             pos: pos + 1
         ]
     ]
-    if pick-array block/newlines pos [result: join result join #"^/" indent]
-    join result #")"
+    if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
+    result + #")"
 ]
 paren!/do: function [paren block] [] [
     reduce [do paren skip block 1]
@@ -303,10 +335,21 @@ paren!/bind: function [words context extend?] [pos] [
     words
 ]
 compile: function [block] [] []
+to-js: function [node statement? return?] [] [
+    apply 'node/to-js [node statement? return?]
+]
 ast-paren: function [expressions] [] [
     make-struct [
         expressions: expressions
         fun-def?: false
+        to-js: function [node statement? return?] [res] [
+            either return? [
+                res: "return ("
+            ] [
+                res: "("
+            ]
+            rejoin [res to-js node/expressions false false ")"]
+        ]
     ]
 ]
 paren!/compile: function [paren block] [] [
@@ -390,10 +433,47 @@ path!/bind: function [path context extend?] [] [
     bind pick-array path/values 0 context extend?
     path
 ]
+name-to-js: function [name] [] [
+    switch name [
+        "arguments" ["_arguments"]
+        "do"        ["_do"]
+        "json"      ["JSON"]
+    ] [
+        name: apply 'name/replace [
+            regexp "-(.)" "g"
+            function [match chr] [] [
+                apply 'chr/to-upper-case []
+            ]
+        ]
+        name: apply 'name/replace [
+            regexp "^^(.)(.*)\?$" ""
+            function [match chr rest] [] [
+                rejoin ["is" apply 'chr/to-upper-case [] rest]
+            ]
+        ]
+        apply 'name/replace ["!" "_type"]
+    ]
+]
+to-js-common: function [js-text statement? return?] [] [
+    case [
+        return? [
+            rejoin ["return " js-text ";"]
+        ]
+        statement? [
+            js-text + ";"
+        ]
+        'else [
+            js-text
+        ]
+    ]
+]
 ast-get: function [word] [] [
     make-struct [
         word: word
         fun-def?: false
+        to-js: function [node statement? return?] [] [
+            to-js-common name-to-js node/word/word statement? return?
+        ]
     ]
 ]
 ast-get-path: function [expr selector] [] [
@@ -411,6 +491,9 @@ ast-get-path: function [expr selector] [] [
         expr: expr
         selector: selector
         fun-def?: false
+        to-js: function [node statement? return?] [] [
+            to-js-common rejoin [to-js node/expr false false "[" to-js node/selector false false "]"] statement? return?
+        ]
     ]
 ]
 path!/compile: function [path block] [expr] [
@@ -481,7 +564,7 @@ set-path!/mold: function [block indent] [result pos] [
             pos: pos + 1
         ]
     ]
-    join result #":"
+    result + #":"
 ]
 set-path!/do: function [path block] [value set-to] [
     if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
@@ -517,6 +600,26 @@ ast-set-path: function [expr selector set-to] [] [
         selector: selector
         set-to: set-to
         fun-def?: false
+        to-js: function [node statement? return?] [res] [
+            res: rejoin [
+                to-js node/expr false false
+                "["
+                to-js node/selector false false
+                "]="
+                to-js node/set-to false false
+            ]
+            case [
+                return? [
+                    rejoin ["return (" res ");"]
+                ]
+                statement? [
+                    res + ";"
+                ]
+                'else [
+                    rejoin ["(" res ")"]
+                ]
+            ]
+        ]
     ]
 ]
 set-path!/compile: function [path block] [expr set-to] [
@@ -644,36 +747,36 @@ escape: function [str] [re result match i] [
     result: ""
     i: 0
     while [match: apply 're/exec [str]] [
-        result: join result apply 'str/substr [i match/index - i]
+        result: result + apply 'str/substr [i match/index - i]
         switch pick-array str match/index [
             #"^^" [
-                result: join result "^^^^"
+                result: result + "^^^^"
             ]
             #"^/" [
-                result: join result "^^/"
+                result: result + "^^/"
             ]
             #"^"" [
-                result: join result "^^^""
+                result: result + "^^^""
             ]
             #"^-" [
-                result: join result "^^-"
+                result: result + "^^-"
             ]
             #"^!" [
-                result: join result "^^!"
+                result: result + "^^!"
             ]
         ] [
-            result: join result join #"^^" to-char (apply 'str/char-code-at [match/index]) + 64
+            result: rejoin [result #"^^" to-char (apply 'str/char-code-at [match/index]) + 64]
         ]
         i: match/index + 1
     ]
     either i = 0 [
         str
     ] [
-        join result apply 'str/substr [i]
+        result + apply 'str/substr [i]
     ]
 ]
 string!/mold: function [string indent] [] [
-    join "^"" join escape string/string #"^""
+    rejoin ["^"" escape string/string #"^""]
 ]
 string!/do: function [string block] [] [
     reduce [string skip block 1]
@@ -696,7 +799,7 @@ char!/topaz-make: function [number] [] [
     apply 'char!/make [to-char number/number]
 ]
 char!/mold: function [char indent] [] [
-    join "#^"" join escape char/string "^""
+    rejoin ["#^"" escape char/string "^""]
 ]
 char!/do: function [char block] [] [
     reduce [char skip block 1]
@@ -706,6 +809,60 @@ char!/bind: function [value context extend?] [] [
 ]
 char!/compile: function [char block] [] [
     reduce [ast-value char skip block 1]
+]
+
+none!: make-type "none!"
+none!/make: function [ignored] [] [
+    make-struct [
+        type: none!
+    ]
+]
+none!/topaz-make: function [ignored] [] [
+    apply 'none!/make [none]
+]
+none!/mold: function [value indent] [] [
+    "none"
+]
+none!/do: function [value block] [] [
+    reduce [value skip block 1]
+]
+none!/bind: function [value context extend?] [] [
+    value
+]
+none!/compile: function [value block] [] [
+    reduce [ast-value value skip block 1]
+]
+
+logic!: make-type "logic!"
+logic!/make: function [value] [] [
+    make-struct [
+        type: logic!
+        value: value
+    ]
+]
+logic!/topaz-make: function [value] [] [
+    switch value/type/name [
+        "none!" [apply 'logic!/make [false]]
+        "logic!" [apply 'logic!/make [value/value]]
+    ] [
+        apply 'logic!/make [true]
+    ]
+]
+logic!/mold: function [value indent] [] [
+    either value/value [
+        "true"
+    ] [
+        "false"
+    ]
+]
+logic!/do: function [value block] [] [
+    reduce [value skip block 1]
+]
+logic!/bind: function [value context extend?] [] [
+    value
+]
+logic!/compile: function [value block] [] [
+    reduce [ast-value value skip block 1]
 ]
 
 number!: make-type "number!"
@@ -719,7 +876,7 @@ number!/topaz-make: function [ignored] [] [
     apply 'number!/make [0]
 ]
 number!/mold: function [number indent] [] [
-    join "" number/number
+    apply 'number/number/to-string []
 ]
 number!/do: function [number block] [] [
     reduce [number skip block 1]
@@ -812,7 +969,7 @@ set-word!/topaz-make: function [string] [] [
     apply 'set-word!/make [string/string]
 ]
 set-word!/mold: function [word indent] [] [
-    join word/word #":"
+    word/word + #":"
 ]
 set-word: function [word value] [] [
     if not word/context [
@@ -834,12 +991,29 @@ set-word!/bind: function [word context extend?] [] [
 ast-set: function [word set-to] [] [
     if set-to/fun-def? [
         set-word bind-word compile-words word true set-to/func
-        set-to/func/name: word/word
+        set-to/func/name: word
     ]
     make-struct [
         word: word
         set-to: set-to
         fun-def?: false
+        to-js: function [node statement? return?] [res] [
+            res: rejoin [
+                name-to-js node/word/word
+                to-js node/set-to false false
+            ]
+            case [
+                return? [
+                    rejoin ["return (" res ");"]
+                ]
+                statement? [
+                    res + ";"
+                ]
+                'else [
+                    rejoin ["(" res ")"]
+                ]
+            ]
+        ]
     ]
 ]
 set-word!/compile: function [word block] [set-to] [
@@ -862,7 +1036,7 @@ lit-word!/topaz-make: function [string] [] [
     apply 'lit-word!/make [string/string]
 ]
 lit-word!/mold: function [word indent] [] [
-    join "'" word/word
+    "'" + word/word
 ]
 lit-word!/do: function [word block] [] [
     word: make-struct [
@@ -933,7 +1107,7 @@ function!/topaz-make: function [block] [] [
     apply 'function!/make [block/values]
 ]
 function!/mold: function [func indent] [] [
-    join "func " join mold-value func/spec indent join " " mold-value func/body indent
+    rejoin ["func " mold-value func/spec indent " " mold-value func/body indent]
 ]
 clone-array: function [arr] [] [
     apply 'arr/concat []
@@ -976,6 +1150,24 @@ ast-function-call: function [name args] [] [
         name: name
         args: args
         fun-def?: false
+        to-js: function [node statement? return?] [res i] [
+            either node/name/type/name = "path!" [
+                res: pick-array apply 'path!/compile [node/name make block! none] 0
+                res: to-js res false false
+            ] [
+                res: name-to-js node/name/word
+            ]
+            res: res + "("
+            if 0 < length-of-array node/args [
+                res: res + to-js pick-array node/args 0 false false
+                i: 1
+                while [i < length-of-array node/args] [
+                    res: rejoin [res "," to-js pick-array node/args i false false]
+                    i: i + 1
+                ]
+            ]
+            to-js-common res + ")" statement? return?
+        ]
     ]
 ]
 append-array: function [arr value] [] [
@@ -1018,7 +1210,7 @@ native!/topaz-make: function [ignored] [] [
     error "Script" "Cannot make natives (yet)" ""
 ]
 native!/mold: function [func indent] [] [
-    join "native " mold-value func/spec indent
+    "native " + mold-value func/spec indent
 ]
 native!/do: function [func block] [] [
     block: collect-arguments length-of func/spec func/args skip block 1
@@ -1046,7 +1238,7 @@ op!/topaz-make: function [func] [] [
     apply 'op!/make [func]
 ]
 op!/mold: function [op indent] [] [
-    join "make op! " mold-value op/func indent
+    "make op! " + mold-value op/func indent
 ]
 op!/do: function [op block] [] [
     error "Script" "Infix use of OP!s is not supported" mold-value block ""
@@ -1187,40 +1379,40 @@ unescape: function [str] [result i j ch p] [
     result: ""
     i: 0
     while [0 <= j: apply 'str/index-of [#"^^" i]] [
-        result: join result apply 'str/substr [i j - i]
+        result: result + apply 'str/substr [i j - i]
         ch: pick-array str j + 1
         switch ch [
             #"/" [
-                result: join result #"^/"
+                result: result + #"^/"
                 i: j + 2
             ]
             #"-" [
-                result: join result #"^-"
+                result: result + #"^-"
                 i: j + 2
             ]
             #"^^" [
-                result: join result #"^^"
+                result: result + #"^^"
                 i: j + 2
             ]
             #"!" [
-                result: join result #"^!"
+                result: result + #"^!"
                 i: j + 2
             ]
         ] [
             case [
                 all [ch >= #"@"  ch <= #"_"] [
-                    result: join result to-char (apply 'ch/char-code-at [0]) - 64
+                    result: result + to-char (apply 'ch/char-code-at [0]) - 64
                     i: j + 2
                 ]
                 all [
                     ch = #"("
                     p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
                 ] [
-                    result: join result to-char apply 'parse-int [pick-array p 1 16]
+                    result: result + to-char apply 'parse-int [pick-array p 1 16]
                     i: j + 1 + length-of-array pick-array p 0
                 ]
                 'else [
-                    result: join result ch
+                    result: result + ch
                     i: j + 2
                 ]
             ]
@@ -1229,7 +1421,7 @@ unescape: function [str] [result i j ch p] [
     either i = 0 [
         str
     ] [
-        join result apply 'str/substr [i]
+        result + apply 'str/substr [i]
     ]
 ]
 
@@ -1386,7 +1578,7 @@ run-test: function [block] [] [
         block: do block
         print "== " probe block
     ] 'err [
-        print join err #"^/"
+        print err + #"^/"
     ]
 ]
 
@@ -1467,7 +1659,7 @@ set-word pick words 5 make native! reduce [
 set-word pick words 6 make native! reduce [
     load make string! "series" true
     function [arguments] [] [
-        empty? pick-array arguments 0
+        make logic! empty? pick-array arguments 0
     ]
 ]
 set-word pick words 7 make native! reduce [
@@ -1593,42 +1785,42 @@ set-word pick words 35 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1 = val2
+        make logic! val1 = val2
     ]
 ]
 set-word pick words 36 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1/number > val2/number
+        make logic! val1/number > val2/number
     ]
 ]
 set-word pick words 37 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1/number < val2/number
+        make logic! val1/number < val2/number
     ]
 ]
 set-word pick words 38 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1/number <> val2/number
+        make logic! val1 <> val2
     ]
 ]
 set-word pick words 39 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1/number >= val2/number
+        make logic! val1/number >= val2/number
     ]
 ]
 set-word pick words 40 make native! reduce [
     load make string! "val1 val2" true
     function [arguments] [val1 val2] [
         set [val1 val2] arguments
-        val1/number <= val2/number
+        make logic! val1/number <= val2/number
     ]
 ]
 set-word pick words 41 make op! get pick words 33
@@ -1640,6 +1832,422 @@ set-word pick words 46 make op! get pick words 38
 set-word pick words 47 make op! get pick words 39
 set-word pick words 48 make op! get pick words 40
 set-word pick words 49 op!
+
+cwords: load make string! "function none true false throw set if either not make-struct apply reduce while make-array poke-array pick-array all any regexp switch case to-char try + = - > < <> >= <=" true
+
+bind cwords compile-words true
+
+ast-function-definition: function [spec locals body] [] [
+    make-struct [
+        spec: spec
+        locals: locals
+        body: body
+        fun-def?: true
+        func: make function! reduce [spec make block! none]
+    ]
+]
+set-word pick cwords 0 make native! reduce [
+    load make string! "spec locals body" true
+    none
+    function [arguments] [spec locals body] [
+        set [spec locals body] arguments
+        ast-function-definition spec/value spec/locals compile body/value
+    ]
+]
+set-word pick cwords 1 make native! reduce [
+    make block! none
+    none
+    function [arguments] [] [
+        ast-value make none! none
+    ]
+]
+set-word pick cwords 2 make native! reduce [
+    make block! none
+    none
+    function [arguments] [] [
+        ast-value make logic! true
+    ]
+]
+set-word pick cwords 3 make native! reduce [
+    make block! none
+    none
+    function [arguments] [] [
+        ast-value make logic! false
+    ]
+]
+ast-throw: function [expr] [] [
+    make-struct [
+        expr: expr
+        fun-def?: false
+    ]
+]
+set-word pick cwords 4 make native! reduce [
+    load make string! "value" true
+    none
+    function [arguments] [] [
+        ast-throw pick-array arguments 0
+    ]
+]
+set-word pick cwords 5 make native! reduce [
+    load make string! "word value" true
+    none
+    function [arguments] [word expr] [
+        set [word expr] arguments
+        ast-set word/value expr
+    ]
+]
+ast-either: function [condition true-body false-body] [] [
+    make-struct [
+        condition: condition
+        true-body: true-body
+        false-body: false-body
+        fun-def?: false
+    ]
+]
+set-word pick cwords 6 make native! reduce [
+    load make string! "condition body" true
+    none
+    function [arguments] [condition body] [
+        set [condition body] arguments
+        ast-either condition compile body/value none
+    ]
+]
+set-word pick cwords 7 make native! reduce [
+    load make string! "condition true-body false-body" true
+    none
+    function [arguments] [condition true-body false-body] [
+        set [condition true-body false-body] arguments
+        ast-either condition compile true-body/value compile false-body/value
+    ]
+]
+ast-not: function [expr] [] [
+    make-struct [
+        expr: expr
+        fun-def?: false
+    ]
+]
+set-word pick cwords 8 make native! reduce [
+    load make string! "value" true
+    none
+    function [arguments] [] [
+        ast-not pick-array arguments 0
+    ]
+]
+ast-struct: function [spec] [] [
+    make-struct [
+        spec: spec
+        fun-def?: false
+    ]
+]
+parse-struct-spec: function [block] [result name expr] [
+    result: make-array
+    while [not empty? block] [
+        name: first block
+        if name/type/name <> "set-word!" [
+            error "Compile" "Invalid struct spec, expected set-word!, not " + name/type/name mold-value block ""
+        ]
+        block: skip block 1
+        if empty? block [
+            error "Compile" "Struct field is missing its value" mold-value skip block -1 ""
+        ]
+        set [expr block] compile-step block
+        append-array result name/word
+        append-array result expr
+    ]
+    result
+]
+set-word pick cwords 9 make native! reduce [
+    load make string! "spec" true
+    none
+    function [arguments] [] [
+        ast-struct parse-struct-spec pick-array arguments 0
+    ]
+]
+compile-reduce: function [block] [result expr] [
+    result: make-array
+    while [not empty? block] [
+        set [expr block] compile-step block
+        append-array result expr
+    ]
+    result
+]
+set-word pick cwords 10 make native! reduce [
+    load make string! "func-name args" true
+    none
+    function [arguments] [func-name args] [
+        set [func-name args] arguments
+        ast-function-call func-name/value compile-reduce args/value
+    ]
+]
+ast-reduce: function [exprs] [] [
+    make-struct [
+        exprs: exprs
+        fun-def?: false
+    ]
+]
+set-word pick cwords 11 make native! reduce [
+    load make string! "block" true
+    none
+    function [arguments] [block] [
+        block: pick-array arguments 0
+        ast-reduce compile-reduce block/value
+    ]
+]
+ast-while: function [condition body] [] [
+    make-struct [
+        condition: condition
+        body: body
+        fun-def?: false
+    ]
+]
+set-word pick cwords 12 make native! reduce [
+    load make string! "condition body" true
+    none
+    function [arguments] [condblock condition body] [
+        set [condblock body] arguments
+        condblock: condblock/value
+        if empty? condblock [
+            error "Compile" "WHILE's condition block cannot be empty" ""
+        ]
+        set [condition condblock] compile-step condblock
+        if not empty? condblock [
+            error "Compile" "WHILE's condition block can only have one expression" mold-value head condblock ""
+        ]
+        ast-while condition compile body/value
+    ]
+]
+set-word pick cwords 13 make native! reduce [
+    make block! none
+    none
+    function [arguments] [] [
+        ast-reduce make-array
+    ]
+]
+ast-poke: function [arr pos value] [] [
+    make-struct [
+        arr: arr
+        pos: pos
+        value: value
+        fun-def?: false
+    ]
+]
+set-word pick cwords 14 make native! reduce [
+    load make string! "arr pos value" true
+    none
+    function [arguments] [arr pos value] [
+        set [arr pos value] arguments
+        ast-poke arr pos value
+    ]
+]
+ast-pick: function [arr pos] [] [
+    make-struct [
+        arr: arr
+        pos: pos
+        fun-def?: false
+    ]
+]
+set-word pick cwords 15 make native! reduce [
+    load make string! "arr pos" true
+    none
+    function [arguments] [arr pos] [
+        set [arr pos] arguments
+        ast-pick arr pos
+    ]
+]
+ast-all: function [exprs] [] [
+    make-struct [
+        exprs: exprs
+        fun-def?: false
+    ]
+]
+set-word pick cwords 16 make native! reduce [
+    load make string! "block" true
+    none
+    function [arguments] [block] [
+        block: pick-array arguments 0
+        ast-all compile-reduce block/value
+    ]
+]
+ast-any: function [exprs] [] [
+    make-struct [
+        exprs: exprs
+        fun-def?: false
+    ]
+]
+set-word pick cwords 17 make native! reduce [
+    load make string! "block" true
+    none
+    function [arguments] [block] [
+        block: pick-array arguments 0
+        ast-any compile-reduce block/value
+    ]
+]
+ast-regexp: function [exp flags] [] [
+    make-struct [
+        exp: exp
+        flags: flags
+        fun-def?: false
+    ]
+]
+set-word pick cwords 18 make native! reduce [
+    load make string! "exp flags" true
+    none
+    function [arguments] [exp flags] [
+        set [exp flags] arguments
+        ast-regexp exp/value flags/value
+    ]
+]
+ast-switch: function [value cases def] [] [
+    make-struct [
+        value: value
+        cases: cases
+        def: def
+        fun-def?: false
+    ]
+]
+set-word pick cwords 19 make native! reduce [
+    load make string! "value cases default" true
+    none
+    function [arguments] [value cases def expr compiled-cases] [
+        set [value cases def] arguments
+        cases: cases/value
+        def: def/value
+        compiled-cases: make-array
+        while [not empty? cases] [
+            set [expr cases] compile-step cases
+            append-array compiled-cases make-struct [
+                value: expr
+                expr: compile first cases
+            ]
+            cases: skip cases 1
+        ]
+        ast-switch value compiled-cases compile def
+    ]
+]
+compile-cases: function [cases] [cond orig-cases] [
+    either empty? cases [
+        none
+    ] [
+        orig-cases: cases
+        set [cond cases] compile-step cases
+        if empty? cases [
+            error "Compile" "Missing case block after condition" mold-value orig-cases ""
+        ]
+        ast-either cond compile first cases compile-cases skip cases 1
+    ]
+]
+set-word pick cwords 20 make native! reduce [
+    load make string! "cases" true
+    none
+    function [arguments] [cases expr] [
+        cases: pick-array arguments 0
+        if empty? cases/value [
+            error "Compile" "CASE needs at least one case" ""
+        ]
+        compile-cases cases/value
+    ]
+]
+ast-to-char: function [expr] [] [
+    make-struct [
+        expr: expr
+        fun-def?: false
+    ]
+]
+set-word pick cwords 21 make native! reduce [
+    load make string! "number" true
+    none
+    function [arguments] [] [
+        ast-to-char pick-array arguments 0
+    ]
+]
+ast-try: function [code word def] [] [
+    make-struct [
+        code: code
+        word: word
+        def: def
+        fun-def?: false
+    ]
+]
+set-word pick cwords 22 make native! reduce [
+    load make string! "code word default" true
+    none
+    function [arguments] [code word def] [
+        set [code word def] arguments
+        ast-try compile code/value word/value compile def
+    ]
+]
+ast-op: function [op val1 val2] [] [
+    make-struct [
+        op: op
+        val1: val1
+        val2: val2
+        fun-def?: false
+    ]
+]
+set-word pick cwords 23 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "+" val1 val2
+    ]
+]
+set-word pick cwords 24 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "==" val1 val2
+    ]
+]
+set-word pick cwords 25 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "-" val1 val2
+    ]
+]
+set-word pick cwords 26 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op ">" val1 val2
+    ]
+]
+set-word pick cwords 27 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "<" val1 val2
+    ]
+]
+set-word pick cwords 28 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "!=" val1 val2
+    ]
+]
+set-word pick cwords 29 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op ">=" val1 val2
+    ]
+]
+set-word pick cwords 30 make op! make native! reduce [
+    load make string! "val1 val2" true
+    none
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        ast-op "<=" val1 val2
+    ]
+]
 
 
 sys: apply 'require ["sys"]
@@ -1664,7 +2272,7 @@ either 2 < length-of-array process/argv [
                     print "== " probe chunk
                     print ">> "
                 ] 'e [
-                    print join e "^/>> "
+                    print e + "^/>> "
                 ]
             ]
         ]

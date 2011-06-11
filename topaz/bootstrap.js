@@ -444,9 +444,6 @@ function TMakeFunction(name, f) {
 }
 
 TFunctions = {
-    print: TMakeFunction('print', function(expr) {
-        return new JSFunCall(new JSDot(new JSVariable('sys'), 'print'), [expr]);
-    }),
     "function": TMakeFunction('function', function(args, locals, body) {
         if (args instanceof JSDummy && args.value instanceof TBlock &&
             locals instanceof JSDummy && locals.value instanceof TBlock &&
@@ -460,7 +457,6 @@ TFunctions = {
     "true": TMakeFunction('true', function() {return new JSTrue();}),
     "false": TMakeFunction('false', function() {return new JSFalse();}),
     "throw": TMakeFunction('throw', function(expr) {return new JSThrow(expr);}),
-    join: TMakeFunction('join', function(arg1, arg2) {return new JSOp('+', arg1, arg2);}),
     set: TMakeFunction('set', function(word, value) {
         if (word instanceof JSDummy) {
             word = word.value;
@@ -492,7 +488,6 @@ TFunctions = {
     }),
     not: TMakeFunction('not', function(expr) {return new JSNegate(expr);}),
     "length-of-array": TMakeFunction('length-of-array', function(expr) {return new JSDot(expr, 'length');}),
-    "first-of-array": TMakeFunction('first-of-array', function(expr) {return new JSPick(expr, new JSNumber(0));}),
     "make-struct": TMakeFunction('make-struct', function(spec) {
         if (!(spec instanceof JSDummy) || !(spec.value instanceof TBlock))
             throw 'MAKE-STRUCT wants a literal block for its spec argument';
@@ -528,9 +523,6 @@ TFunctions = {
         } else {
             throw 'UNTIL wants a literal block! for its argument';
         }
-    }),
-    "insert-array": TMakeFunction('insert-array', function(arr, pos, value) {
-        return new JSFunCall(new JSDot(arr, 'splice'), [pos, new JSNumber(0), value]);
     }),
     "make-array": TMakeFunction('make-array', function() {return new JSArray([]);}),
     "poke-array": TMakeFunction('poke-array', function(arr, pos, value) {
@@ -610,6 +602,21 @@ TFunctions = {
             !(def  instanceof JSDummy) || !(def.value  instanceof TBlock))
             throw 'TRY wants literals for its three arguments (block!, lit-word!, block!)';
         return new JSTry(TCompile(code.value), word.value.toExpr(), TCompile(def.value));
+    }),
+    rejoin: TMakeFunction('rejoin', function(block) {
+        if (!(block instanceof JSDummy) || !(block.value instanceof TBlock))
+            throw "REJOIN wants a literal block! for its argument";
+        block = block.value;
+        if (block.isEmpty())
+            return new JSString("");
+        var compiled = TCompileStep(block), expr = compiled.expr;
+        block = compiled.next;
+        while (!block.isEmpty()) {
+            compiled = TCompileStep(block);
+            expr = new JSOp('+', expr, compiled.expr);
+            block = compiled.next;
+        }
+        return expr;
     })
 };
 
@@ -731,7 +738,8 @@ function JSConvertVarName(name) {
 }
 JSReservedNames = {
     "arguments": '_arguments',
-    "do": '_do'
+    "do": '_do',
+    "json": "JSON"
 }
 function JSVariable(name) {
     this.topaz_name = name;
