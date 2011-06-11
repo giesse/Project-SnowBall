@@ -22,6 +22,7 @@ make-type: function [name] [] [
         bind: none
         tail: none
         topaz-make: none
+        compile: none
     ]
 ]
 datatype!: make-type "datatype!"
@@ -37,6 +38,15 @@ datatype!/bind: function [type context extend?] [] [
 ]
 datatype!/topaz-make: function [ignored] [] [
     error "Script" "Cannot make datatypes (yet)" ""
+]
+ast-value: function [value] [] [
+    make-struct [
+        value: value
+        fun-def?: false
+    ]
+]
+datatype!/compile: function [type block] [] [
+    reduce [ast-value type skip block 1]
 ]
 
 make: function [type arguments] [] [
@@ -66,8 +76,21 @@ mold-value: function [value indent] [] [
 mold: function [value] [] [
     make string! mold-value value ""
 ]
-do-step: function [value block] [] [
-    apply 'value/type/do [value block]
+operator?: function [block] [] []
+do-op: function [op arg1 arg2] [] []
+first: function [series] [] [
+    pick series 0
+]
+do-step: function [value block] [result arg2 op] [
+    set [result block] apply 'value/type/do [value block]
+    while [op: operator? block] [
+        block: skip block 1
+        if empty? block [error "Script" "Operator missing its second argument" mold-value skip block -2 ""]
+        arg2: first block
+        set [arg2 block] apply 'arg2/type/do [arg2 block]
+        result: do-op op result arg2
+    ]
+    reduce [result block]
 ]
 do: function [block] [] []
 get: function [word] [] [
@@ -197,6 +220,9 @@ block!/bind: function [words context extend?] [pos] [
     ]
     words
 ]
+block!/compile: function [block container] [] [
+    reduce [ast-value block skip container 1]
+]
 
 paren!: make-type "paren!"
 paren!/make: function [arguments] [] [
@@ -276,6 +302,16 @@ paren!/bind: function [words context extend?] [pos] [
     ]
     words
 ]
+compile: function [block] [] []
+ast-paren: function [expressions] [] [
+    make-struct [
+        expressions: expressions
+        fun-def?: false
+    ]
+]
+paren!/compile: function [paren block] [] [
+    reduce [ast-paren compile paren skip block 1]
+]
 
 path!: make-type "path!"
 path!/make: function [arguments] [] [
@@ -336,10 +372,8 @@ path!/mold: function [block indent] [result pos] [
     ]
     result
 ]
-first: function [series] [] [
-    pick series 0
-]
 path!/do: function [path block] [value] [
+    if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
     value: get first path
     path: skip path 1
     while [not empty? path] [
@@ -355,6 +389,39 @@ path!/do: function [path block] [value] [
 path!/bind: function [path context extend?] [] [
     bind pick-array path/values 0 context extend?
     path
+]
+ast-get: function [word] [] [
+    make-struct [
+        word: word
+        fun-def?: false
+    ]
+]
+ast-get-path: function [expr selector] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: compile selector
+        ]
+        "get-word!" [
+            selector: ast-get selector
+        ]
+    ] [
+        selector: ast-value selector
+    ]
+    make-struct [
+        expr: expr
+        selector: selector
+        fun-def?: false
+    ]
+]
+path!/compile: function [path block] [expr] [
+    if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
+    expr: ast-get first path
+    path: skip path 1
+    while [not empty? path] [
+        expr: ast-get-path expr first path
+        path: skip path 1
+    ]
+    reduce [expr skip block 1]
 ]
 
 set-path!: make-type "set-path!"
@@ -417,6 +484,7 @@ set-path!/mold: function [block indent] [result pos] [
     join result #":"
 ]
 set-path!/do: function [path block] [value set-to] [
+    if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
     value: get first path
     path: skip path 1
     while [1 < length-of path] [
@@ -432,6 +500,37 @@ set-path!/do: function [path block] [value set-to] [
 set-path!/bind: function [path context extend?] [] [
     bind pick-array path/values 0 context extend?
     path
+]
+ast-set-path: function [expr selector set-to] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: compile selector
+        ]
+        "get-word!" [
+            selector: ast-get selector
+        ]
+    ] [
+        selector: ast-value selector
+    ]
+    make-struct [
+        expr: expr
+        selector: selector
+        set-to: set-to
+        fun-def?: false
+    ]
+]
+set-path!/compile: function [path block] [expr set-to] [
+    if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
+    expr: ast-get first path
+    path: skip path 1
+    while [1 < length-of path] [
+        expr: ast-get-path expr first path
+        path: skip path 1
+    ]
+    block: skip block 1
+    if empty? block [error "Compile" "set-path needs a value" mold-value skip block -1 ""]
+    set [set-to block] compile-step block
+    reduce [ast-set-path expr first path set-to block]
 ]
 
 lit-path!: make-type "lit-path!"
@@ -505,6 +604,16 @@ lit-path!/bind: function [path context extend?] [] [
     bind pick-array path/values 0 context extend?
     path
 ]
+lit-path!/compile: function [path block] [] [
+    reduce [
+        ast-value make-struct [
+            type: path!
+            values: path/values
+            pos: path/pos
+        ]
+        skip block 1
+    ]
+]
 
 string!: make-type "string!"
 string!/make: function [arguments] [] [
@@ -572,6 +681,9 @@ string!/do: function [string block] [] [
 string!/bind: function [value context extend?] [] [
     value
 ]
+string!/compile: function [string block] [] [
+    reduce [ast-value string skip block 1]
+]
 
 char!: make-type "char!"
 char!/make: function [arguments] [] [
@@ -592,6 +704,9 @@ char!/do: function [char block] [] [
 char!/bind: function [value context extend?] [] [
     value
 ]
+char!/compile: function [char block] [] [
+    reduce [ast-value char skip block 1]
+]
 
 number!: make-type "number!"
 number!/make: function [arguments] [] [
@@ -611,6 +726,9 @@ number!/do: function [number block] [] [
 ]
 number!/bind: function [value context extend?] [] [
     value
+]
+number!/compile: function [number block] [] [
+    reduce [ast-value number skip block 1]
 ]
 
 word!: make-type "word!"
@@ -672,6 +790,14 @@ bind-word: function [context word add?] [offset] [
 word!/bind: function [word context extend?] [] [
     bind-word context word extend?
 ]
+word!/compile: function [word block] [value] [
+    value: get word
+    either all [value any [value/type/name = "function!" value/type/name = "native!"]] [
+        apply 'value/type/compile [value block]
+    ] [
+        reduce [ast-get word skip block 1]
+    ]
+]
 
 set-word!: make-type "set-word!"
 set-word!/make: function [arguments] [] [
@@ -705,6 +831,23 @@ set-word!/do: function [word block] [set-to] [
 set-word!/bind: function [word context extend?] [] [
     bind-word context word extend?
 ]
+ast-set: function [word set-to] [] [
+    if set-to/fun-def? [
+        set-word bind-word compile-words word true set-to/func
+        set-to/func/name: word/word
+    ]
+    make-struct [
+        word: word
+        set-to: set-to
+        fun-def?: false
+    ]
+]
+set-word!/compile: function [word block] [set-to] [
+    block: skip block 1
+    if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
+    set [set-to block] compile-step block
+    reduce [ast-set word set-to block]
+]
 
 lit-word!: make-type "lit-word!"
 lit-word!/make: function [arguments] [] [
@@ -732,6 +875,17 @@ lit-word!/do: function [word block] [] [
 ]
 lit-word!/bind: function [word context extend?] [] [
     bind-word context word extend?
+]
+lit-word!/compile: function [word block] [] [
+    reduce [
+        ast-value make-struct [
+            type: word!
+            word: word/word
+            context: word/context
+            offset: word/offset
+        ]
+        skip block 1
+    ]
 ]
 
 function!: make-type "function!"
@@ -772,6 +926,7 @@ function!/make: function [arguments] [spec body context word] [
         context: context
         spec: head spec
         body: bind body context false
+        name: none
     ]
 ]
 function!/topaz-make: function [block] [] [
@@ -794,11 +949,11 @@ pop-context: function [context] [] [
     context/values: pop-array context/stack
 ]
 collect-arguments: function [n target block] [value orig-block i] [
-    orig-block: skip block -1
+    orig-block: block
     i: 0
     while [i < n] [
         if empty? block [
-            error "Script" "Not enough arguments for function" mold-value orig-block ""
+            error "Script" "Not enough arguments for function" mold-value skip orig-block -1 ""
         ]
         set [value block] do-step first block block
         poke-array target i value
@@ -816,15 +971,47 @@ function!/do: function [func block] [result] [
 function!/bind: function [func context extend?] [] [
     func
 ]
+ast-function-call: function [name args] [] [
+    make-struct [
+        name: name
+        args: args
+        fun-def?: false
+    ]
+]
+append-array: function [arr value] [] [
+    apply 'arr/push [value]
+]
+compile-arguments: function [n block] [expr orig-block i args] [
+    orig-block: block
+    i: 0
+    args: make-array
+    while [i < n] [
+        if empty? block [
+            error "Compile" "Not enough arguments for function" mold-value skip orig-block -1 ""
+        ]
+        set [expr block] compile-step block
+        append-array args expr
+        i: i + 1
+    ]
+    reduce [args block]
+]
+function!/compile: function [func block] [args] [
+    set [args block] compile-arguments length-of func/spec skip block 1
+    reduce [
+        ast-function-call func/name args
+        block
+    ]
+]
 
 native!: make-type "native!"
-native!/make: function [arguments] [spec f] [
-    set [spec f] arguments
+native!/make: function [arguments] [spec f c] [
+    set [spec f c] arguments
     make-struct [
         type: native!
         args: make-array
         spec: spec
         func: f
+        compile: c
     ]
 ]
 native!/topaz-make: function [ignored] [] [
@@ -839,6 +1026,61 @@ native!/do: function [func block] [] [
 ]
 native!/bind: function [func context extend?] [] [
     func
+]
+native!/compile: function [func block] [args] [
+    set [args block] compile-arguments length-of func/spec skip block 1
+    reduce [apply 'func/compile [args] block]
+]
+
+op!: make-type "op!"
+op!/make: function [arguments] [] [
+    if 2 <> length-of arguments/spec [
+        error "Script" "Function must take exactly two arguments" ""
+    ]
+    make-struct [
+        type: op!
+        func: arguments
+    ]
+]
+op!/topaz-make: function [func] [] [
+    apply 'op!/make [func]
+]
+op!/mold: function [op indent] [] [
+    join "make op! " mold-value op/func indent
+]
+op!/do: function [op block] [] [
+    error "Script" "Infix use of OP!s is not supported" mold-value block ""
+]
+op!/bind: function [op context extend?] [] [
+    op
+]
+op!/compile: function [op block] [] [
+    error "Compile" "Infix use of OP!s is not supported" mold-value block ""
+]
+operator?: function [block] [value] [
+    all [
+        not empty? block
+        value: first block
+        value/type/name = "word!"
+        value: get value
+        value/type/name = "op!"
+        value
+    ]
+]
+do-op: function [op arg1 arg2] [result] [
+    switch op/func/type/name [
+        "function!" [
+            push-context op/func/context
+            poke-array op/func/context/values 0 arg1
+            poke-array op/func/context/values 1 arg2
+            result: do op/func/body
+            pop-context op/func/context
+            result
+        ]
+        "native!" [
+            apply 'op/func/func [reduce [arg1 arg2]]
+        ]
+    ] []
 ]
 
 to-js-string: function [string] [] [
@@ -1111,6 +1353,7 @@ parse-values: function [values text] [value newline?] [
 ]
 
 system-words: make-context
+compile-words: make-context
 
 load: function [text all?] [values] [
     set [values text] parse-values make block! none text
@@ -1147,7 +1390,47 @@ run-test: function [block] [] [
     ]
 ]
 
-words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test" true
+compile-op: function [op expr1 expr2] [] [
+    switch op/func/type/name [
+        "function!" [
+            ast-function-call op/func/name reduce [expr1 expr2]
+        ]
+        "native!" [
+            apply 'op/func/compile [reduce [expr1 expr2]]
+         ]
+    ] []
+]
+
+compile-step: function [block] [value expr op expr2] [
+    value: first block
+    set [expr block] apply 'value/type/compile [value block]
+    while [op: operator? block] [
+        block: skip block 1
+        if empty? block [error "Compile" "Operator missing its second argument" mold-value skip block -2 ""]
+        value: first block
+        set [expr2 block] apply 'value/type/compile [value block]
+        expr: compile-op op expr expr2
+    ]
+    reduce [expr block]
+]
+
+ast-expressions: function [list] [] [
+    make-struct [
+        list: list
+        fun-def?: false
+    ]
+]
+
+compile: function [block] [result expr] [
+    result: make-array
+    while [not empty? block] [
+        set [expr block] compile-step block
+        append-array result expr
+    ]
+    ast-expressions result
+]
+
+words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test add subtract equal? greater? lesser? not-equal? greater-or-equal? lesser-or-equal? + - = > < <> >= <= op!" true
 
 set-word pick words 0 datatype!
 set-word pick words 1 make native! reduce [
@@ -1292,6 +1575,71 @@ set-word pick words 32 make native! reduce [
         run-test pick-array arguments 0
     ]
 ]
+set-word pick words 33 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        make number! val1/number + val2/number
+    ]
+]
+set-word pick words 34 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        make number! val1/number - val2/number
+    ]
+]
+set-word pick words 35 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1 = val2
+    ]
+]
+set-word pick words 36 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1/number > val2/number
+    ]
+]
+set-word pick words 37 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1/number < val2/number
+    ]
+]
+set-word pick words 38 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1/number <> val2/number
+    ]
+]
+set-word pick words 39 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1/number >= val2/number
+    ]
+]
+set-word pick words 40 make native! reduce [
+    load make string! "val1 val2" true
+    function [arguments] [val1 val2] [
+        set [val1 val2] arguments
+        val1/number <= val2/number
+    ]
+]
+set-word pick words 41 make op! get pick words 33
+set-word pick words 42 make op! get pick words 34
+set-word pick words 43 make op! get pick words 35
+set-word pick words 44 make op! get pick words 36
+set-word pick words 45 make op! get pick words 37
+set-word pick words 46 make op! get pick words 38
+set-word pick words 47 make op! get pick words 39
+set-word pick words 48 make op! get pick words 40
+set-word pick words 49 op!
 
 
 sys: apply 'require ["sys"]
