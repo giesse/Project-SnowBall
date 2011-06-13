@@ -1,0 +1,3 @@
+; Compile topaz/interpreter.topaz to topaz/interpreter_test.js
+
+write "topaz/interpreter_test.js" compile load read "topaz/interpreter.topaz"
