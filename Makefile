@@ -13,4 +13,4 @@ topaz/interpreter.js: topaz/bootstrap.js topaz/interpreter.topaz
 	${NODE} topaz/bootstrap.js topaz/compile.topaz
 
 topaz/bootstrap.js:
-	wget http://www.colellachiara.com/soft/topaz/bootstrap.js
+	wget -O topaz/bootstrap.js http://www.colellachiara.com/soft/topaz/bootstrap.js
