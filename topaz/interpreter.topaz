@@ -1,6 +1,12 @@
 
 print: function [text] [] [
     apply 'sys/print [text]
+    text
+]
+
+js-probe: function [value] [] [
+    print apply 'sys/inspect [value]
+    print "^/"
 ]
 
 length-of-array: function [arr] [] [
@@ -486,8 +492,13 @@ ast-get-path: function [expr selector] [] [
         node-type: "get-path"
         expr: expr
         selector: selector
-        to-js: function [node context] [] [
-            to-js-common rejoin [to-js node/expr "expression" "[" to-js node/selector "expression" "]"] context
+        to-js: function [node context] [sel] [
+            either node/selector/node-type = "value/word!" [
+                sel: "." + name-to-js node/selector/value/word
+            ] [
+                sel: rejoin ["[" to-js node/selector "expression" "]"]
+            ]
+            to-js-common rejoin [to-js node/expr "expression" sel] context
         ]
     ]
 ]
@@ -620,6 +631,7 @@ ast-set-path: function [expr selector set-to] [] [
         ]
     ]
 ]
+compile-step: function [block] [] []
 set-path!/compile: function [path block] [expr set-to] [
     if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
     expr: ast-get first path
@@ -997,7 +1009,7 @@ ast-set: function [word set-to] [] [
         set-to: set-to
         to-js: function [node context] [res] [
             res: rejoin [
-                name-to-js node/word/word
+                name-to-js node/word/word "="
                 to-js node/set-to "expression"
             ]
             switch context [
@@ -1573,6 +1585,11 @@ read: function [filename] [] [
     make string! apply 'fs/read-file-sync [filename "utf8"]
 ]
 
+write: function [filename text] [] [
+    apply 'fs/write-file-sync [filename text "utf8"]
+    make none! none
+]
+
 run-test: function [block] [] [
     print ">> " probe block
     try [
@@ -1659,7 +1676,7 @@ compile: function [block] [result expr] [
     ast-expressions result
 ]
 
-words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test add subtract equal? greater? lesser? not-equal? greater-or-equal? lesser-or-equal? + - = > < <> >= <= op!" true
+words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test add subtract equal? greater? lesser? not-equal? greater-or-equal? lesser-or-equal? + - = > < <> >= <= op! compile write" true
 
 set-word pick words 0 datatype!
 set-word pick words 1 make native! reduce [
@@ -1869,6 +1886,18 @@ set-word pick words 46 make op! get pick words 38
 set-word pick words 47 make op! get pick words 39
 set-word pick words 48 make op! get pick words 40
 set-word pick words 49 op!
+set-word pick words 50 make native! reduce [
+    load make string! "block" true
+    function [arguments] [] [
+        make string! to-js compile bind pick-array arguments 0 compile-words true "statement"
+    ]
+]
+set-word pick words 51 make native! reduce [
+    load make string! "filename text" true
+    function [arguments] [] [
+        write to-js-string pick-array arguments 0 to-js-string pick-array arguments 1
+    ]
+]
 
 cwords: load make string! "function none true false throw set if either not make-struct apply reduce while make-array poke-array pick-array all any regexp switch case to-char try + = - > < <> >= <=" true
 
@@ -1903,6 +1932,7 @@ ast-function-definition: function [spec locals body] [] [
             res: rejoin [
                 res
                 to-js node/body "return"
+                "}"
             ]
             switch context [
                 "return" [
@@ -1924,7 +1954,7 @@ set-word pick cwords 0 make native! reduce [
     none
     function [arguments] [spec locals body] [
         set [spec locals body] arguments
-        ast-function-definition spec/value spec/locals compile body/value
+        ast-function-definition spec/value locals/value compile body/value
     ]
 ]
 set-word pick cwords 1 make native! reduce [
