@@ -2067,10 +2067,16 @@ either-stmt-to-js: function [node context] [res] [
         "}"
     ]
     if node/false-body [
-        res: rejoin [
-            res "else{"
-            to-js node/false-body context
-            "}"
+        either node/false-body/node-type = "either" [
+            res: rejoin [
+                res "else " to-js node/false-body context
+            ]
+        ] [
+            res: rejoin [
+                res "else{"
+                to-js node/false-body context
+                "}"
+            ]
         ]
     ]
     res
@@ -2396,7 +2402,7 @@ ast-regexp: function [exp flags] [] [
         exp: exp
         flags: flags
         to-js: function [node context] [] [
-            to-js-common rejoin ["/" node/exp "/" node/flags] context
+            to-js-common rejoin ["/" to-js-string node/exp "/" to-js-string node/flags] context
         ]
     ]
 ]
