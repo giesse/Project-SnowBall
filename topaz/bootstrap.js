@@ -739,7 +739,8 @@ function JSConvertVarName(name) {
 JSReservedNames = {
     "arguments": '_arguments',
     "do": '_do',
-    "json": "JSON"
+    "json": "JSON",
+    "case": "_case"
 }
 function JSVariable(name) {
     this.topaz_name = name;

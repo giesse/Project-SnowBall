@@ -53,9 +53,9 @@ datatype!/topaz-make: function [ignored] [] [
 ]
 ast-value: function [value] [] [
     make-struct [
+        node-type: "value/" + value/type/name
         value: value
-        fun-def?: false
-        to-js: function [node statement? return?] [res] [
+        to-js: function [node context] [res] [
             switch node/value/type/name [
                 "string!" [
                     res: apply 'JSON/stringify [node/value/string]
@@ -69,7 +69,7 @@ ast-value: function [value] [] [
             ] [
                 error "JS emitter" rejoin ["Cannot represent " node/value/type/name " values in JS"] ""
             ]
-            either return? [
+            either context = "return" [
                 rejoin ["return " res ";"]
             ] [
                 res
@@ -335,20 +335,15 @@ paren!/bind: function [words context extend?] [pos] [
     words
 ]
 compile: function [block] [] []
-to-js: function [node statement? return?] [] [
-    apply 'node/to-js [node statement? return?]
+to-js: function [node context] [] [
+    apply 'node/to-js [node context]
 ]
 ast-paren: function [expressions] [] [
     make-struct [
+        node-type: "paren"
         expressions: expressions
-        fun-def?: false
-        to-js: function [node statement? return?] [res] [
-            either return? [
-                res: "return ("
-            ] [
-                res: "("
-            ]
-            rejoin [res to-js node/expressions false false ")"]
+        to-js: function [node context] [res] [
+            to-js node/expressions context
         ]
     ]
 ]
@@ -438,6 +433,7 @@ name-to-js: function [name] [] [
         "arguments" ["_arguments"]
         "do"        ["_do"]
         "json"      ["JSON"]
+        "case"      ["_case"]
     ] [
         name: apply 'name/replace [
             regexp "-(.)" "g"
@@ -454,25 +450,24 @@ name-to-js: function [name] [] [
         apply 'name/replace ["!" "_type"]
     ]
 ]
-to-js-common: function [js-text statement? return?] [] [
-    case [
-        return? [
+to-js-common: function [js-text context] [] [
+    switch context [
+        "return" [
             rejoin ["return " js-text ";"]
         ]
-        statement? [
+        "statement" [
             js-text + ";"
         ]
-        'else [
-            js-text
-        ]
+    ] [
+        js-text
     ]
 ]
 ast-get: function [word] [] [
     make-struct [
+        node-type: "get"
         word: word
-        fun-def?: false
-        to-js: function [node statement? return?] [] [
-            to-js-common name-to-js node/word/word statement? return?
+        to-js: function [node context] [] [
+            to-js-common name-to-js node/word/word context
         ]
     ]
 ]
@@ -488,11 +483,11 @@ ast-get-path: function [expr selector] [] [
         selector: ast-value selector
     ]
     make-struct [
+        node-type: "get-path"
         expr: expr
         selector: selector
-        fun-def?: false
-        to-js: function [node statement? return?] [] [
-            to-js-common rejoin [to-js node/expr false false "[" to-js node/selector false false "]"] statement? return?
+        to-js: function [node context] [] [
+            to-js-common rejoin [to-js node/expr "expression" "[" to-js node/selector "expression" "]"] context
         ]
     ]
 ]
@@ -596,29 +591,32 @@ ast-set-path: function [expr selector set-to] [] [
         selector: ast-value selector
     ]
     make-struct [
+        node-type: "set-path"
         expr: expr
         selector: selector
         set-to: set-to
-        fun-def?: false
-        to-js: function [node statement? return?] [res] [
+        to-js: function [node context] [res] [
             res: rejoin [
-                to-js node/expr false false
+                to-js node/expr "expression"
                 "["
-                to-js node/selector false false
+                to-js node/selector "expression"
                 "]="
-                to-js node/set-to false false
+                to-js node/set-to "expression"
             ]
-            case [
-                return? [
+            switch context [
+                "return" [
                     rejoin ["return (" res ");"]
                 ]
-                statement? [
+                "statement" [
                     res + ";"
                 ]
-                'else [
+                "expression" [
                     rejoin ["(" res ")"]
                 ]
-            ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+            ] []
         ]
     ]
 ]
@@ -989,30 +987,33 @@ set-word!/bind: function [word context extend?] [] [
     bind-word context word extend?
 ]
 ast-set: function [word set-to] [] [
-    if set-to/fun-def? [
+    if set-to/node-type = "function-definition" [
         set-word bind-word compile-words word true set-to/func
         set-to/func/name: word
     ]
     make-struct [
+        node-type: "set"
         word: word
         set-to: set-to
-        fun-def?: false
-        to-js: function [node statement? return?] [res] [
+        to-js: function [node context] [res] [
             res: rejoin [
                 name-to-js node/word/word
-                to-js node/set-to false false
+                to-js node/set-to "expression"
             ]
-            case [
-                return? [
+            switch context [
+                "return" [
                     rejoin ["return (" res ");"]
                 ]
-                statement? [
+                "statement" [
                     res + ";"
                 ]
-                'else [
+                "expression" [
                     rejoin ["(" res ")"]
                 ]
-            ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+            ] []
         ]
     ]
 ]
@@ -1147,26 +1148,26 @@ function!/bind: function [func context extend?] [] [
 ]
 ast-function-call: function [name args] [] [
     make-struct [
+        node-type: "function-call"
         name: name
         args: args
-        fun-def?: false
-        to-js: function [node statement? return?] [res i] [
+        to-js: function [node context] [res i] [
             either node/name/type/name = "path!" [
                 res: pick-array apply 'path!/compile [node/name make block! none] 0
-                res: to-js res false false
+                res: to-js res "expression"
             ] [
                 res: name-to-js node/name/word
             ]
             res: res + "("
             if 0 < length-of-array node/args [
-                res: res + to-js pick-array node/args 0 false false
+                res: res + to-js pick-array node/args 0 "expression"
                 i: 1
                 while [i < length-of-array node/args] [
-                    res: rejoin [res "," to-js pick-array node/args i false false]
+                    res: rejoin [res "," to-js pick-array node/args i "expression"]
                     i: i + 1
                 ]
             ]
-            to-js-common res + ")" statement? return?
+            to-js-common res + ")" context
         ]
     ]
 ]
@@ -1608,8 +1609,44 @@ compile-step: function [block] [value expr op expr2] [
 
 ast-expressions: function [list] [] [
     make-struct [
+        node-type: "expressions"
         list: list
-        fun-def?: false
+        to-js: function [node context] [i res] [
+            i: 0
+            res: ""
+            switch context [
+                "statement" [
+                    while [i < length-of-array node/list] [
+                        res: res + to-js pick-array node/list i "statement"
+                        i: i + 1
+                    ]
+                ]
+                "expression" [
+                    if 1 < length-of-array node/list [
+                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                    ]
+                    res: to-js pick-array node/list 0 "expression"
+                ]
+                "paren" [
+                    if 1 < length-of-array node/list [
+                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                    ]
+                    res: to-js pick-array node/list 0 "paren"
+                ]
+                "return" [
+                    while [i + 1 < length-of-array node/list] [
+                        res: res + to-js pick-array node/list i "statement"
+                        i: i + 1
+                    ]
+                    either i < length-of-array node/list [
+                        res: res + to-js pick-array node/list i "return"
+                    ] [
+                        res: "return null;"
+                    ]
+                ]
+            ] []
+            res
+        ]
     ]
 ]
 
@@ -1837,13 +1874,49 @@ cwords: load make string! "function none true false throw set if either not make
 
 bind cwords compile-words true
 
+words-to-js: function [words] [res word] [
+    res: ""
+    if 0 < length-of words [
+        word: first words
+        res: name-to-js word/word
+        words: skip words 1
+        while [not empty? words] [
+            word: first words
+            res: rejoin [res "," name-to-js word/word]
+            words: skip words 1
+        ]
+    ]
+    res
+]
 ast-function-definition: function [spec locals body] [] [
     make-struct [
+        node-type: "function-definition"
         spec: spec
         locals: locals
         body: body
-        fun-def?: true
         func: make function! reduce [spec make block! none]
+        to-js: function [node context] [res] [
+            res: rejoin ["function(" words-to-js node/spec "){"]
+            if not empty? node/locals [
+                res: rejoin [res "var " words-to-js node/locals ";"]
+            ]
+            res: rejoin [
+                res
+                to-js node/body "return"
+            ]
+            switch context [
+                "return" [
+                    rejoin ["return " res ";"]
+                ]
+                "expression" [res]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+                "statement" [
+                    error "Compile" "Function definition cannot be used as a statement" ""
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 0 make native! reduce [
@@ -1877,8 +1950,25 @@ set-word pick cwords 3 make native! reduce [
 ]
 ast-throw: function [expr] [] [
     make-struct [
+        node-type: "throw"
         expr: expr
-        fun-def?: false
+        to-js: function [node context] [res] [
+            res: rejoin ["throw " to-js node/expr "expression" ";"]
+            switch context [
+                "expression" [
+                    error "Compile" "THROW cannot be used as an expression" ""
+                ]
+                "statement" [
+                    res
+                ]
+                "paren" [
+                    error "Compile" "THROW cannot be used as an expression" ""
+                ]
+                "return" [
+                    res
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 4 make native! reduce [
@@ -1896,12 +1986,54 @@ set-word pick cwords 5 make native! reduce [
         ast-set word/value expr
     ]
 ]
+either-expr-to-js: function [node] [res] [
+    res: rejoin [
+        to-js node/condition "paren" " ? "
+        to-js node/true-body "paren" " : "
+    ]
+    either node/false-body [
+        res + to-js node/false-body "paren"
+    ] [
+        res + "null"
+    ]
+]
+either-stmt-to-js: function [node context] [res] [
+    res: rejoin [
+        "if(" to-js node/condition "expression" "){"
+        to-js node/true-body context
+        "}"
+    ]
+    if node/false-body [
+        res: rejoin [
+            res "else{"
+            to-js node/false-body context
+            "}"
+        ]
+    ]
+    res
+]
 ast-either: function [condition true-body false-body] [] [
     make-struct [
+        node-type: "either"
         condition: condition
         true-body: true-body
         false-body: false-body
-        fun-def?: false
+        to-js: function [node context] [] [
+            switch context [
+                "statement" [
+                    either-stmt-to-js node "statement"
+                ]
+                "expression" [
+                    either-expr-to-js node
+                ]
+                "paren" [
+                    rejoin ["(" either-expr-to-js node ")"]
+                ]
+                "return" [
+                    either-stmt-to-js node "return"
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 6 make native! reduce [
@@ -1922,8 +2054,11 @@ set-word pick cwords 7 make native! reduce [
 ]
 ast-not: function [expr] [] [
     make-struct [
+        node-type: "not"
         expr: expr
-        fun-def?: false
+        to-js: function [node context] [] [
+            to-js-common "!" + to-js node/expr "paren" context
+        ]
     ]
 ]
 set-word pick cwords 8 make native! reduce [
@@ -1935,8 +2070,24 @@ set-word pick cwords 8 make native! reduce [
 ]
 ast-struct: function [spec] [] [
     make-struct [
+        node-type: "struct"
         spec: spec
-        fun-def?: false
+        to-js: function [node context] [res i name expr] [
+            res: "{"
+            if 0 < length-of-array node/spec [
+                name: pick-array node/spec 0
+                expr: pick-array node/spec 1
+                res: rejoin [res name-to-js name ":" to-js expr "expression"]
+                i: 2
+                while [i < length-of-array node/spec] [
+                    name: pick-array node/spec i
+                    expr: pick-array node/spec i + 1
+                    res: rejoin [res "," name-to-js name ":" to-js expr "expression"]
+                    i: i + 2
+                ]
+            ]
+            to-js-common res + "}" context
+        ]
     ]
 ]
 parse-struct-spec: function [block] [result name expr] [
@@ -1981,8 +2132,22 @@ set-word pick cwords 10 make native! reduce [
 ]
 ast-reduce: function [exprs] [] [
     make-struct [
+        node-type: "reduce"
         exprs: exprs
-        fun-def?: false
+        to-js: function [node context] [res i expr] [
+            res: "["
+            if 0 < length-of-array node/spec [
+                expr: pick-array node/spec 0
+                res: rejoin [res to-js expr "expression"]
+                i: 1
+                while [i < length-of-array node/spec] [
+                    expr: pick-array node/spec i
+                    res: rejoin [res "," to-js expr "expression"]
+                    i: i + 1
+                ]
+            ]
+            to-js-common res + "]" context
+        ]
     ]
 ]
 set-word pick cwords 11 make native! reduce [
@@ -1995,9 +2160,20 @@ set-word pick cwords 11 make native! reduce [
 ]
 ast-while: function [condition body] [] [
     make-struct [
+        node-type: "while"
         condition: condition
         body: body
-        fun-def?: false
+        to-js: function [node context] [] [
+            either context = "statement" [
+                rejoin [
+                    "while(" to-js node/condition "expression" "){"
+                    to-js node/body "statement"
+                    "}"
+                ]
+            ] [
+                error "Compile" "WHILE can only be used as a statement" ""
+            ]
+        ]
     ]
 ]
 set-word pick cwords 12 make native! reduce [
@@ -2025,10 +2201,31 @@ set-word pick cwords 13 make native! reduce [
 ]
 ast-poke: function [arr pos value] [] [
     make-struct [
+        node-type: "poke"
         arr: arr
         pos: pos
         value: value
-        fun-def?: false
+        to-js: function [node context] [res] [
+            res: rejoin [
+                to-js node/arr "paren" "["
+                to-js node/pos "expression" "]="
+                to-js node/value "expression"
+            ]
+            switch context [
+                "return" [
+                    rejoin ["return (" res ");"]
+                ]
+                "statement" [
+                    res + ";"
+                ]
+                "expression" [
+                    rejoin ["(" res ")"]
+                ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 14 make native! reduce [
@@ -2041,9 +2238,12 @@ set-word pick cwords 14 make native! reduce [
 ]
 ast-pick: function [arr pos] [] [
     make-struct [
+        node-type: "pick"
         arr: arr
         pos: pos
-        fun-def?: false
+        to-js: function [node context] [] [
+            to-js-common rejoin [to-js node/arr "paren" "[" to-js node/pos "expression" "]"] context
+        ]
     ]
 ]
 set-word pick cwords 15 make native! reduce [
@@ -2056,8 +2256,30 @@ set-word pick cwords 15 make native! reduce [
 ]
 ast-all: function [exprs] [] [
     make-struct [
+        node-type: "all"
         exprs: exprs
-        fun-def?: false
+        to-js: function [node context] [res i] [
+            res: to-js pick-array node/exprs 0 "paren"
+            i: 1
+            while [i < length-of-array node/exprs] [
+                res: rejoin [res "&&" to-js pick-array node/exprs i "paren"]
+                i: i + 1
+            ]
+            switch context [
+                "statement" [
+                    error "Compile" "ALL cannot be used as a statement" ""
+                ]
+                "expression" [
+                    res
+                ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+                "return" [
+                    rejoin ["return " res ";"]
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 16 make native! reduce [
@@ -2070,8 +2292,30 @@ set-word pick cwords 16 make native! reduce [
 ]
 ast-any: function [exprs] [] [
     make-struct [
+        node-type: "any"
         exprs: exprs
-        fun-def?: false
+        to-js: function [node context] [res i] [
+            res: to-js pick-array node/exprs 0 "paren"
+            i: 1
+            while [i < length-of-array node/exprs] [
+                res: rejoin [res "||" to-js pick-array node/exprs i "paren"]
+                i: i + 1
+            ]
+            switch context [
+                "statement" [
+                    error "Compile" "ANY cannot be used as a statement" ""
+                ]
+                "expression" [
+                    res
+                ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+                "return" [
+                    rejoin ["return " res ";"]
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 17 make native! reduce [
@@ -2084,9 +2328,12 @@ set-word pick cwords 17 make native! reduce [
 ]
 ast-regexp: function [exp flags] [] [
     make-struct [
+        node-type: "regexp"
         exp: exp
         flags: flags
-        fun-def?: false
+        to-js: function [node context] [] [
+            to-js-common rejoin ["/" node/exp "/" node/flags] context
+        ]
     ]
 ]
 set-word pick cwords 18 make native! reduce [
@@ -2099,10 +2346,59 @@ set-word pick cwords 18 make native! reduce [
 ]
 ast-switch: function [value cases def] [] [
     make-struct [
+        node-type: "switch"
         value: value
         cases: cases
         def: def
-        fun-def?: false
+        to-js: function [node context] [res i case] [
+            switch context [
+                "statement" [
+                    res: rejoin ["switch(" to-js node/value "expression" "){"]
+                    i: 0
+                    while [i < length-of-array node/cases] [
+                        case: pick-array node/cases i
+                        res: rejoin [
+                            res
+                            "case " to-js case/value "expression" ":"
+                            to-js case/expr "statement"
+                            "break;"
+                        ]
+                        i: i + 1
+                    ]
+                    rejoin [
+                        res
+                        "default:"
+                        to-js case/def "statement"
+                        "}"
+                    ]
+                ]
+                "expression" [
+                    error "Compile" "SWITCH cannot be used as an expression" ""
+                ]
+                "paren" [
+                    error "Compile" "SWITCH cannot be used as an expression" ""
+                ]
+                "return" [
+                    res: rejoin ["switch(" to-js node/value "expression" "){"]
+                    i: 0
+                    while [i < length-of-array node/cases] [
+                        case: pick-array node/cases i
+                        res: rejoin [
+                            res
+                            "case " to-js case/value "expression" ":"
+                            to-js case/expr "return"
+                        ]
+                        i: i + 1
+                    ]
+                    rejoin [
+                        res
+                        "default:"
+                        to-js case/def "return"
+                        "}"
+                    ]
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 19 make native! reduce [
@@ -2133,7 +2429,11 @@ compile-cases: function [cases] [cond orig-cases] [
         if empty? cases [
             error "Compile" "Missing case block after condition" mold-value orig-cases ""
         ]
-        ast-either cond compile first cases compile-cases skip cases 1
+        either cond/node-type = "value/word!" [
+            compile first cases
+        ] [
+            ast-either cond compile first cases compile-cases skip cases 1
+        ]
     ]
 ]
 set-word pick cwords 20 make native! reduce [
@@ -2149,8 +2449,13 @@ set-word pick cwords 20 make native! reduce [
 ]
 ast-to-char: function [expr] [] [
     make-struct [
+        node-type: "to-char"
         expr: expr
-        fun-def?: false
+        to-js: function [node context] [] [
+            to-js-common rejoin [
+                "String.fromCharCode(" to-js node/expr "expression" ")"
+            ] context
+        ]
     ]
 ]
 set-word pick cwords 21 make native! reduce [
@@ -2160,12 +2465,37 @@ set-word pick cwords 21 make native! reduce [
         ast-to-char pick-array arguments 0
     ]
 ]
+try-to-js: function [code name def context] [] [
+    rejoin [
+        "try{"
+        to-js code context
+        "}catch(" name-to-js name "){"
+        to-js def context
+        "}"
+    ]
+]
 ast-try: function [code word def] [] [
     make-struct [
+        node-type: "try"
         code: code
         word: word
         def: def
-        fun-def?: false
+        to-js: function [node context] [] [
+            switch context [
+                "statement" [
+                    try-to-js node/code node/word/word node/def "statement"
+                ]
+                "expression" [
+                    error "Compile" "TRY cannot be used as an expression" ""
+                ]
+                "paren" [
+                    error "Compile" "TRY cannot be used as an expression" ""
+                ]
+                "return" [
+                    try-to-js node/code node/word/word node/def "return"
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 22 make native! reduce [
@@ -2178,10 +2508,27 @@ set-word pick cwords 22 make native! reduce [
 ]
 ast-op: function [op val1 val2] [] [
     make-struct [
+        node-type: "op/" + op
         op: op
         val1: val1
         val2: val2
-        fun-def?: false
+        to-js: function [node context] [res] [
+            res: rejoin [to-js node/val1 "paren" node/op to-js node/val2 "paren"]
+            switch context [
+                "statement" [
+                    error "Compile" "Cannot use operator as a statement" ""
+                ]
+                "expression" [
+                    res
+                ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+                "return" [
+                    rejoin ["return " res ";"]
+                ]
+            ] []
+        ]
     ]
 ]
 set-word pick cwords 23 make op! make native! reduce [
