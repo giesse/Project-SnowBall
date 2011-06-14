@@ -1,9 +1,8 @@
-This project is in the boostrap phase. There's a
-minimal Topaz-like compiler written in Javascript
-(I'm using nodejs actually), with the goal of compiling
-a Topaz interpreter/compiler written in Topaz (well, a subset of it for now).
+The bootstrap phase is complete. Topaz is capable of compiling
+itself into Javascript which can then be executed with node.js.
+The Makefile automatically downloads a bootstrap JS file for the
+initial compilation.
 
-More details about Topaz will be available once the bootstrap
-is complete.
+More details about Topaz will be available soon.
 
 Please ignore the stuff inside old/
