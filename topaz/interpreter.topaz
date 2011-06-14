@@ -285,12 +285,15 @@ block!/mold: function [block indent] [result pos ind] [
 block!/do: function [block container] [] [
     reduce [block skip container 1]
 ]
-block!/bind: function [words context extend?] [pos] [
-    pos: words/pos
-    while [pos < length-of-array words/values] [
-        bind pick-array words/values pos context extend?
+bind-values: function [values pos context extend?] [] [
+    while [pos < length-of-array values] [
+        bind pick-array values pos context extend?
         pos: pos + 1
     ]
+    none
+]
+block!/bind: function [words context extend?] [] [
+    bind-values words/values words/pos context extend?
     words
 ]
 block!/compile: function [block container] [] [
@@ -367,12 +370,8 @@ paren!/mold: function [block indent] [result pos ind] [
 paren!/do: function [paren block] [] [
     reduce [do paren skip block 1]
 ]
-paren!/bind: function [words context extend?] [pos] [
-    pos: words/pos
-    while [pos < length-of-array words/values] [
-        bind pick-array words/values pos context extend?
-        pos: pos + 1
-    ]
+paren!/bind: function [words context extend?] [] [
+    bind-values words/values words/pos context extend?
     words
 ]
 compile: function [block] [] []
@@ -466,7 +465,7 @@ path!/do: function [path block] [value] [
     ]
 ]
 path!/bind: function [path context extend?] [] [
-    bind pick-array path/values 0 context extend?
+    bind-values path/values 0 context extend?
     path
 ]
 name-to-js: function [name] [] [
@@ -622,7 +621,7 @@ set-path!/do: function [path block] [value set-to] [
     reduce [set-to block]
 ]
 set-path!/bind: function [path context extend?] [] [
-    bind pick-array path/values 0 context extend?
+    bind-values path/values 0 context extend?
     path
 ]
 ast-set-path: function [expr selector set-to] [] [
@@ -751,7 +750,7 @@ lit-path!/do: function [path block] [] [
     reduce [path skip block 1]
 ]
 lit-path!/bind: function [path context extend?] [] [
-    bind pick-array path/values 0 context extend?
+    bind-values path/values 0 context extend?
     path
 ]
 lit-path!/compile: function [path block] [] [
