@@ -478,6 +478,7 @@ name-to-js: function [name] [] [
         "do"        ["_do"]
         "json"      ["JSON"]
         "case"      ["_case"]
+        "try"       ["_try"]
     ] [
         name: apply 'name/replace [
             regexp "-(.)" "g"
@@ -1279,22 +1280,32 @@ native!/make: function [arguments] [spec f c] [
         compile: c
     ]
 ]
-native!/topaz-make: function [ignored] [] [
-    error "Script" "Cannot make natives (yet)" ""
+native!/topaz-make: function [arguments] [spec name f c] [
+    set [spec name] arguments/values
+    name: name/word
+    f: natives/(name-to-js name)
+    c: native-compilers/(name-to-js name)
+    if any [f/length <> length-of spec c/length <> length-of spec] [
+        error "Script" rejoin [
+            "The native code for " apply 'name/to-upper-case []
+            " does not match the number of arguments in the spec"
+        ] mold-value spec ""
+    ]
+    apply 'native!/make [reduce [spec f c]]
 ]
 native!/mold: function [func indent] [] [
     "native " + mold-value func/spec indent
 ]
 native!/do: function [func block] [] [
     block: collect-arguments length-of func/spec func/args skip block 1
-    reduce [apply 'func/func [func/args] block]
+    reduce [apply 'func/func/apply [none func/args] block]
 ]
 native!/bind: function [func context extend?] [] [
     func
 ]
 native!/compile: function [func block] [args] [
     set [args block] compile-arguments length-of func/spec skip block 1
-    reduce [apply 'func/compile [args] block]
+    reduce [apply 'func/compile/apply [none args] block]
 ]
 
 op!: make-type "op!"
@@ -1343,7 +1354,7 @@ do-op: function [op arg1 arg2] [result] [
             result
         ]
         "native!" [
-            apply 'op/func/func [reduce [arg1 arg2]]
+            apply 'op/func/func [arg1 arg2]
         ]
     ] []
 ]
@@ -1634,7 +1645,7 @@ load: function [text all?] [values] [
 ]
 
 do: function [block] [result] [
-    result: none
+    result: make none! none
     while [not empty? block] [
         set [result block] do-step first block block
     ]
@@ -1650,23 +1661,13 @@ write: function [filename text] [] [
     make none! none
 ]
 
-run-test: function [block] [] [
-    print ">> " probe block
-    try [
-        block: do block
-        print "== " probe block
-    ] 'err [
-        print err + #"^/"
-    ]
-]
-
 compile-op: function [op expr1 expr2] [] [
     switch op/func/type/name [
         "function!" [
             ast-function-call op/func/name reduce [expr1 expr2]
         ]
         "native!" [
-            apply 'op/func/compile [reduce [expr1 expr2]]
+            apply 'op/func/compile [expr1 expr2]
          ]
     ] []
 ]
@@ -1740,131 +1741,72 @@ compile: function [block] [result expr] [
     ast-expressions result
 ]
 
-words: load make string! "datatype! make insert head pick length-of empty? skip mold do get bind tail probe block! paren! path! first set-path! lit-path! string! char! number! word! set-word! lit-word! function! append native! load reduce read run-test add subtract equal? greater? lesser? not-equal? greater-or-equal? lesser-or-equal? + - = > < <> >= <= op! compile write" true
+set-words: function [words values] [i] [
+    i: 0
+    while [i < length-of words] [
+        set-word pick words i pick values i
+        i: i + 1
+    ]
+    values
+]
 
-set-word pick words 0 datatype!
-set-word pick words 1 make native! reduce [
-    load make string! "type arguments" true
-    function [arguments] [type args] [
-        set [type args] arguments
-        apply 'type/topaz-make [args]
-    ]
-]
-set-word pick words 2 make native! reduce [
-    load make string! "series value" true
-    function [arguments] [series value] [
-        set [series value] arguments
-        insert series value
-    ]
-]
-set-word pick words 3 make native! reduce [
-    load make string! "series" true
-    function [arguments] [] [head pick-array arguments 0]
-]
-set-word pick words 4 make native! reduce [
-    load make string! "series pos" true
-    function [arguments] [series pos] [
-        set [series pos] arguments
-        pick series pos/number
-    ]
-]
-set-word pick words 5 make native! reduce [
-    load make string! "series" true
-    function [arguments] [] [
-        make number! length-of pick-array arguments 0
-    ]
-]
-set-word pick words 6 make native! reduce [
-    load make string! "series" true
-    function [arguments] [] [
-        make logic! empty? pick-array arguments 0
-    ]
-]
-set-word pick words 7 make native! reduce [
-    load make string! "series amount" true
-    function [arguments] [series amount] [
-        set [series amount] arguments
-        skip series amount/number
-    ]
-]
-set-word pick words 8 make native! reduce [
-    load make string! "value" true
-    function [arguments] [] [
-        mold pick-array arguments 0
-    ]
-]
-set-word pick words 9 make native! reduce [
-    load make string! "block" true
-    function [arguments] [] [
-        do pick-array arguments 0
-    ]
-]
-set-word pick words 10 make native! reduce [
-    load make string! "word" true
-    function [arguments] [word value] [
-        value: get word: pick-array arguments 0
-        if not value [
-            error "Script" "Word has no value" mold-value word ""
+values: make-struct [
+    datatype!: datatype!
+    native!: native!
+    make: make native! reduce [
+        load make string! "type arguments" true
+        function [type arguments] [] [
+            apply 'type/topaz-make [arguments]
         ]
-        value
     ]
+    block!: block!
+    paren!: paren!
+    path!: path!
+    set-path!: set-path!
+    lit-path!: lit-path!
+    string!: string!
+    char!: char!
+    number!: number!
+    word!: word!
+    set-word!: set-word!
+    lit-word!: lit-word!
+    function!: function!
+    op!: op!
 ]
-set-word pick words 11 make native! reduce [
-    load make string! "words context" true
-    function [arguments] [words context extend?] [
-        set [words context] arguments
-        bind words context/context false
+natives: make-struct [
+    foreach: function [words series body] [ctx res] [
+        ctx: make-context
+        switch words/type/name [
+            "word!" [
+                words: append make block! none words
+            ]
+            "block!" []
+        ] [
+            error "Script" "FOREACH expected a word! or block! - not " + words/type/name ""
+        ]
+        bind words ctx true
+        bind body ctx false
+        res: make none! none
+        while [not empty? series] [
+            set-words words series
+            res: do body
+            series: skip series length-of words
+        ]
+        res
     ]
-]
-set-word pick words 12 make native! reduce [
-    load make string! "series" true
-    function [arguments] [] [
-        tail pick-array arguments 0
+    set: function [word value] [] [
+        switch word/type/name [
+            "word!" [
+                set-word word value
+            ]
+            "block!" [
+                set-words word value
+            ]
+        ] [
+            error "Script" "SET expected a word! or block! - not " + word/type/name ""
+        ]
     ]
-]
-set-word pick words 13 make native! reduce [
-    load make string! "value" true
-    function [arguments] [value] [
-        probe value: pick-array arguments 0
-        value
-    ]
-]
-set-word pick words 14 block!
-set-word pick words 15 paren!
-set-word pick words 16 path!
-set-word pick words 17 make native! reduce [
-    load make string! "series" true
-    function [arguments] [] [
-        first pick-array arguments 0
-    ]
-]
-set-word pick words 18 set-path!
-set-word pick words 19 lit-path!
-set-word pick words 20 string!
-set-word pick words 21 char!
-set-word pick words 22 number!
-set-word pick words 23 word!
-set-word pick words 24 set-word!
-set-word pick words 25 lit-word!
-set-word pick words 26 function!
-set-word pick words 27 make native! reduce [
-    load make string! "series value" true
-    function [arguments] [series value] [
-        set [series value] arguments
-        append series value
-    ]
-]
-set-word pick words 28 native!
-set-word pick words 29 make native! reduce [
-    load make string! "text" true
-    function [arguments] [] [
-        load pick-array arguments 0 false
-    ]
-]
-set-word pick words 30 make native! reduce [
-    load make string! "block" true
-    function [arguments] [block result value] [
-        block: pick-array arguments 0
+    reduce: function [block] [result value] [
         result: make block! none
         while [not empty? block] [
             set [value block] do-step first block block
@@ -1872,94 +1814,93 @@ set-word pick words 30 make native! reduce [
         ]
         result
     ]
-]
-set-word pick words 31 make native! reduce [
-    load make string! "filename" true
-    function [arguments] [] [
-        read to-js-string pick-array arguments 0
+    insert: function [series value] [] [insert series value]
+    head: function [series] [] [head series]
+    pick: function [series pos] [] [pick series pos/number]
+    length-of: function [series] [] [make number! length-of series]
+    skip: function [series amount] [] [skip series amount/number]
+    mold: function [value] [] [mold value]
+    do: function [block] [] [do block]
+    get: function [word] [value] [
+        value: get word
+        if not value [
+            error "Script" "Word has no value" mold-value word ""
+        ]
+        value
+    ]
+    bind: function [words context] [] [bind words context/context false]
+    tail: function [series] [] [tail series]
+    print: function [string] [] [
+        print (to-js-string string) + "^/"
+        string
+    ]
+    prin: function [string] [] [
+        print to-js-string string
+        string
+    ]
+    load: function [string] [] [load string false]
+    read: function [filename] [] [read to-js-string filename]
+    try: function [code word def] [res ctx] [
+        try [
+            res: do code
+        ] 'e [
+            ctx: make-context
+            bind-word ctx word true
+            set-word word make string! e
+            res: do bind def ctx false
+        ]
+        res
+    ]
+    add: function [val1 val2] [] [make number! val1/number + val2/number]
+    subtract: function [val1 val2] [] [make number! val1/number - val2/number]
+    equal?: function [val1 val2] [] [make logic! val1/number = val2/number]
+    greater?: function [val1 val2] [] [make logic! val1/number > val2/number]
+    lesser?: function [val1 val2] [] [make logic! val1/number < val2/number]
+    not-equal?: function [val1 val2] [] [make logic! val1/number <> val2/number]
+    greater-or-equal?: function [val1 val2] [] [make logic! val1/number >= val2/number]
+    lesser-or-equal?: function [val1 val2] [] [make logic! val1/number <= val2/number]
+    compile: function [block] [] [
+        make string! to-js compile bind block compile-words true "statement"
+    ]
+    write: function [filename text] [] [
+        write to-js-string filename to-js-string text
     ]
 ]
-set-word pick words 32 make native! reduce [
-    load make string! "block" true
-    function [arguments] [] [
-        run-test pick-array arguments 0
-    ]
+native-compilers: make-struct [
+    foreach: function [word series body] [] []
+    set: function [word value] [] []
+    reduce: function [block] [] []
+    insert: function [series value] [] []
+    head: function [series] [] []
+    pick: function [series pos] [] []
+    length-of: function [series] [] []
+    skip: function [series amount] [] []
+    mold: function [value] [] []
+    do: function [block] [] []
+    get: function [word] [] []
+    bind: function [words context] [] []
+    tail: function [series] [] []
+    print: function [value] [] []
+    prin: function [value] [] []
+    load: function [string] [] []
+    read: function [filename] [] []
+    try: function [code word def] [] []
+    add: function [val1 val2] [] []
+    subtract: function [val1 val2] [] []
+    equal?: function [val1 val2] [] []
+    greater?: function [val1 val2] [] []
+    lesser?: function [val1 val2] [] []
+    not-equal?: function [val1 val2] [] []
+    greater-or-equal?: function [val1 val2] [] []
+    lesser-or-equal?: function [val1 val2] [] []
+    compile: function [block] [] []
+    write: function [filename text] [] []
 ]
-set-word pick words 33 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make number! val1/number + val2/number
-    ]
-]
-set-word pick words 34 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make number! val1/number - val2/number
-    ]
-]
-set-word pick words 35 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1 = val2
-    ]
-]
-set-word pick words 36 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1/number > val2/number
-    ]
-]
-set-word pick words 37 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1/number < val2/number
-    ]
-]
-set-word pick words 38 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1 <> val2
-    ]
-]
-set-word pick words 39 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1/number >= val2/number
-    ]
-]
-set-word pick words 40 make native! reduce [
-    load make string! "val1 val2" true
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
-        make logic! val1/number <= val2/number
-    ]
-]
-set-word pick words 41 make op! get pick words 33
-set-word pick words 42 make op! get pick words 34
-set-word pick words 43 make op! get pick words 35
-set-word pick words 44 make op! get pick words 36
-set-word pick words 45 make op! get pick words 37
-set-word pick words 46 make op! get pick words 38
-set-word pick words 47 make op! get pick words 39
-set-word pick words 48 make op! get pick words 40
-set-word pick words 49 op!
-set-word pick words 50 make native! reduce [
-    load make string! "block" true
-    function [arguments] [] [
-        make string! to-js compile bind pick-array arguments 0 compile-words true "statement"
-    ]
-]
-set-word pick words 51 make native! reduce [
-    load make string! "filename text" true
-    function [arguments] [] [
-        write to-js-string pick-array arguments 0 to-js-string pick-array arguments 1
+
+set-word load make string! "import-js-value" false make native! reduce [
+    load make string! "name" true
+    function [name] [] [
+        values/(name-to-js name/word)
     ]
 ]
 
@@ -2016,29 +1957,28 @@ ast-function-definition: function [spec locals body] [] [
 set-word pick cwords 0 make native! reduce [
     load make string! "spec locals body" true
     none
-    function [arguments] [spec locals body] [
-        set [spec locals body] arguments
+    function [spec locals body] [] [
         ast-function-definition spec/value locals/value compile body/value
     ]
 ]
 set-word pick cwords 1 make native! reduce [
     make block! none
     none
-    function [arguments] [] [
+    function [] [] [
         ast-value make none! none
     ]
 ]
 set-word pick cwords 2 make native! reduce [
     make block! none
     none
-    function [arguments] [] [
+    function [] [] [
         ast-value make logic! true
     ]
 ]
 set-word pick cwords 3 make native! reduce [
     make block! none
     none
-    function [arguments] [] [
+    function [] [] [
         ast-value make logic! false
     ]
 ]
@@ -2068,15 +2008,14 @@ ast-throw: function [expr] [] [
 set-word pick cwords 4 make native! reduce [
     load make string! "value" true
     none
-    function [arguments] [] [
-        ast-throw pick-array arguments 0
+    function [value] [] [
+        ast-throw value
     ]
 ]
 set-word pick cwords 5 make native! reduce [
     load make string! "word value" true
     none
-    function [arguments] [word expr] [
-        set [word expr] arguments
+    function [word expr] [] [
         ast-set word/value expr
     ]
 ]
@@ -2139,15 +2078,14 @@ ast-either: function [condition true-body false-body] [] [
 set-word pick cwords 6 make native! reduce [
     load make string! "condition body" true
     none
-    function [arguments] [condition body] [
-        set [condition body] arguments
+    function [condition body] [] [
         ast-either condition compile body/value none
     ]
 ]
 set-word pick cwords 7 make native! reduce [
     load make string! "condition true-body false-body" true
     none
-    function [arguments] [condition true-body false-body] [
+    function [condition true-body false-body] [] [
         set [condition true-body false-body] arguments
         ast-either condition compile true-body/value compile false-body/value
     ]
@@ -2164,8 +2102,8 @@ ast-not: function [expr] [] [
 set-word pick cwords 8 make native! reduce [
     load make string! "value" true
     none
-    function [arguments] [] [
-        ast-not pick-array arguments 0
+    function [value] [] [
+        ast-not value
     ]
 ]
 ast-struct: function [spec] [] [
@@ -2211,8 +2149,8 @@ parse-struct-spec: function [block] [result name expr] [
 set-word pick cwords 9 make native! reduce [
     load make string! "spec" true
     none
-    function [arguments] [] [
-        ast-struct parse-struct-spec pick-array arguments 0
+    function [spec] [] [
+        ast-struct parse-struct-spec spec
     ]
 ]
 compile-reduce: function [block] [result expr] [
@@ -2226,8 +2164,7 @@ compile-reduce: function [block] [result expr] [
 set-word pick cwords 10 make native! reduce [
     load make string! "func-name args" true
     none
-    function [arguments] [func-name args] [
-        set [func-name args] arguments
+    function [func-name args] [] [
         ast-function-call func-name/value compile-reduce args/value
     ]
 ]
@@ -2254,8 +2191,7 @@ ast-reduce: function [exprs] [] [
 set-word pick cwords 11 make native! reduce [
     load make string! "block" true
     none
-    function [arguments] [block] [
-        block: pick-array arguments 0
+    function [block] [] [
         ast-reduce compile-reduce block/value
     ]
 ]
@@ -2280,7 +2216,7 @@ ast-while: function [condition body] [] [
 set-word pick cwords 12 make native! reduce [
     load make string! "condition body" true
     none
-    function [arguments] [condblock condition body] [
+    function [condblock body] [condition] [
         set [condblock body] arguments
         condblock: condblock/value
         if empty? condblock [
@@ -2296,7 +2232,7 @@ set-word pick cwords 12 make native! reduce [
 set-word pick cwords 13 make native! reduce [
     make block! none
     none
-    function [arguments] [] [
+    function [] [] [
         ast-reduce make-array
     ]
 ]
@@ -2332,8 +2268,7 @@ ast-poke: function [arr pos value] [] [
 set-word pick cwords 14 make native! reduce [
     load make string! "arr pos value" true
     none
-    function [arguments] [arr pos value] [
-        set [arr pos value] arguments
+    function [arr pos value] [] [
         ast-poke arr pos value
     ]
 ]
@@ -2350,8 +2285,7 @@ ast-pick: function [arr pos] [] [
 set-word pick cwords 15 make native! reduce [
     load make string! "arr pos" true
     none
-    function [arguments] [arr pos] [
-        set [arr pos] arguments
+    function [arr pos] [] [
         ast-pick arr pos
     ]
 ]
@@ -2386,8 +2320,7 @@ ast-all: function [exprs] [] [
 set-word pick cwords 16 make native! reduce [
     load make string! "block" true
     none
-    function [arguments] [block] [
-        block: pick-array arguments 0
+    function [block] [] [
         ast-all compile-reduce block/value
     ]
 ]
@@ -2422,8 +2355,7 @@ ast-any: function [exprs] [] [
 set-word pick cwords 17 make native! reduce [
     load make string! "block" true
     none
-    function [arguments] [block] [
-        block: pick-array arguments 0
+    function [block] [] [
         ast-any compile-reduce block/value
     ]
 ]
@@ -2440,8 +2372,7 @@ ast-regexp: function [exp flags] [] [
 set-word pick cwords 18 make native! reduce [
     load make string! "exp flags" true
     none
-    function [arguments] [exp flags] [
-        set [exp flags] arguments
+    function [exp flags] [] [
         ast-regexp exp/value flags/value
     ]
 ]
@@ -2505,8 +2436,7 @@ ast-switch: function [value cases def] [] [
 set-word pick cwords 19 make native! reduce [
     load make string! "value cases default" true
     none
-    function [arguments] [value cases def expr compiled-cases] [
-        set [value cases def] arguments
+    function [value cases def] [expr compiled-cases] [
         cases: cases/value
         def: def/value
         compiled-cases: make-array
@@ -2541,8 +2471,7 @@ compile-cases: function [cases] [cond orig-cases] [
 set-word pick cwords 20 make native! reduce [
     load make string! "cases" true
     none
-    function [arguments] [cases expr] [
-        cases: pick-array arguments 0
+    function [cases] [expr] [
         if empty? cases/value [
             error "Compile" "CASE needs at least one case" ""
         ]
@@ -2563,8 +2492,8 @@ ast-to-char: function [expr] [] [
 set-word pick cwords 21 make native! reduce [
     load make string! "number" true
     none
-    function [arguments] [] [
-        ast-to-char pick-array arguments 0
+    function [number] [] [
+        ast-to-char number
     ]
 ]
 try-to-js: function [code name def context] [] [
@@ -2603,8 +2532,7 @@ ast-try: function [code word def] [] [
 set-word pick cwords 22 make native! reduce [
     load make string! "code word default" true
     none
-    function [arguments] [code word def] [
-        set [code word def] arguments
+    function [code word def] [] [
         ast-try compile code/value word/value compile def/value
     ]
 ]
@@ -2636,72 +2564,63 @@ ast-op: function [op val1 val2] [] [
 set-word pick cwords 23 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "+" val1 val2
     ]
 ]
 set-word pick cwords 24 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "==" val1 val2
     ]
 ]
 set-word pick cwords 25 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "-" val1 val2
     ]
 ]
 set-word pick cwords 26 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op ">" val1 val2
     ]
 ]
 set-word pick cwords 27 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "<" val1 val2
     ]
 ]
 set-word pick cwords 28 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "!=" val1 val2
     ]
 ]
 set-word pick cwords 29 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op ">=" val1 val2
     ]
 ]
 set-word pick cwords 30 make op! make native! reduce [
     load make string! "val1 val2" true
     none
-    function [arguments] [val1 val2] [
-        set [val1 val2] arguments
+    function [val1 val2] [] [
         ast-op "<=" val1 val2
     ]
 ]
 set-word pick cwords 31 make native! reduce [
     load make string! "block" true
     none
-    function [arguments] [block expr res] [
-        block: pick-array arguments 0
+    function [block] [expr res] [
         block: block/value
         either empty? block [
             ast-value make string! ""

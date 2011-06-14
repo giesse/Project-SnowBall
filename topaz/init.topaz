@@ -1,3 +1,67 @@
 ; Topaz Interpreter Initialization
 
+make: import-js-value 'make
+native!: import-js-value 'native!
+
+foreach: make native! [[words series body] foreach]
+set: make native! [[word value] set]
+reduce: make native! [[block] reduce]
+
+foreach [native spec] [
+    insert            [series value]
+    head              [series]
+    pick              [series pos]
+    length-of         [series]
+    skip              [series amount]
+    mold              [value]
+    do                [block]
+    get               [word]
+    bind              [words context]
+    tail              [series]
+    print             [string]
+    prin              [string]
+    load              [string]
+    read              [filename]
+    try               [code word default]
+    add               [val1 val2]
+    subtract          [val1 val2]
+    equal?            [val1 val2]
+    greater?          [val1 val2]
+    lesser?           [val1 val2]
+    not-equal?        [val1 val2]
+    greater-or-equal? [val1 val2]
+    lesser-or-equal?  [val1 val2]
+    compile           [block]
+    write             [filename text]
+] [
+    set native make native! reduce [spec native]
+]
+
+foreach 'word [
+    datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
+] [
+    set word import-js-value word
+]
+
+foreach [op f] [
+    +  add
+    -  subtract
+    =  equal?
+    >  greater?
+    <  lesser?
+    <> not-equal?
+    >= greater-or-equal?
+    <= lesser-or-equal?
+] [
+    set op make op! get f
+]
+
 func: make function! [[spec body] [make function! reduce [spec body]]]
+
+first: func [series] [pick series 0]
+empty?: func [series] [0 = length-of series]
+probe: func [value] [
+    print mold get 'value
+    get 'value
+]
+append: func [series value] [head insert tail series value]
