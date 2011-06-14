@@ -155,7 +155,11 @@ first: function [series] [] [
     pick series 0
 ]
 do-step: function [value block] [result arg2 op] [
-    set [result block] apply 'value/type/do [value block]
+    try [
+        set [result block] apply 'value/type/do [value block]
+    ] 'e [
+        throw rejoin [e "^/*** Where: " mold-value block ""]
+    ]
     while [op: operator? block] [
         block: skip block 1
         if empty? block [error "Script" "Operator missing its second argument" mold-value skip block -2 ""]
@@ -1669,7 +1673,11 @@ compile-op: function [op expr1 expr2] [] [
 
 compile-step: function [block] [value expr op expr2] [
     value: first block
-    set [expr block] apply 'value/type/compile [value block]
+    try [
+        set [expr block] apply 'value/type/compile [value block]
+    ] 'e [
+        throw rejoin [e "^/*** Compiling: " mold-value block ""]
+    ]
     while [op: operator? block] [
         block: skip block 1
         if empty? block [error "Compile" "Operator missing its second argument" mold-value skip block -2 ""]
