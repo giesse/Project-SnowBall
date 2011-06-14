@@ -2086,7 +2086,6 @@ set-word pick cwords 7 make native! reduce [
     load make string! "condition true-body false-body" true
     none
     function [condition true-body false-body] [] [
-        set [condition true-body false-body] arguments
         ast-either condition compile true-body/value compile false-body/value
     ]
 ]
@@ -2217,7 +2216,6 @@ set-word pick cwords 12 make native! reduce [
     load make string! "condition body" true
     none
     function [condblock body] [condition] [
-        set [condblock body] arguments
         condblock: condblock/value
         if empty? condblock [
             error "Compile" "WHILE's condition block cannot be empty" ""
