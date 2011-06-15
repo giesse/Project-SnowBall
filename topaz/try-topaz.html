@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+	<title>Try Topaz</title>
+    <script language="JavaScript">
+        function require(module) {
+            switch (module) {
+                case "sys":
+                return {
+                    print: function(text) {
+                        if (!consoleElement) consoleElement = document.getElementById("console");
+                        consoleElement.appendChild(document.createTextNode(text));
+                    }
+                };
+                case "fs":
+                return {
+                    readFileSync: function(name, enc) {
+                        var req = new XMLHttpRequest();
+                        req.open('GET', 'http://www.colellachiara.com/soft/' + name, false);
+                        req.send(null);
+                        if (req.status == 200)
+                            return req.responseText.replace(/\r\n/gm, '\n').replace(/\r/gm, '\n');
+                        else
+                            throw "*** I/O Error: Error while reading " + name;
+                    },
+                    writeFileSync: function(name, text, enc) {
+                    }
+                };
+            }
+        }
+        function clearConsole() {
+            if (!consoleElement) consoleElement = document.getElementById("console");
+            consoleElement.innerHTML = "";
+        }
+        var process = {
+            argv: [],
+            openStdin: function() {
+                return {
+                    setEncoding: function(enc) {},
+                    addListener: function(ev, callback) {
+                        stdinCallback = callback;
+                    }
+                };
+            }
+        }, stdinCallback = null, consoleElement = null;
+        function doTopaz() {
+            if (!consoleElement) consoleElement = document.getElementById("console");
+            consoleElement.appendChild(document.createTextNode(document.forms[0].source.value + "\n"));
+            stdinCallback(document.forms[0].source.value);
+        }
+    </script>
+  </head>
+  <body>
+    <h1>Try Topaz</h1>
+	<p>Topaz language interpreter by Gabriele Santilli. &copy; 2011 - MIT License</p>
+    <p><a href="https://github.com/giesse/Project-SnowBall">Source code</a>
+      <a href="#" onclick="clearConsole(); return false;">Clear console</a></p>
+    <form>
+       <input type="text" name="source" size="80"
+         value="foreach [a b] [1 2 3 4 5 6] [prin mold a prin &quot; and &quot; print mold b]"
+         onenter="doTopaz(); return false;">
+       <button onclick="doTopaz(); return false;">DO</button>
+     </form>
+     <pre id="console"></pre>
+     <script language="JavaScript" src="bootstrap.js"></script>
+  </body>
+</html>
