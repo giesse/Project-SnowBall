@@ -479,6 +479,13 @@ name-to-js: function [name] [] [
         "json"      ["JSON"]
         "case"      ["_case"]
         "try"       ["_try"]
+        "throw"     ["_throw"]
+        "function"  ["_function"]
+        "if"        ["_if"]
+        "while"     ["_while"]
+        "switch"    ["_switch"]
+        "true"      ["_true"]
+        "false"     ["_false"]
     ] [
         name: apply 'name/replace [
             regexp "-(.)" "g"
@@ -1751,7 +1758,6 @@ set-words: function [words values] [i] [
 ]
 
 values: make-struct [
-    datatype!: datatype!
     native!: native!
     make: make native! reduce [
         load make string! "type arguments" true
@@ -1759,6 +1765,7 @@ values: make-struct [
             apply 'type/topaz-make [arguments]
         ]
     ]
+    datatype!: datatype!
     block!: block!
     paren!: paren!
     path!: path!
@@ -1772,6 +1779,16 @@ values: make-struct [
     lit-word!: lit-word!
     function!: function!
     op!: op!
+    none!: none!
+    logic!: logic!
+]
+true?: function [value] [] [
+    switch value/type/name [
+        "none!" [false]
+        "logic!" [value/value]
+    ] [
+        true
+    ]
 ]
 natives: make-struct [
     foreach: function [words series body] [ctx res] [
@@ -1865,48 +1882,85 @@ natives: make-struct [
     write: function [filename text] [] [
         write to-js-string filename to-js-string text
     ]
-]
-native-compilers: make-struct [
-    foreach: function [word series body] [] []
-    set: function [word value] [] []
-    reduce: function [block] [] []
-    insert: function [series value] [] []
-    head: function [series] [] []
-    pick: function [series pos] [] []
-    length-of: function [series] [] []
-    skip: function [series amount] [] []
-    mold: function [value] [] []
-    do: function [block] [] []
-    get: function [word] [] []
-    bind: function [words context] [] []
-    tail: function [series] [] []
-    print: function [value] [] []
-    prin: function [value] [] []
-    load: function [string] [] []
-    read: function [filename] [] []
-    try: function [code word def] [] []
-    add: function [val1 val2] [] []
-    subtract: function [val1 val2] [] []
-    equal?: function [val1 val2] [] []
-    greater?: function [val1 val2] [] []
-    lesser?: function [val1 val2] [] []
-    not-equal?: function [val1 val2] [] []
-    greater-or-equal?: function [val1 val2] [] []
-    lesser-or-equal?: function [val1 val2] [] []
-    compile: function [block] [] []
-    write: function [filename text] [] []
+    throw: function [value] [] [
+        throw value/string
+    ]
+    if: function [condition body] [] [
+        either true? condition [
+            do body
+        ] [
+            make none! none
+        ]
+    ]
+    either: function [condition true-body false-body] [] [
+        do either true? condition [true-body] [false-body]
+    ]
+    not: function [value] [] [make logic! not true? value]
+    apply: function [func args] [] [error "Internal" "APPLY is not yet implemented" ""]
+    while: function [condblock body] [res] [
+        res: make none! none
+        while [true? do condblock] [res: do body]
+        res
+    ]
+    all: function [block] [res] [
+        either empty? block [
+            make logic! true
+        ] [
+            set [res block] do-step first block block
+            while [all [true? res not empty? block]] [
+                set [res block] do-step first block block
+            ]
+            res
+        ]
+    ]
+    any: function [block] [res] [
+        either empty? block [
+            make none! none
+        ] [
+            set [res block] do-step first block block
+            while [all [not true? res not empty? block]] [
+                set [res block] do-step first block block
+            ]
+            res
+        ]
+    ]
+    switch: function [value cases def] [] [error "Internal" "SWITCH is not yet implemented" ""]
+    case: function [cases] [cond] [
+        either empty? cases [
+            make none! none
+        ] [
+            set [cond cases] do-step first cases cases
+            while [not true? cond] [
+                cases: skip cases 1
+                set [cond cases] do-step first cases cases
+            ]
+            either empty? cases [
+                make none! none
+            ] [
+                do first cases
+            ]
+        ]
+    ]
+    ; not really used in the interpreter
+    function: function [spec locals body] [] []
+    none: function [] [] []
+    true: function [] [] []
+    false: function [] [] []
+    make-struct: function [spec] [] []
+    make-array: function [] [] []
+    poke-array: function [arr pos value] [] []
+    pick-array: function [arr pos] [] []
+    regexp: function [exp flags] [] []
+    to-char: function [number] [] []
+    rejoin: function [block] [] []
 ]
 
-set-word load make string! "import-js-value" false make native! reduce [
+set-word load make string! "conjure" false make native! reduce [
     load make string! "name" true
     function [name] [] [
         values/(name-to-js name/word)
     ]
 ]
-
-cwords: load make string! "function none true false throw set if either not make-struct apply reduce while make-array poke-array pick-array all any regexp switch case to-char try + = - > < <> >= <= rejoin" true
-
-bind cwords compile-words true
 
 words-to-js: function [words] [res word] [
     res: ""
@@ -1954,34 +2008,6 @@ ast-function-definition: function [spec locals body] [] [
         ]
     ]
 ]
-set-word pick cwords 0 make native! reduce [
-    load make string! "spec locals body" true
-    none
-    function [spec locals body] [] [
-        ast-function-definition spec/value locals/value compile body/value
-    ]
-]
-set-word pick cwords 1 make native! reduce [
-    make block! none
-    none
-    function [] [] [
-        ast-value make none! none
-    ]
-]
-set-word pick cwords 2 make native! reduce [
-    make block! none
-    none
-    function [] [] [
-        ast-value make logic! true
-    ]
-]
-set-word pick cwords 3 make native! reduce [
-    make block! none
-    none
-    function [] [] [
-        ast-value make logic! false
-    ]
-]
 ast-throw: function [expr] [] [
     make-struct [
         node-type: "throw"
@@ -2003,20 +2029,6 @@ ast-throw: function [expr] [] [
                 ]
             ] []
         ]
-    ]
-]
-set-word pick cwords 4 make native! reduce [
-    load make string! "value" true
-    none
-    function [value] [] [
-        ast-throw value
-    ]
-]
-set-word pick cwords 5 make native! reduce [
-    load make string! "word value" true
-    none
-    function [word expr] [] [
-        ast-set word/value expr
     ]
 ]
 either-expr-to-js: function [node] [res] [
@@ -2075,20 +2087,6 @@ ast-either: function [condition true-body false-body] [] [
         ]
     ]
 ]
-set-word pick cwords 6 make native! reduce [
-    load make string! "condition body" true
-    none
-    function [condition body] [] [
-        ast-either condition compile body/value none
-    ]
-]
-set-word pick cwords 7 make native! reduce [
-    load make string! "condition true-body false-body" true
-    none
-    function [condition true-body false-body] [] [
-        ast-either condition compile true-body/value compile false-body/value
-    ]
-]
 ast-not: function [expr] [] [
     make-struct [
         node-type: "not"
@@ -2096,13 +2094,6 @@ ast-not: function [expr] [] [
         to-js: function [node context] [] [
             to-js-common "!" + to-js node/expr "paren" context
         ]
-    ]
-]
-set-word pick cwords 8 make native! reduce [
-    load make string! "value" true
-    none
-    function [value] [] [
-        ast-not value
     ]
 ]
 ast-struct: function [spec] [] [
@@ -2145,13 +2136,6 @@ parse-struct-spec: function [block] [result name expr] [
     ]
     result
 ]
-set-word pick cwords 9 make native! reduce [
-    load make string! "spec" true
-    none
-    function [spec] [] [
-        ast-struct parse-struct-spec spec
-    ]
-]
 compile-reduce: function [block] [result expr] [
     result: make-array
     while [not empty? block] [
@@ -2159,13 +2143,6 @@ compile-reduce: function [block] [result expr] [
         append-array result expr
     ]
     result
-]
-set-word pick cwords 10 make native! reduce [
-    load make string! "func-name args" true
-    none
-    function [func-name args] [] [
-        ast-function-call func-name/value compile-reduce args/value
-    ]
 ]
 ast-reduce: function [exprs] [] [
     make-struct [
@@ -2187,13 +2164,6 @@ ast-reduce: function [exprs] [] [
         ]
     ]
 ]
-set-word pick cwords 11 make native! reduce [
-    load make string! "block" true
-    none
-    function [block] [] [
-        ast-reduce compile-reduce block/value
-    ]
-]
 ast-while: function [condition body] [] [
     make-struct [
         node-type: "while"
@@ -2210,28 +2180,6 @@ ast-while: function [condition body] [] [
                 error "Compile" "WHILE can only be used as a statement" ""
             ]
         ]
-    ]
-]
-set-word pick cwords 12 make native! reduce [
-    load make string! "condition body" true
-    none
-    function [condblock body] [condition] [
-        condblock: condblock/value
-        if empty? condblock [
-            error "Compile" "WHILE's condition block cannot be empty" ""
-        ]
-        set [condition condblock] compile-step condblock
-        if not empty? condblock [
-            error "Compile" "WHILE's condition block can only have one expression" mold-value head condblock ""
-        ]
-        ast-while condition compile body/value
-    ]
-]
-set-word pick cwords 13 make native! reduce [
-    make block! none
-    none
-    function [] [] [
-        ast-reduce make-array
     ]
 ]
 ast-poke: function [arr pos value] [] [
@@ -2263,13 +2211,6 @@ ast-poke: function [arr pos value] [] [
         ]
     ]
 ]
-set-word pick cwords 14 make native! reduce [
-    load make string! "arr pos value" true
-    none
-    function [arr pos value] [] [
-        ast-poke arr pos value
-    ]
-]
 ast-pick: function [arr pos] [] [
     make-struct [
         node-type: "pick"
@@ -2278,13 +2219,6 @@ ast-pick: function [arr pos] [] [
         to-js: function [node context] [] [
             to-js-common rejoin [to-js node/arr "paren" "[" to-js node/pos "expression" "]"] context
         ]
-    ]
-]
-set-word pick cwords 15 make native! reduce [
-    load make string! "arr pos" true
-    none
-    function [arr pos] [] [
-        ast-pick arr pos
     ]
 ]
 ast-all: function [exprs] [] [
@@ -2315,13 +2249,6 @@ ast-all: function [exprs] [] [
         ]
     ]
 ]
-set-word pick cwords 16 make native! reduce [
-    load make string! "block" true
-    none
-    function [block] [] [
-        ast-all compile-reduce block/value
-    ]
-]
 ast-any: function [exprs] [] [
     make-struct [
         node-type: "any"
@@ -2350,13 +2277,6 @@ ast-any: function [exprs] [] [
         ]
     ]
 ]
-set-word pick cwords 17 make native! reduce [
-    load make string! "block" true
-    none
-    function [block] [] [
-        ast-any compile-reduce block/value
-    ]
-]
 ast-regexp: function [exp flags] [] [
     make-struct [
         node-type: "regexp"
@@ -2365,13 +2285,6 @@ ast-regexp: function [exp flags] [] [
         to-js: function [node context] [] [
             to-js-common rejoin ["/" to-js-string node/exp "/" to-js-string node/flags] context
         ]
-    ]
-]
-set-word pick cwords 18 make native! reduce [
-    load make string! "exp flags" true
-    none
-    function [exp flags] [] [
-        ast-regexp exp/value flags/value
     ]
 ]
 ast-switch: function [value cases def] [] [
@@ -2431,24 +2344,6 @@ ast-switch: function [value cases def] [] [
         ]
     ]
 ]
-set-word pick cwords 19 make native! reduce [
-    load make string! "value cases default" true
-    none
-    function [value cases def] [expr compiled-cases] [
-        cases: cases/value
-        def: def/value
-        compiled-cases: make-array
-        while [not empty? cases] [
-            set [expr cases] compile-step cases
-            append-array compiled-cases make-struct [
-                value: expr
-                expr: compile first cases
-            ]
-            cases: skip cases 1
-        ]
-        ast-switch value compiled-cases compile def
-    ]
-]
 compile-cases: function [cases] [] []
 compile-cases: function [cases] [cond orig-cases] [
     either empty? cases [
@@ -2466,16 +2361,6 @@ compile-cases: function [cases] [cond orig-cases] [
         ]
     ]
 ]
-set-word pick cwords 20 make native! reduce [
-    load make string! "cases" true
-    none
-    function [cases] [expr] [
-        if empty? cases/value [
-            error "Compile" "CASE needs at least one case" ""
-        ]
-        compile-cases cases/value
-    ]
-]
 ast-to-char: function [expr] [] [
     make-struct [
         node-type: "to-char"
@@ -2485,13 +2370,6 @@ ast-to-char: function [expr] [] [
                 "String.fromCharCode(" to-js node/expr "expression" ")"
             ] context
         ]
-    ]
-]
-set-word pick cwords 21 make native! reduce [
-    load make string! "number" true
-    none
-    function [number] [] [
-        ast-to-char number
     ]
 ]
 try-to-js: function [code name def context] [] [
@@ -2527,13 +2405,6 @@ ast-try: function [code word def] [] [
         ]
     ]
 ]
-set-word pick cwords 22 make native! reduce [
-    load make string! "code word default" true
-    none
-    function [code word def] [] [
-        ast-try compile code/value word/value compile def/value
-    ]
-]
 ast-op: function [op val1 val2] [] [
     make-struct [
         node-type: "op/" + op
@@ -2559,66 +2430,94 @@ ast-op: function [op val1 val2] [] [
         ]
     ]
 ]
-set-word pick cwords 23 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "+" val1 val2
+native-compilers: make-struct [
+    foreach: function [word series body] [] []
+    insert: function [series value] [] []
+    head: function [series] [] []
+    pick: function [series pos] [] []
+    length-of: function [series] [] []
+    skip: function [series amount] [] []
+    mold: function [value] [] []
+    do: function [block] [] []
+    get: function [word] [] []
+    bind: function [words context] [] []
+    tail: function [series] [] []
+    print: function [value] [] []
+    prin: function [value] [] []
+    load: function [string] [] []
+    read: function [filename] [] []
+    add: function [val1 val2] [] [ast-op "+" val1 val2]
+    subtract: function [val1 val2] [] [ast-op "-" val1 val2]
+    equal?: function [val1 val2] [] [ast-op "==" val1 val2]
+    greater?: function [val1 val2] [] [ast-op ">" val1 val2]
+    lesser?: function [val1 val2] [] [ast-op "<" val1 val2]
+    not-equal?: function [val1 val2] [] [ast-op "!=" val1 val2]
+    greater-or-equal?: function [val1 val2] [] [ast-op ">=" val1 val2]
+    lesser-or-equal?: function [val1 val2] [] [ast-op "<=" val1 val2]
+    compile: function [block] [] []
+    write: function [filename text] [] []
+    function: function [spec locals body] [] [
+        ast-function-definition spec/value locals/value compile body/value
     ]
-]
-set-word pick cwords 24 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "==" val1 val2
+    none: function [] [] [ast-value make none! none]
+    true: function [] [] [ast-value make logic! true]
+    false: function [] [] [ast-value make logic! false]
+    throw: function [value] [] [ast-throw value]
+    set: function [word expr] [] [ast-set word/value expr]
+    if: function [condition body] [] [
+        ast-either condition compile body/value none
     ]
-]
-set-word pick cwords 25 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "-" val1 val2
+    either: function [condition true-body false-body] [] [
+        ast-either condition compile true-body/value compile false-body/value
     ]
-]
-set-word pick cwords 26 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op ">" val1 val2
+    not: function [value] [] [ast-not value]
+    make-struct: function [spec] [] [ast-struct parse-struct-spec spec]
+    apply: function [func-name args] [] [
+        ast-function-call func-name/value compile-reduce args/value
     ]
-]
-set-word pick cwords 27 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "<" val1 val2
+    reduce: function [block] [] [ast-reduce compile-reduce block/value]
+    while: function [condblock body] [condition] [
+        condblock: condblock/value
+        if empty? condblock [
+            error "Compile" "WHILE's condition block cannot be empty" ""
+        ]
+        set [condition condblock] compile-step condblock
+        if not empty? condblock [
+            error "Compile" "WHILE's condition block can only have one expression" mold-value head condblock ""
+        ]
+        ast-while condition compile body/value
     ]
-]
-set-word pick cwords 28 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "!=" val1 val2
+    make-array: function [] [] [ast-reduce make-array]
+    poke-array: function [arr pos value] [] [ast-poke arr pos value]
+    pick-array: function [arr pos] [] [ast-pick arr pos]
+    all: function [block] [] [ast-all compile-reduce block/value]
+    any: function [block] [] [ast-any compile-reduce block/value]
+    regexp: function [exp flags] [] [ast-regexp exp/value flags/value]
+    switch: function [value cases def] [expr compiled-cases] [
+        cases: cases/value
+        def: def/value
+        compiled-cases: make-array
+        while [not empty? cases] [
+            set [expr cases] compile-step cases
+            append-array compiled-cases make-struct [
+                value: expr
+                expr: compile first cases
+            ]
+            cases: skip cases 1
+        ]
+        ast-switch value compiled-cases compile def
     ]
-]
-set-word pick cwords 29 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op ">=" val1 val2
+    case: function [cases] [expr] [
+        if empty? cases/value [
+            error "Compile" "CASE needs at least one case" ""
+        ]
+        compile-cases cases/value
     ]
-]
-set-word pick cwords 30 make op! make native! reduce [
-    load make string! "val1 val2" true
-    none
-    function [val1 val2] [] [
-        ast-op "<=" val1 val2
+    to-char: function [number] [] [ast-to-char number]
+    try: function [code word def] [] [
+        ast-try compile code/value word/value compile def/value
     ]
-]
-set-word pick cwords 31 make native! reduce [
-    load make string! "block" true
-    none
-    function [block] [expr res] [
+    rejoin: function [block] [expr res] [
         block: block/value
         either empty? block [
             ast-value make string! ""

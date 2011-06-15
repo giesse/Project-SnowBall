@@ -1,7 +1,7 @@
 ; Topaz Interpreter Initialization
 
-make: import-js-value 'make
-native!: import-js-value 'native!
+make: conjure 'make
+native!: conjure 'native!
 
 foreach: make native! [[words series body] foreach]
 set: make native! [[word value] set]
@@ -33,14 +33,25 @@ foreach [native spec] [
     lesser-or-equal?  [val1 val2]
     compile           [block]
     write             [filename text]
+    throw             [string]
+    if                [condition body]
+    either            [condition true-body false-body]
+    not               [value]
+    apply             [func args]
+    while             [condblock body]
+    all               [block]
+    any               [block]
+    switch            [value cases default]
+    case              [cases]
 ] [
     set native make native! reduce [spec native]
 ]
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
+    none! logic!
 ] [
-    set word import-js-value word
+    set word conjure word
 ]
 
 foreach [op f] [
@@ -56,6 +67,10 @@ foreach [op f] [
     set op make op! get f
 ]
 
+none: make none! 0
+true: on: yes: 0 = 0
+false: off: no: 0 = 1
+
 func: make function! [[spec body] [make function! reduce [spec body]]]
 
 first: func [series] [pick series 0]
@@ -65,3 +80,38 @@ probe: func [value] [
     get 'value
 ]
 append: func [series value] [head insert tail series value]
+
+; Compiler initialization
+
+compiler-context: [
+    throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
+    function none true false make-struct make-array poke-array pick-array regexp to-char rejoin 
+]
+
+; this is only used because it will bind the words as a side effect
+compile compiler-context
+
+compiler-context: first compiler-context
+
+foreach 'word [
+    throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
+] [
+    value: get word
+    set bind word compiler-context get 'value
+]
+
+foreach [word spec] [
+    function    [spec locals body]
+    none        []
+    true        []
+    false       []
+    make-struct [spec]
+    make-array  []
+    poke-array  [array position value]
+    pick-array  [array position]
+    regexp      [exp flags]
+    to-char     [number]
+    rejoin      [block]
+] [
+    set bind word compiler-context make native! reduce [spec word]
+]
