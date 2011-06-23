@@ -1,0 +1,197 @@
+Topaz: The T-- dialect
+
+    Author: "Gabriele Santilli"
+
+===Introduction
+
+The T-- dialect is the language used for the implementation of the lower
+level layers of Topaz (for example, datatype actions). For this reason,
+it is a rather low level, statically typed language.
+
+===Action definitions
+
+The list of standard actions defined for Topaz values is in the file
+topaz/actions.topaz. The file contain, for each action, the action name
+followed by the arguments specification block. The latter has the usual
+syntax, with the exception that the first argument has no explicit type
+checking (if provided, it is ignored). (Type of values that don't define
+a specific action, will just cause an error if that action is invoked.)
+
+---Internal actions
+
+topaz/internal-actions.topaz defines additional actions that are used
+internally by Topaz but are not exposed to users.
+
+===Value properties
+
+Each type of value defines a list of properties that are internally available
+for those values. These properties have "lower level" types which are only
+available within T--.
+
+The property types available within T-- are:
+
+    int! (64 bit integer value)
+    i32! (32 bit integer value)
+    i16! (16 bit integer value)
+    flt! (IEEE floating point value)
+    chr! (single Unicode character)
+    bit! (true or false)
+    byt! (unsigned 8 bit integer value)
+
+There are also composite types:
+
+    val! (Topaz value - has a type and properties depending on the type)
+    array of x (a sequence of values of type x)
+    map from x to y (a data structure that maps values of type x into values of type y)
+
+str! is an alias for "array of chr!", while bin! is an alias for "array of byt!".
+Please note that composite types are mutable.
+
+For example, the block! type defines its properties as:
+
+    properties: [
+        values: array of val!
+        pos:    int!
+    ]
+
+===Value makers
+
+Types have a "maker" function that is responsible for constructing a value
+(ie. appropriately initializing its properties). MAKE only takes two
+arguments (type and "specification"), while makers may take any number
+of arguments; thus the rule for matching the specification to the maker
+arguments are as follows:
+
+*If the maker takes no arguments, then the specification is simply ignored.
+
+*If the maker takes exactly one argument, the specification is passed as is.
+
+*If the maker takes more than one argument, the specification must be a block,
+and its values are passed to the maker in order.
+
+Makers return a block containing pairs of set-words and expressions; these
+are used to initialize the properties of the new value being constructed.
+
+===Standard actions
+
+The actions block in the type definition lists all the action functions
+for values of that type. The spec of each function has to match with how
+the action has been defined in the action definitions (topaz/actions.topaz),
+with the following accepted differences:
+
+*The mandatory arguments may be renamed for the sake of readability (provided
+there are no name clashes with the options of course).
+
+*Optional arguments don't need to be specified as options (it really makes no
+sense to).
+
+*Except for the first argument (whose type is obviously going to be the one
+being defined, or one based on it if the action hasn't been overridden), all
+other arguments may specify a T-- type instead of the original type in the
+action definition, provided there is a conversion defined from the type(s)
+in the action definition to the one used in the actual function.
+
+Remember that, since T-- is statically typed, you cannot specify multiple
+types for an argument. If the action definition accepts multiple types,
+you can either use val! and then use switch-type to act based on the type
+(or, simply use actions on that value so that there is a dynamic dispatch),
+or use a type for which there is a conversion for all the provided types.
+
+It is also possible for the type-specific action to be more restrictive
+in the types than the action definition, in which case an error is caused
+if an unsupported type is passed; it is however preferable to act in a way
+that makes sense rather than causing an error. (The stress being on "that makes
+sense" - don't surprise users, don't do things that may cause subtle bugs, etc.)
+
+===T-- "native" functions
+
+These are the functions which are predefined in T--:
+
+    to: [
+        "Convert a value to a different type"
+        type "A T-- type name (can't be a composite)"
+        value "A T-- value or a val!"
+
+        ; if value is a val!, the conversion function defined for its type
+        ; are used
+    ]
+    make: [
+        "Create a new val! value"
+        type "A Topaz type name, or a val!"
+        spec
+
+        ; if type is a Topaz type name, the respective maker is invoked and passed
+        ; the arguments in the spec.
+        ; if it is a val!, it is cloned, and the clone is changed according to the
+        ; spec
+    ]
+    switch-type: [
+        "Evaluate code depending on value's Topaz type"
+        value
+        cases "Literal block of cases"
+    ]
+    length-of: [
+        "Return length of array"
+        array "T-- array"
+    ]
+    reduce: [
+        "Create a T-- array"
+        expressions "Literal block of T-- expressions"
+
+        ; all expressions need to have the same type
+    ]
+    switch-symbol: [
+        "Evaluate code depending on Topaz symbol ID"
+        symbol-id
+        cases "Literal block of cases"
+        default "Literal block with default action"
+    ]
+    either: [
+        "Evaluate code based on condition"
+        condition
+        true-block "Literal block with true action"
+        false-block "Literal block with false action"
+    ]
+    if: [
+        "Evaluate code if condition is true"
+        condition
+        code "Literal block with code"
+    ]
+    ; (maybe min and max should not be "natives")
+    min: [
+        "Return minimum of two values"
+        val1
+        val2
+
+        ; values must be of same type, there are no implicit conversions
+        ; no composites
+    ]
+    max: [
+        "Return maximum of two values"
+        val1
+        val2
+        
+        ; see notes above
+    ]
+    shift-array: [
+        "Move values to the right in an array in order to make space"
+        array
+        starting-position "Move the value at this position and the ones which follow"
+        amount "Amount to move by"
+
+        ; eg. shift-array [1 2 3 4] 2 1 -> [1 2 _ 3 4]
+    ]
+    for: [
+        "Generic loop function"
+        init "Literal block of initialization"
+        condition "Loop as long as this condition is true (literal block)"
+        increment "Literal block with code to do after each iteration"
+        code "Literal block of code"
+    ]
+    join-array: [
+        "Join the values of an array into a string"
+        array
+        separator "String to put between each value"
+        name "Name of each value in the code block"
+        code "Literal block of code to convert each value to a string"
+    ]

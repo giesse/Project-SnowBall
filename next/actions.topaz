@@ -1,0 +1,50 @@
+Topaz [
+    Title: "Definition of standard Topaz value actions"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+]
+
+reflect: [
+    "Return a value's internal property"
+    value
+    field [word!] "Eg. a series' INDEX or LENGTH, a function's SPEC etc."
+
+    return: field-value [any-type!]
+]
+insert: [
+    "Insert a value at the current position of the series"
+    series
+    value [any-type!]
+    options:
+        only [logic!] "Insert series as a single value"
+
+    return: series "Series just after the inserted value"
+]
+skip: [
+    "Return the series at a new position"
+    series
+    amount [integer!] "Skip the specified number of values"
+
+    return: series
+]
+mold: [
+    "Return a LOAD-able text representation of a value"
+    value
+    options:
+        only [logic!] "Don't generate outer [ ] for block! values"
+        flat [logic!] "Produce a single text line"
+        limit: none [integer! none!] "Don't return a string longer than LIMIT characters"
+        indent: "" [string!] "Add this string after each new line (ignored if flat)"
+
+    return: text [string!]
+]
+bind: [
+    "Bind words to a specified context"
+    words
+    context [context!]
+    options:
+        copy [logic!] "Bind a (deep) copy of WORDS"
+        new [logic!] "Add all words to CONTEXT"
+
+    return: words
+]

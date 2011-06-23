@@ -1,0 +1,27 @@
+Topaz [
+    Title: "Definition of DATATYPE! values"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+    Type: Datatype
+]
+
+; please note that datatype! is treated specially by the compiler.
+
+name: 'datatype!
+based-on: 'value!
+properties: [
+    name: i32! ; symbol id of the datatype name
+]
+actions: [
+    mold: func [
+        type
+        only [bit!]
+        flat [bit!]
+        limit [val!]
+        indent [val!]
+
+        return: text [str!]
+    ] [
+        limit-string symbol-to-str type/name 0 limit
+    ]
+]

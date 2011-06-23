@@ -1,0 +1,127 @@
+Topaz [
+    Title: "Definition of BLOCK! values"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+    Type: Datatype
+]
+
+name: 'block!
+based-on: 'value!
+properties: [
+    values: array of val!
+    pos:    int!
+]
+maker: func [] [
+    [
+        values: reduce []
+        pos:    0
+    ]
+]
+actions: [
+    reflect: func [
+        block
+        field [word!]
+
+        return: value [val!]
+    ] [
+        normalize block
+        switch-symbol to i32! field [
+            index [
+                make integer! block/pos
+            ]
+            length [
+                make integer! (length-of block/values) - block/pos
+            ]
+        ] [
+            cause-error 'script 'invalid-field field
+        ]
+    ]
+    insert: func [
+        block
+        value [val!]
+        only [bit!]
+
+        return: block
+    ] [
+        normalize block
+        switch-type value [
+            any-block! [
+                either only [
+                    len: 1
+                    insert-one block value
+                ] [
+                    normalize value
+                    len: (length-of value/values) - value/pos
+                    insert-many block value/values value/pos len
+                ]
+            ]
+            any-type! [
+                len: 1
+                insert-one block value
+            ]
+        ]
+        make block [
+            pos: pos + len
+        ]
+    ]
+    skip: func [
+        block
+        amount [int!]
+
+        return: block
+    ] [
+        make block [
+            pos: max 0 min length-of block/values pos + amount
+        ]
+    ]
+    mold: func [
+        block
+        only [bit!]
+        flat [bit!]
+        limit [val!]
+        indent [str!]
+
+        return: text [str!]
+    ] [
+    ]
+    bind: func [
+        block
+        context [val!]
+        copy [bit!]
+        new [bit!]
+
+        return: block
+    ] [
+    ]
+]
+support: [
+    normalize: func [
+        "Ensure that block/pos is not past the end of the block/values array"
+        block [any-block!]
+    ] [
+        if block/pos > length-of block/values [
+            block/pos: length-of block/values
+        ]
+    ]
+    insert-one: func [
+        "Insert one value into a block"
+        block [any-block!]
+        value [val!]
+    ] [
+        shift-array block/values block/pos 1
+        block/values/(block/pos): value
+    ]
+    insert-many: func [
+        "Insert many values into a block"
+        block [any-block!]
+        values [array of val!]
+        from [int!]
+        len [int!]
+    ] [
+        shift-array block/values block/pos len
+        max-i: block/pos + len
+        for [i: block/pos j: from] [i < max-i] [inc [i j]] [
+            block/values/(i): values/(j)
+        ]
+    ]
+]

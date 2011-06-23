@@ -1,0 +1,51 @@
+Topaz [
+    Title: "Definition of the global symbols table"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+]
+
+symbols: [
+    by-id: array of (array of str!)
+    by-word: map from str! to i32!
+    by-spelling: map from str! to i16!
+]
+support: [
+    str-to-symbol: func [
+        "Lookup a word into the symbol table (add if not present)"
+        word [str!]
+
+        return:
+            symbol-id [i32!] "Symbol ID (case insensitive)"
+            spelling-id [i16!] "Spelling ID (case sensitive)"
+    ] [
+        ; cheating: JS lowercase function
+        either symbol-id: symbols/by-word/(lowercase word) [
+            either spelling-id: symbols/by-spelling/(word) [
+                ; already in the symbols table
+                return symbol-id spelling-id
+            ] [
+                ; new spelling of an existing symbol
+                spellings: symbols/by-id/(symbol-id)
+                spelling-id: length-of spellings
+                spellings/(spelling-id): word
+                symbols/by-spelling/(word): spelling-id
+                return symbol-id spelling-id
+            ]
+        ] [
+            symbol-id: length-of symbols/by-id
+            symbols/by-id/(symbol-id): reduce [word]
+            symbols/by-word/(lowercase word): symbol-id
+            symbols/by-spelling/(word): 0
+            return symbol-id 0
+        ]
+    ]
+    symbol-to-str: func [
+        "Lookup a symbol into the symbol table"
+        symbol-id [i32!]
+        spelling-id [i16!]
+
+        return: word [str!]
+    ] [
+        symbols/by-id/(symbol-id)/(spelling-id)
+    ]
+]

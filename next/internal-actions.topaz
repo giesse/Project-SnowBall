@@ -1,0 +1,35 @@
+Topaz [
+    Title: "Definition of internal Topaz value actions"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+]
+
+do: [
+    value
+    block [block!]
+
+    return:
+        result [any-type!]
+        block [block!]
+]
+get-path: [
+    value
+    selector [any-type!]
+
+    return: result [any-type!]
+]
+set-path: [
+    value
+    selector [any-type!]
+    set-to [any-type!]
+
+    return: set-to
+]
+;compile: [
+;    value
+;    block [block!]
+;
+;    return:
+;        ast-node [object!]
+;        block [block!]
+;]

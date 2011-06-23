@@ -1,0 +1,75 @@
+Topaz [
+    Title: "Basic definitions for all Topaz values"
+    Author: "Gabriele Santilli"
+    Version: ;1.0.0
+    Type: Datatype/Internal
+]
+
+name: 'value!
+properties: [
+    new-line?: bit!
+]
+natives: [
+    set-new-line: func [
+        "Set new line flag"
+        value [any-type!]
+        flag [logic!]
+
+        return: flag [logic!] "Same value passed as argument"
+    ] [
+        value/new-line?: to bit! flag
+        flag
+    ]
+    get-new-line: func [
+        "Get new line flag"
+        value [any-type!]
+
+        return: flag [logic!]
+    ] [
+        make logic! value/new-line?
+    ]
+]
+actions: [
+    bind: func [
+        value
+        context [val!]
+        copy [bit!]
+        new [bit!]
+
+        return: value
+    ] [
+        ; BIND only does something on words, or things that may contain words (eg blocks)
+        value
+    ]
+    do: func [
+        value
+        block [val!]
+
+        return:
+            result [val!]
+            block [val!]
+    ] [
+        return value skip block 1
+    ]
+]
+support: [
+    limit-string: func [
+        string [str!]
+        limit [val!]
+
+        return: string [str!]
+    ] [
+        switch-type limit [
+            integer! [
+                len: to int! limit
+                string: copy-array string 0 len
+                if len > 3 [
+                    string/(len - 1): #"."
+                    string/(len - 2): #"."
+                    string/(len - 3): #"."
+                ]
+            ]
+        ]
+        string
+    ]
+]
