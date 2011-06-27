@@ -8,8 +8,9 @@ Topaz [
 name: 'block!
 based-on: 'value!
 properties: [
-    values: array of val!
-    pos:    int!
+    values:        array of val!
+    pos:           int!
+    tail-newline?: bit!
 ]
 maker: func [] [
     [
@@ -83,6 +84,21 @@ actions: [
 
         return: text [str!]
     ] [
+        ; note: we're going to limit MOLD to 2GB
+        switch-type limit [
+            integer! [lim: to int! limit]
+            none! [lim: 2147483648]
+        ]
+        mold-values
+            either only [""] ["["] ; open
+            either only [""] [either block/tail-newline? [rejoin ["^/" indent "]"]] ["]"]] ; close
+            " " ; sep
+            flat ; flat
+            either flat [" "] ["^/"] ; newline
+            either flat [""] [rejoin [indent "    "]] ; indent
+            lim ; limit
+            block/values ; values
+            block/pos ; pos
     ]
     bind: func [
         block
@@ -91,6 +107,21 @@ actions: [
         new [bit!]
 
         return: block
+    ] [
+    ]
+    get-path: func [
+        block
+        selector [val!]
+
+        return: result [val!]
+    ] [
+    ]
+    set-path: func [
+        block
+        selector [val!]
+        set-to [val!]
+
+        return: set-to
     ] [
     ]
 ]
@@ -122,6 +153,54 @@ support: [
         max-i: block/pos + len
         for [i: block/pos j: from] [i < max-i] [inc [i j]] [
             block/values/(i): values/(j)
+        ]
+    ]
+    mold-values: func [
+        "Mold an array of values"
+        open [str!]
+        close [str!]
+        sep [str!]
+        flat [bit!]
+        nlsep [str!]
+        indent [str!]
+        limit [int!]
+        values [array of val!]
+        pos [int!]
+
+        return: result [str!]
+    ] [
+        result: open
+        if pos < length-of values [
+            value: mold values/(pos) false flat limit indent
+            limit: limit - length-of value
+            result: rejoin [
+                result
+                either values/(pos)/new-line? [nlsep] [""]
+                value
+            ]
+            pos: pos + 1
+            while [all [limit > 0 pos < length-of values]] [
+                value: mold values/(pos) false flat limit indent
+                limit: limit - length-of value
+                result: rejoin [
+                    result
+                    either values/(pos)/new-line? [nlsep] [sep]
+                    value
+                ]
+                pos: pos + 1
+            ]
+        ]
+        either limit >= length-of close [
+            rejoin [result close]
+        ] [
+            result: rejoin [result copy-array close 0 limit]
+            len: length-of result
+            if len > 3 [
+                result/(len - 1): #"."
+                result/(len - 2): #"."
+                result/(len - 3): #"."
+            ]
+            result
         ]
     ]
 ]

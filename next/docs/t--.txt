@@ -181,6 +181,12 @@ These are the functions which are predefined in T--:
 
         ; eg. shift-array [1 2 3 4] 2 1 -> [1 2 _ 3 4]
     ]
+    copy-array: [
+        "Create a new array out of the values from an existing array"
+        array
+        starting-position "Copy values from this position"
+        length "Copy this number of values"
+    ]
     for: [
         "Generic loop function"
         init "Literal block of initialization"
@@ -188,10 +194,7 @@ These are the functions which are predefined in T--:
         increment "Literal block with code to do after each iteration"
         code "Literal block of code"
     ]
-    join-array: [
-        "Join the values of an array into a string"
-        array
-        separator "String to put between each value"
-        name "Name of each value in the code block"
-        code "Literal block of code to convert each value to a string"
+    rejoin: [
+        "Join a list of strings"
+        strings "Literal block that REDUCEs to strings"
     ]
