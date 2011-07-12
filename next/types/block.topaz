@@ -18,25 +18,11 @@ maker: func [] [
         pos:    0
     ]
 ]
+reflectors: [
+    index: [normalize value  make integer! value/pos]
+    length: [normalize value  make integer! (length-of value/values) - value/pos]
+]
 actions: [
-    reflect: func [
-        block
-        field [word!]
-
-        return: value [val!]
-    ] [
-        normalize block
-        switch-symbol to i32! field [
-            index [
-                make integer! block/pos
-            ]
-            length [
-                make integer! (length-of block/values) - block/pos
-            ]
-        ] [
-            cause-error 'script 'invalid-field field
-        ]
-    ]
     insert: func [
         block
         value [val!]
@@ -115,6 +101,20 @@ actions: [
 
         return: result [val!]
     ] [
+        switch-type selector [
+            integer! [
+                normalize block
+                pos: block/pos + to int! selector
+                either any [pos < 0 pos >= length-of block/values] [
+                    make none! none
+                ] [
+                    block/values/(pos)
+                ]
+            ]
+            any-type! [
+                cause-error 'script 'invalid-path selector
+            ]
+        ]
     ]
     set-path: func [
         block
@@ -123,6 +123,21 @@ actions: [
 
         return: set-to
     ] [
+        switch-type selector [
+            integer! [
+                normalize block
+                pos: block/pos + to int! selector
+                either any [pos < 0 pos >= length-of block/values] [
+                    cause-error 'script 'out-of-range selector
+                ] [
+                    block/values/(pos): set-to
+                ]
+            ]
+            any-type! [
+                cause-error 'script 'invalid-path selector
+            ]
+        ]
+        set-to
     ]
 ]
 support: [
