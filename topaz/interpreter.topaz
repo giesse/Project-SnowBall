@@ -1659,8 +1659,20 @@ do: function [block] [result] [
     result
 ]
 
-read: function [filename] [] [
-    make string! apply 'fs/read-file-sync [filename "utf8"]
+read: function [filename] [stat dir-contents i result] [
+    stat: apply 'fs/stat-sync [filename]
+    either apply 'stat/directory? [] [
+        dir-contents: apply 'fs/readdir-sync [filename]
+        result: make block! none
+        i: 0
+        while [i < length-of-array dir-contents] [
+            result: insert result make string! pick-array dir-contents i
+            i: i + 1
+        ]
+        head result
+    ] [
+        make string! apply 'fs/read-file-sync [filename "utf8"]
+    ]
 ]
 
 write: function [filename text] [] [
