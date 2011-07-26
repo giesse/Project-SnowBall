@@ -43,13 +43,14 @@ foreach [native spec] [
     any               [block]
     switch            [value cases default]
     case              [cases]
+    context-of        [word]
 ] [
     set native make native! reduce [spec native]
 ]
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic!
+    none! logic! context!
 ] [
     set word conjure word
 ]
@@ -67,6 +68,17 @@ foreach [op f] [
     set op make op! get f
 ]
 
+system: make context! [
+    name: "Topaz"
+    version: "alpha"
+    words: conjure 'system-words
+    compiler-words: conjure 'compile-words
+    datatypes: reduce [
+        datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
+        none! logic! context! native!
+    ]
+]
+
 none: make none! 0
 true: on: yes: 0 = 0
 false: off: no: 0 = 1
@@ -80,24 +92,21 @@ probe: func [value] [
     get 'value
 ]
 append: func [series value] [head insert tail series value]
+context: func [code] [make context! code]
 
 ; Compiler initialization
 
-compiler-context: [
+; this is only used because it will bind the words as a side effect
+compile [
     throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
     function none true false make-struct make-array poke-array pick-array regexp to-char rejoin 
 ]
-
-; this is only used because it will bind the words as a side effect
-compile compiler-context
-
-compiler-context: first compiler-context
 
 foreach 'word [
     throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
 ] [
     value: get word
-    set bind word compiler-context get 'value
+    set bind word system/compiler-words get 'value
 ]
 
 foreach [word spec] [
@@ -113,5 +122,5 @@ foreach [word spec] [
     to-char     [number]
     rejoin      [block]
 ] [
-    set bind word compiler-context make native! reduce [spec word]
+    set bind word system/compiler-words make native! reduce [spec word]
 ]

@@ -94,3 +94,13 @@ run-test [any [false true]]
 run-test [any [none "Default"]]
 run-test [case [1 < 0 [print "Wrong"] 1 > 0 [print "Correct"]]]
 run-test [read "next/types"]
+run-test [context [a: 1 b: 2]]
+run-test [
+    a: 1 b: 2
+    code: [a + b]
+    probe do code
+    ctx: context [a: 3 b: 4]
+    bind code ctx
+    probe do code
+    context-of first code
+]

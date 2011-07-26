@@ -1,3 +1,49 @@
 ; Compile topaz/interpreter.topaz to topaz/interpreter.js
 
-write "topaz/interpreter.js" compile load read "topaz/interpreter.topaz"
+interpreter: load read "topaz/interpreter.topaz"
+
+app: func [code] [
+    foreach 'value code [
+        insert tail interpreter value
+    ]
+]
+
+app [
+    sys: apply 'require ["sys"]
+    fs: apply 'require ["fs"]
+]
+app reduce [
+    'do 'load 'make 'string! read "topaz/init.topaz" 'true
+]
+app [
+    either 2 < length-of-array process/argv [
+        try [
+            do load read pick-array process/argv 2 true
+        ] 'e [
+            print e + "^/"
+        ]
+    ] [
+        print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License^/"
+        stdin: apply 'process/open-stdin []
+        apply 'stdin/set-encoding ["utf8"]
+        apply 'stdin/add-listener [
+            "data"
+            function [chunk] [res] [
+                either chunk = "quit^/" [
+                    apply 'stdin/destroy []
+                ] [
+                    try [
+                        chunk: do load make string! chunk true
+                        print "== " probe chunk
+                        print ">> "
+                    ] 'e [
+                        print e + "^/>> "
+                    ]
+                ]
+            ]
+        ]
+        print ">> "
+    ]
+]
+
+write "topaz/interpreter.js" compile interpreter

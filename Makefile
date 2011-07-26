@@ -9,7 +9,7 @@ tests: all
 repl: all
 	${NODEINT} topaz/interpreter.js
 
-topaz/interpreter.js: topaz/bootstrap.js topaz/interpreter.topaz
+topaz/interpreter.js: topaz/bootstrap.js topaz/interpreter.topaz topaz/init.topaz
 	${NODE} topaz/bootstrap.js topaz/compile.topaz
 
 topaz/bootstrap.js:
