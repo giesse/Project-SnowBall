@@ -44,6 +44,7 @@ foreach [native spec] [
     switch            [value cases default]
     case              [cases]
     context-of        [word]
+    rejoin            [block]
 ] [
     set native make native! reduce [spec native]
 ]

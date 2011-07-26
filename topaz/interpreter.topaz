@@ -1997,6 +1997,19 @@ natives: make-struct [
         ]
     ]
     context-of: function [word] [] [word/context]
+    rejoin: function [block] [result value] [
+        result: ""
+        while [not empty? block] [
+            set [value block] do-step first block block
+            value: either value/type/name = "string!" [
+                value/string
+            ] [
+                mold-value value ""
+            ]
+            result: rejoin [result value]
+        ]
+        make string! result
+    ]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []
@@ -2008,7 +2021,6 @@ natives: make-struct [
     pick-array: function [arr pos] [] []
     regexp: function [exp flags] [] []
     to-char: function [number] [] []
-    rejoin: function [block] [] []
 ]
 
 set-word load make string! "conjure" false make native! reduce [
