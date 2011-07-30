@@ -13,9 +13,17 @@ app [
     fs: apply 'require ["fs"]
 ]
 app reduce [
-    'do 'load 'make 'string! read "topaz/init.topaz" 'true
+    make set-word! "init-code" read "topaz/init.topaz"
 ]
 app [
+    try [
+        do load make string! init-code true
+    ] 'e [
+        print "FATAL: error during initialization^/"
+        print e + "^/"
+        apply 'process/exit [1]
+    ]
+
     either 2 < length-of-array process/argv [
         try [
             do load read pick-array process/argv 2 true
