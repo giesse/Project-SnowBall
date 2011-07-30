@@ -1891,7 +1891,7 @@ natives: make-struct [
     pick: function [series pos] [] [pick series pos/number]
     length-of: function [series] [] [make number! length-of series]
     skip: function [series amount] [] [skip series amount/number]
-    mold: function [value] [] [mold value]
+    mold: function [value indent] [] [make string! mold-value value indent/string]
     do: function [block] [] [do block]
     get: function [word] [value] [
         value: get word
@@ -2505,7 +2505,7 @@ native-compilers: make-struct [
     pick: function [series pos] [] []
     length-of: function [series] [] []
     skip: function [series amount] [] []
-    mold: function [value] [] []
+    mold: function [value indent] [] []
     do: function [block] [] []
     get: function [word] [] []
     bind: function [words context] [] []

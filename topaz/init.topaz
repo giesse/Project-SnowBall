@@ -13,7 +13,7 @@ foreach [native spec] [
     pick              [series pos]
     length-of         [series]
     skip              [series amount]
-    mold              [value]
+    mold              [value indent]
     do                [block]
     get               [word]
     bind              [words context]
@@ -88,6 +88,8 @@ func: make function! [[spec body] [make function! reduce [spec body]]]
 
 first: func [series] [pick series 0]
 empty?: func [series] [0 = length-of series]
+mold*: get 'mold
+mold: func [value] [mold* get 'value ""]
 probe: func [value] [
     print mold get 'value
     get 'value

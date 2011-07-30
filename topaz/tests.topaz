@@ -1,13 +1,14 @@
 ; Topaz Interpreter Basic Tests
 
 run-test: func [test] [
-    prin ">> " probe test
+    prin ">> " print mold* test ">> "
     try [
         test: do test
-        prin "== " probe get 'test
+        prin "== " print mold* get 'test "== "
     ] 'error [
         print error
     ]
+    print ""
 ]
 
 ; Prove it's able to load and mold itself without erroring out
