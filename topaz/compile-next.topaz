@@ -1,0 +1,23 @@
+; Compile the new Topaz code in ../next/
+
+custom: context [
+    func: none
+]
+
+output: [
+]
+
+actions: load read "next/actions.topaz"
+internal-actions: load read "next/internal-actions.topaz"
+
+types-dir: "next/types/"
+
+types: []
+
+foreach 'file read types-dir [
+    file: context bind skip load read rejoin [types-dir file] 2 custom
+    append types make set-word! mold file/name
+    append types file
+]
+
+probe context types
