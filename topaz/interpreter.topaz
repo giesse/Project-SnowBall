@@ -962,13 +962,22 @@ context!/topaz-make: function [code] [ctx] [
     do bind code ctx false
     ctx
 ]
+new-line: function [block newline?] [] [
+    poke-array block/newlines block/pos newline?
+]
+insert-nl: function [block value newline?] [] [
+    block: insert block value
+    poke-array block/newlines block/pos - 1 newline?
+    block
+]
 context!/mold: function [context indent] [block i] [
     block: make block! none
     i: 0
     while [i < length-of-array context/words] [
-        block: insert insert block make set-word! pick-array context/words i pick-array context/values i
+        block: insert insert-nl block make set-word! pick-array context/words i true pick-array context/values i
         i: i + 1
     ]
+    new-line block true
     rejoin ["context " mold-value head block indent]
 ]
 context!/do: function [context block] [] [
@@ -1408,15 +1417,6 @@ do-op: function [op arg1 arg2] [result] [
 
 to-js-string: function [string] [] [
     apply 'string/string/substr [string/pos]
-]
-
-new-line: function [block newline?] [] [
-    poke-array block/newlines block/pos newline?
-]
-insert-nl: function [block value newline?] [] [
-    block: insert block value
-    poke-array block/newlines block/pos - 1 newline?
-    block
 ]
 
 exec-re: function [str re] [] [

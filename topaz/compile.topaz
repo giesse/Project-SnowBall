@@ -34,8 +34,8 @@ app [
                 ] [
                     try [
                         chunk: do load make string! chunk true
-                        print "== " probe chunk
-                        print ">> "
+                        print "== " print mold-value chunk "== "
+                        print "^/>> "
                     ] 'e [
                         print e + "^/>> "
                     ]
