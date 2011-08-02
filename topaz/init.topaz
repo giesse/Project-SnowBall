@@ -45,6 +45,14 @@ foreach [native spec] [
     case              [cases]
     context-of        [word]
     rejoin            [block]
+    ; compiler only
+    function          [spec locals body]
+    make-struct       [spec]
+    make-array        []
+    poke-array        [array position value]
+    pick-array        [array position]
+    regexp            [exp flags]
+    to-char           [number]
 ] [
     set native make native! reduce [spec native]
 ]
@@ -73,7 +81,6 @@ system: make context! [
     name: "Topaz"
     version: "alpha"
     words: conjure 'system-words
-    compiler-words: conjure 'compile-words
     datatypes: reduce [
         datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
         none! logic! context! native!
@@ -97,33 +104,8 @@ probe: func [value] [
 append: func [series value] [head insert tail series value]
 context: func [code] [make context! code]
 
-; Compiler initialization
-
-; this is only used because it will bind the words as a side effect
-compile [
-    throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
-    function none true false make-struct make-array poke-array pick-array regexp to-char rejoin 
-]
-
-foreach 'word [
-    throw set if either not apply reduce while all any switch case try + = - > < <> >= <=
-] [
-    value: get word
-    set bind word system/compiler-words get 'value
-]
-
-foreach [word spec] [
-    function    [spec locals body]
-    none        []
-    true        []
-    false       []
-    make-struct [spec]
-    make-array  []
-    poke-array  [array position value]
-    pick-array  [array position]
-    regexp      [exp flags]
-    to-char     [number]
-    rejoin      [block]
-] [
-    set bind word system/compiler-words make native! reduce [spec word]
+compiler-keywords: context [
+    none: make native! [[] none]
+    true: make native! [[] true]
+    false: make native! [[] false]
 ]

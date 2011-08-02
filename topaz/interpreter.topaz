@@ -1097,7 +1097,7 @@ set-word!/bind: function [word context extend?] [] [
 ]
 ast-set: function [word set-to] [] [
     if set-to/node-type = "function-definition" [
-        set-word bind-word compile-words word true set-to/func
+        set-word word set-to/func
         set-to/func/name: word
     ]
     make-struct [
@@ -1676,7 +1676,6 @@ parse-values: function [values text] [value newline?] [
 ]
 
 system-words: make context! none
-compile-words: make context! none
 
 load: function [text all?] [values] [
     set [values text] parse-values make block! none text
@@ -1835,7 +1834,6 @@ values: make-struct [
     logic!: logic!
     context!: context!
     system-words: system-words
-    compile-words: compile-words
 ]
 true?: function [value] [] [
     switch value/type/name [
@@ -1932,7 +1930,7 @@ natives: make-struct [
     greater-or-equal?: function [val1 val2] [] [make logic! val1/number >= val2/number]
     lesser-or-equal?: function [val1 val2] [] [make logic! val1/number <= val2/number]
     compile: function [block] [] [
-        make string! to-js compile bind block compile-words true "statement"
+        make string! to-js compile block "statement"
     ]
     write: function [filename text] [] [
         write to-js-string filename to-js-string text

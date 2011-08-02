@@ -70,14 +70,18 @@ run-test [1 < 2]
 run-test [2 + 2 <= 4]
 run-test [compile [a: 1 + 1]]
 run-test [
-    compile [
-        print: function [text] [] [
-            apply 'sys/print [text]
-            text
+    ; makes 'print local
+    compile-test: func [] [
+        compile [
+            print: function [text] [] [
+                apply 'sys/print [text]
+                text
+            ]
+            print "one"
+            print "two"
         ]
-        print "one"
-        print "two"
     ]
+    compile-test
 ]
 run-test [write "test.txt" "This is a test"]
 run-test [read "test.txt"]
