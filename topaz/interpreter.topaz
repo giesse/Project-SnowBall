@@ -462,7 +462,7 @@ path!/do: function [path block] [value] [
         value: get-path value first path
         path: skip path 1
     ]
-    either value/type/name = "function!" [
+    either any [value/type/name = "function!" value/type/name = "native!"] [
         apply 'value/type/do [value block]
     ] [
         reduce [value skip block 1]
@@ -2008,6 +2008,7 @@ natives: make-struct [
         ]
         make string! result
     ]
+    set-word?: function [value] [] [make logic! value/type/name = "set-word!"]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []
@@ -2597,4 +2598,5 @@ native-compilers: make-struct [
         ]
     ]
     context-of: function [word] [] []
+    set-word?: function [value] [] []
 ]

@@ -45,6 +45,7 @@ foreach [native spec] [
     case              [cases]
     context-of        [word]
     rejoin            [block]
+    set-word?         [value]
     ; compiler only
     function          [spec locals body]
     make-struct       [spec]
