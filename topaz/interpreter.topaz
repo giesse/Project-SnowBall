@@ -1056,7 +1056,7 @@ word!/bind: function [word context extend?] [] [
 ]
 word!/compile: function [word block] [value] [
     value: get word
-    either all [value any [value/type/name = "function!" value/type/name = "native!"]] [
+    either all [value any [value/type/name = "function!" value/type/name = "native!" value/type/name = "expression!"]] [
         apply 'value/type/compile [value block]
     ] [
         reduce [ast-get word skip block 1]
@@ -1095,10 +1095,13 @@ set-word!/do: function [word block] [set-to] [
 set-word!/bind: function [word context extend?] [] [
     bind-word context word extend?
 ]
+load: function [text all?] [] []
 ast-set: function [word set-to] [] [
     if set-to/node-type = "function-definition" [
-        set-word word set-to/func
-        set-to/func/name: word
+        set-word word make function! reduce [
+            set-to/spec
+            load make string! rejoin ["make expression! [apply '" word/word " " mold-value set-to/spec "" "]"] true
+        ]
     ]
     make-struct [
         node-type: "set"
@@ -1230,7 +1233,6 @@ function!/make: function [arguments] [spec body context word] [
         context: context
         spec: head spec
         body: bind body context false
-        name: none
     ]
 ]
 function!/topaz-make: function [block] [] [
@@ -1303,26 +1305,25 @@ ast-function-call: function [name args] [] [
 append-array: function [arr value] [] [
     apply 'arr/push [value]
 ]
-compile-arguments: function [n block] [expr orig-block i args] [
+compile-arguments: function [args n block wrap?] [expr orig-block i] [
     orig-block: block
     i: 0
-    args: make-array
     while [i < n] [
         if empty? block [
             error "Compile" "Not enough arguments for function" mold-value skip orig-block -1 ""
         ]
         set [expr block] compile-step block
-        append-array args expr
+        poke-array args i either wrap? [make expression! expr] [expr]
         i: i + 1
     ]
-    reduce [args block]
+    block
 ]
-function!/compile: function [func block] [args] [
-    set [args block] compile-arguments length-of func/spec skip block 1
-    reduce [
-        ast-function-call func/name args
-        block
-    ]
+function!/compile: function [func block] [args expr] [
+    push-context func/context
+    block: compile-arguments func/context/values length-of func/spec skip block 1 true
+    expr: do func/body
+    pop-context func/context
+    reduce [expr/expr block]
 ]
 
 native!: make-type "native!"
@@ -1360,7 +1361,8 @@ native!/bind: function [func context extend?] [] [
     func
 ]
 native!/compile: function [func block] [args] [
-    set [args block] compile-arguments length-of func/spec skip block 1
+    args: make-array
+    block: compile-arguments args length-of func/spec skip block 1 false
     reduce [apply 'func/compile/apply [none args] block]
 ]
 
@@ -1413,6 +1415,31 @@ do-op: function [op arg1 arg2] [result] [
             apply 'op/func/func [arg1 arg2]
         ]
     ] []
+]
+
+expression!: make-type "expression!"
+expression!/make: function [arguments] [] [
+    make-struct [
+        type: expression!
+        expr: arguments
+    ]
+]
+expression!/topaz-make: function [code] [] [
+    code: compile code
+    if 1 = length-of-array code/list [code: pick-array code/list 0]
+    apply 'expression!/make [code]
+]
+expression!/mold: function [expr indent] [] [
+    rejoin ["#[expr " expr/expr/node-type "]"]
+]
+expression!/do: function [expr block] [] [
+    reduce [expr skip block 1]
+]
+expression!/bind: function [expr context extend?] [] [
+    expr
+]
+expression!/compile: function [expr block] [] [
+    reduce [expr/expr skip block 1]
 ]
 
 to-js-string: function [string] [] [
@@ -1834,6 +1861,7 @@ values: make-struct [
     logic!: logic!
     context!: context!
     system-words: system-words
+    expression!: expression!
 ]
 true?: function [value] [] [
     switch value/type/name [
@@ -2049,7 +2077,6 @@ ast-function-definition: function [spec locals body] [] [
         spec: spec
         locals: locals
         body: body
-        func: make function! reduce [spec make block! none]
         to-js: function [node context] [res] [
             res: rejoin ["function(" words-to-js node/spec "){"]
             if not empty? node/locals [
