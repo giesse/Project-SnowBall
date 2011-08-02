@@ -54,4 +54,14 @@ app [
     ]
 ]
 
+; make all set-words local, also mask some interpreter functions
+locals: [context: func:]
+foreach 'value interpreter [
+    if set-word? value [append locals value]
+]
+append locals none
+locals: context locals
+bind interpreter locals
+bind interpreter compiler-keywords
+
 write "topaz/interpreter.js" compile interpreter
