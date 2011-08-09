@@ -109,3 +109,6 @@ run-test [
     probe do code
     context-of first code
 ]
+run-test [[1 2 3] = [1 2 3]]
+run-test [[1 2 3 4] = [1 2 3]]
+run-test [[1 2 3 4] = [1 2 3 5]]

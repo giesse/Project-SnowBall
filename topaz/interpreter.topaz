@@ -56,20 +56,6 @@ make-type: function [name] [] [
     make-struct [
         type: datatype!
         name: name
-        make: none
-        insert: none
-        head: none
-        pick: none
-        length-of: none
-        skip: none
-        mold: none
-        do: none
-        get-path: none
-        set-path: none
-        bind: none
-        tail: none
-        topaz-make: none
-        compile: none
     ]
 ]
 
@@ -128,6 +114,9 @@ ast-value: function [value] [] [
 datatype!/compile: function [type block] [] [
     reduce [ast-value type skip block 1]
 ]
+datatype!/equal?: function [type value] [] [false]
+datatype!/("datatype!"): make-struct []
+datatype!/("datatype!")/equal?: function [type1 type2] [] [type1/name = type2/name]
 
 ; ===== ACTION HELPERS ========================================================
 
@@ -212,6 +201,13 @@ bind: function [words context extend?] [] [
 ]
 tail: function [series] [] [
     apply 'series/type/tail [series]
+]
+equal?: function [val1 val2] [obj] [
+    either obj: val1/type/(val2/type/name) [
+        apply 'obj/equal? [val1 val2]
+    ] [
+        apply 'val1/type/equal? [val1 val2]
+    ]
 ]
 
 probe: function [value] [] [
@@ -313,6 +309,23 @@ block!/bind: function [words context extend?] [] [
 ]
 block!/compile: function [block container] [] [
     reduce [ast-value block skip container 1]
+]
+block!/equal?: function [block value] [] [false]
+block!/("block!"): make-struct []
+block!/("block!")/equal?: function [block1 block2] [pos1 pos2 len] [
+    len: length-of block1
+    either len = length-of block2 [
+        pos1: block1/pos
+        pos2: block2/pos
+        len: len + pos1
+        while [all [pos1 < len equal? block1/values/(pos1) block2/values/(pos2)]] [
+            pos1: pos1 + 1
+            pos2: pos2 + 1
+        ]
+        pos1 = len
+    ] [
+        false
+    ]
 ]
 
 ; ===== TYPES: PAREN! =========================================================
@@ -974,6 +987,9 @@ number!/bind: function [value context extend?] [] [
 number!/compile: function [number block] [] [
     reduce [ast-value number skip block 1]
 ]
+number!/equal?: function [number value] [] [false]
+number!/("number!"): make-struct []
+number!/("number!")/equal?: function [num1 num2] [] [num1/number = num2/number]
 
 ; ===== TYPES: CONTEXT! =======================================================
 
@@ -2007,7 +2023,7 @@ natives: make-struct [
     ]
     add: function [val1 val2] [] [make number! val1/number + val2/number]
     subtract: function [val1 val2] [] [make number! val1/number - val2/number]
-    equal?: function [val1 val2] [] [make logic! val1/number = val2/number]
+    equal?: function [val1 val2] [] [make logic! equal? val1 val2]
     greater?: function [val1 val2] [] [make logic! val1/number > val2/number]
     lesser?: function [val1 val2] [] [make logic! val1/number < val2/number]
     not-equal?: function [val1 val2] [] [make logic! val1/number <> val2/number]
