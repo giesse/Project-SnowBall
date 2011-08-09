@@ -23,6 +23,8 @@
 
 ; I don't recommend looking at this file, your eyes will bleed.
 
+; ===== SUPPORT FUNCTIONS =====================================================
+
 print: function [text] [] [
     apply 'sys/print [text]
     text
@@ -46,6 +48,8 @@ error: function [type message where] [] [
     throw rejoin ["*** " type " error: " message "^/*** Where: " where]
 ]
 
+; ===== MAKE-TYPE =============================================================
+
 datatype!: none
 
 make-type: function [name] [] [
@@ -68,6 +72,9 @@ make-type: function [name] [] [
         compile: none
     ]
 ]
+
+; ===== TYPES: DATATYPE! ======================================================
+
 datatype!: make-type "datatype!"
 datatype!/type: datatype!
 datatype!/mold: function [type indent] [] [
@@ -121,6 +128,8 @@ ast-value: function [value] [] [
 datatype!/compile: function [type block] [] [
     reduce [ast-value type skip block 1]
 ]
+
+; ===== ACTION HELPERS ========================================================
 
 make: function [type arguments] [] [
     apply 'type/make [arguments]
@@ -209,6 +218,8 @@ probe: function [value] [] [
     print apply 'value/type/mold [value ""]
     print "^/"
 ]
+
+; ===== TYPES: BLOCK! =========================================================
 
 block!: make-type "block!"
 block!/make: function [arguments] [] [
@@ -304,6 +315,8 @@ block!/compile: function [block container] [] [
     reduce [ast-value block skip container 1]
 ]
 
+; ===== TYPES: PAREN! =========================================================
+
 paren!: make-type "paren!"
 paren!/make: function [arguments] [] [
     make-struct [
@@ -394,6 +407,8 @@ ast-paren: function [expressions] [] [
 paren!/compile: function [paren block] [] [
     reduce [ast-paren compile paren skip block 1]
 ]
+
+; ===== TYPES: PATH! ==========================================================
 
 path!: make-type "path!"
 path!/make: function [arguments] [] [
@@ -559,6 +574,8 @@ path!/compile: function [path block] [expr] [
     reduce [expr skip block 1]
 ]
 
+; ===== TYPES: SET-PATH! ======================================================
+
 set-path!: make-type "set-path!"
 set-path!/make: function [arguments] [] [
     make-struct [
@@ -694,6 +711,8 @@ set-path!/compile: function [path block] [expr set-to] [
     reduce [ast-set-path expr first path set-to block]
 ]
 
+; ===== TYPES: LIT-PATH! ======================================================
+
 lit-path!: make-type "lit-path!"
 lit-path!/make: function [arguments] [] [
     make-struct [
@@ -776,6 +795,8 @@ lit-path!/compile: function [path block] [] [
     ]
 ]
 
+; ===== TYPES: STRING! ========================================================
+
 string!: make-type "string!"
 string!/make: function [arguments] [] [
     make-struct [
@@ -846,6 +867,8 @@ string!/compile: function [string block] [] [
     reduce [ast-value string skip block 1]
 ]
 
+; ===== TYPES: CHAR! ==========================================================
+
 char!: make-type "char!"
 char!/make: function [arguments] [] [
     make-struct [
@@ -869,6 +892,8 @@ char!/compile: function [char block] [] [
     reduce [ast-value char skip block 1]
 ]
 
+; ===== TYPES: NONE! ==========================================================
+
 none!: make-type "none!"
 none!/make: function [ignored] [] [
     make-struct [
@@ -890,6 +915,8 @@ none!/bind: function [value context extend?] [] [
 none!/compile: function [value block] [] [
     reduce [ast-value value skip block 1]
 ]
+
+; ===== TYPES: LOGIC! =========================================================
 
 logic!: make-type "logic!"
 logic!/make: function [value] [] [
@@ -923,6 +950,8 @@ logic!/compile: function [value block] [] [
     reduce [ast-value value skip block 1]
 ]
 
+; ===== TYPES: NUMBER! ========================================================
+
 number!: make-type "number!"
 number!/make: function [arguments] [] [
     make-struct [
@@ -945,6 +974,8 @@ number!/bind: function [value context extend?] [] [
 number!/compile: function [number block] [] [
     reduce [ast-value number skip block 1]
 ]
+
+; ===== TYPES: CONTEXT! =======================================================
 
 context!: make-type "context!"
 context!/make: function [arguments] [] [
@@ -1005,6 +1036,8 @@ context!/set-path: function [context selector set-to] [offset] [
     poke-array context/values offset set-to
 ]
 
+; ===== TYPES: WORD! ==========================================================
+
 word!: make-type "word!"
 word!/make: function [arguments] [] [
     make-struct [
@@ -1062,6 +1095,8 @@ word!/compile: function [word block] [value] [
         reduce [ast-get word skip block 1]
     ]
 ]
+
+; ===== TYPES: SET-WORD! ======================================================
 
 set-word!: make-type "set-word!"
 set-word!/make: function [arguments] [] [
@@ -1156,6 +1191,8 @@ set-word!/compile: function [word block] [set-to] [
     reduce [ast-set word set-to block]
 ]
 
+; ===== TYPES: LIT-WORD! ======================================================
+
 lit-word!: make-type "lit-word!"
 lit-word!/make: function [arguments] [] [
     make-struct [
@@ -1194,6 +1231,8 @@ lit-word!/compile: function [word block] [] [
         skip block 1
     ]
 ]
+
+; ===== TYPES: FUNCTION! ======================================================
 
 function!: make-type "function!"
 append: function [block value] [] [
@@ -1326,6 +1365,8 @@ function!/compile: function [func block] [args expr] [
     reduce [expr/expr block]
 ]
 
+; ===== TYPES: NATIVE! ========================================================
+
 native!: make-type "native!"
 native!/make: function [arguments] [spec f c] [
     set [spec f c] arguments
@@ -1365,6 +1406,8 @@ native!/compile: function [func block] [args] [
     block: compile-arguments args length-of func/spec skip block 1 false
     reduce [apply 'func/compile/apply [none args] block]
 ]
+
+; ===== TYPES: OP! ============================================================
 
 op!: make-type "op!"
 op!/make: function [arguments] [] [
@@ -1417,6 +1460,8 @@ do-op: function [op arg1 arg2] [result] [
     ] []
 ]
 
+; ===== TYPES: EXPRESSION! ====================================================
+
 expression!: make-type "expression!"
 expression!/make: function [arguments] [] [
     make-struct [
@@ -1442,6 +1487,8 @@ expression!/compile: function [expr block] [] [
     reduce [expr/expr skip block 1]
 ]
 
+; ===== OTHER SUPPORT FUNCTIONS ===============================================
+
 to-js-string: function [string] [] [
     apply 'string/string/substr [string/pos]
 ]
@@ -1452,6 +1499,8 @@ exec-re: function [str re] [] [
 test-re: function [str re] [] [
     apply 're/test [str]
 ]
+
+; ===== TYPES: PARSERS ========================================================
 
 skip-spaces: function [text] [t newline?] [
     t: exec-re to-js-string text regexp "^^(\s|;.*\n)+" ""
@@ -1702,6 +1751,8 @@ parse-values: function [values text] [value newline?] [
     reduce [head values text]
 ]
 
+; ===== NATIVES ===============================================================
+
 system-words: make context! none
 
 load: function [text all?] [values] [
@@ -1835,6 +1886,8 @@ set-words: function [words values] [i] [
     values
 ]
 
+; ===== VALUES THAT CAN BE CONJURED ===========================================
+
 values: make-struct [
     native!: native!
     make: make native! reduce [
@@ -1863,6 +1916,9 @@ values: make-struct [
     system-words: system-words
     expression!: expression!
 ]
+
+; ===== NATIVES THAT CAN BE MADE ==============================================
+
 true?: function [value] [] [
     switch value/type/name [
         "none!" [false]
@@ -2052,12 +2108,16 @@ natives: make-struct [
     to-char: function [number] [] []
 ]
 
+; ===== CONJURE ===============================================================
+
 set-word load make string! "conjure" false make native! reduce [
     load make string! "name" true
     function [name] [] [
         values/(name-to-js name/word)
     ]
 ]
+
+; ===== COMPILER NATIVES ======================================================
 
 words-to-js: function [words] [res word] [
     res: ""
