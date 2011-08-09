@@ -2037,6 +2037,8 @@ natives: make-struct [
         make string! result
     ]
     set-word?: function [value] [] [make logic! value/type/name = "set-word!"]
+    word?: function [value] [] [make logic! value/type/name = "word!"]
+    block?: function [value] [] [make logic! value/type/name = "block!"]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []
@@ -2626,4 +2628,6 @@ native-compilers: make-struct [
     ]
     context-of: function [word] [] []
     set-word?: function [value] [] []
+    word?: function [value] [] []
+    block?: function [value] [] []
 ]
