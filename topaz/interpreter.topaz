@@ -48,6 +48,10 @@ error: function [type message where] [] [
     throw rejoin ["*** " type " error: " message "^/*** Where: " where]
 ]
 
+to-js-string: function [string] [] [
+    apply 'string/string/substr [string/pos]
+]
+
 ; ===== MAKE-TYPE =============================================================
 
 datatype!: none
@@ -312,7 +316,9 @@ block!/compile: function [block container] [] [
 ]
 block!/equal?: function [block value] [] [false]
 block!/("block!"): make-struct []
-block!/("block!")/equal?: function [block1 block2] [pos1 pos2 len] [
+block!/("paren!"): make-struct []
+block!/("block!")/equal?:
+block!/("paren!")/equal?: function [block1 block2] [pos1 pos2 len] [
     len: length-of block1
     either len = length-of block2 [
         pos1: block1/pos
@@ -420,6 +426,11 @@ ast-paren: function [expressions] [] [
 paren!/compile: function [paren block] [] [
     reduce [ast-paren compile paren skip block 1]
 ]
+paren!/equal?: block!/equal?
+paren!/("paren!"): make-struct []
+paren!/("block!"): make-struct []
+paren!/("paren!")/equal?:
+paren!/("block!")/equal?: block!/("block!")/equal?
 
 ; ===== TYPES: PATH! ==========================================================
 
@@ -586,6 +597,13 @@ path!/compile: function [path block] [expr] [
     ]
     reduce [expr skip block 1]
 ]
+path!/equal?: function [path value] [] [false]
+path!/("path!"): make-struct []
+path!/("set-path!"): make-struct []
+path!/("lit-path!"): make-struct []
+path!/("path!")/equal?:
+path!/("set-path!")/equal?:
+path!/("lit-path!")/equal?: block!/("block!")/equal?
 
 ; ===== TYPES: SET-PATH! ======================================================
 
@@ -723,6 +741,13 @@ set-path!/compile: function [path block] [expr set-to] [
     set [set-to block] compile-step block
     reduce [ast-set-path expr first path set-to block]
 ]
+set-path!/equal?: function [path value] [] [false]
+set-path!/("path!"): make-struct []
+set-path!/("set-path!"): make-struct []
+set-path!/("lit-path!"): make-struct []
+set-path!/("path!")/equal?:
+set-path!/("set-path!")/equal?:
+set-path!/("lit-path!")/equal?: block!/("block!")/equal?
 
 ; ===== TYPES: LIT-PATH! ======================================================
 
@@ -807,6 +832,13 @@ lit-path!/compile: function [path block] [] [
         skip block 1
     ]
 ]
+lit-path!/equal?: function [path value] [] [false]
+lit-path!/("path!"): make-struct []
+lit-path!/("set-path!"): make-struct []
+lit-path!/("lit-path!"): make-struct []
+lit-path!/("path!")/equal?:
+lit-path!/("set-path!")/equal?:
+lit-path!/("lit-path!")/equal?: block!/("block!")/equal?
 
 ; ===== TYPES: STRING! ========================================================
 
@@ -879,6 +911,11 @@ string!/bind: function [value context extend?] [] [
 string!/compile: function [string block] [] [
     reduce [ast-value string skip block 1]
 ]
+string!/equal?: function [string value] [] [false]
+string!/("string!"): make-struct []
+string!/("string!")/equal?: function [string1 string2] [] [
+    (to-js-string string1) = to-js-string string2
+]
 
 ; ===== TYPES: CHAR! ==========================================================
 
@@ -904,6 +941,9 @@ char!/bind: function [value context extend?] [] [
 char!/compile: function [char block] [] [
     reduce [ast-value char skip block 1]
 ]
+char!/equal?: function [char value] [] [false]
+char!/("char!"): make-struct []
+char!/("char!")/equal?: function [char1 char2] [] [char1/string = char2/string]
 
 ; ===== TYPES: NONE! ==========================================================
 
@@ -928,6 +968,9 @@ none!/bind: function [value context extend?] [] [
 none!/compile: function [value block] [] [
     reduce [ast-value value skip block 1]
 ]
+none!/equal?: function [val1 val2] [] [false]
+none!/("none!"): make-struct []
+none!/("none!")/equal?: function [val1 val2] [] [true]
 
 ; ===== TYPES: LOGIC! =========================================================
 
@@ -962,6 +1005,9 @@ logic!/bind: function [value context extend?] [] [
 logic!/compile: function [value block] [] [
     reduce [ast-value value skip block 1]
 ]
+logic!/equal?: function [logic value] [] [false]
+logic!/("logic!"): make-struct []
+logic!/("logic!")/equal?: function [logic1 logic2] [] [logic1/value = logic2/value]
 
 ; ===== TYPES: NUMBER! ========================================================
 
@@ -1051,6 +1097,7 @@ context!/set-path: function [context selector set-to] [offset] [
     ]
     poke-array context/values offset set-to
 ]
+context!/equal?: function [context value] [] [false]
 
 ; ===== TYPES: WORD! ==========================================================
 
@@ -1111,6 +1158,13 @@ word!/compile: function [word block] [value] [
         reduce [ast-get word skip block 1]
     ]
 ]
+word!/equal?: function [word value] [] [false]
+word!/("word!"): make-struct []
+word!/("set-word!"): make-struct []
+word!/("lit-word!"): make-struct []
+word!/("word!")/equal?:
+word!/("set-word!")/equal?:
+word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
 ; ===== TYPES: SET-WORD! ======================================================
 
@@ -1206,6 +1260,13 @@ set-word!/compile: function [word block] [set-to] [
     set [set-to block] compile-step block
     reduce [ast-set word set-to block]
 ]
+set-word!/equal?: function [word value] [] [false]
+set-word!/("word!"): make-struct []
+set-word!/("set-word!"): make-struct []
+set-word!/("lit-word!"): make-struct []
+set-word!/("word!")/equal?:
+set-word!/("set-word!")/equal?:
+set-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
 ; ===== TYPES: LIT-WORD! ======================================================
 
@@ -1247,6 +1308,13 @@ lit-word!/compile: function [word block] [] [
         skip block 1
     ]
 ]
+lit-word!/equal?: function [word value] [] [false]
+lit-word!/("word!"): make-struct []
+lit-word!/("set-word!"): make-struct []
+lit-word!/("lit-word!"): make-struct []
+lit-word!/("word!")/equal?:
+lit-word!/("set-word!")/equal?:
+lit-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
 ; ===== TYPES: FUNCTION! ======================================================
 
@@ -1380,6 +1448,7 @@ function!/compile: function [func block] [args expr] [
     pop-context func/context
     reduce [expr/expr block]
 ]
+function!/equal?: function [func value] [] [false]
 
 ; ===== TYPES: NATIVE! ========================================================
 
@@ -1422,6 +1491,7 @@ native!/compile: function [func block] [args] [
     block: compile-arguments args length-of func/spec skip block 1 false
     reduce [apply 'func/compile/apply [none args] block]
 ]
+native!/equal?: function [func value] [] [false]
 
 ; ===== TYPES: OP! ============================================================
 
@@ -1475,6 +1545,7 @@ do-op: function [op arg1 arg2] [result] [
         ]
     ] []
 ]
+op!/equal?: function [op value] [] [false]
 
 ; ===== TYPES: EXPRESSION! ====================================================
 
@@ -1502,12 +1573,9 @@ expression!/bind: function [expr context extend?] [] [
 expression!/compile: function [expr block] [] [
     reduce [expr/expr skip block 1]
 ]
+expression!/equal?: function [expr value] [] [false]
 
 ; ===== OTHER SUPPORT FUNCTIONS ===============================================
-
-to-js-string: function [string] [] [
-    apply 'string/string/substr [string/pos]
-]
 
 exec-re: function [str re] [] [
     apply 're/exec [str]

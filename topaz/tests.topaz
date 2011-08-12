@@ -112,3 +112,8 @@ run-test [
 run-test [[1 2 3] = [1 2 3]]
 run-test [[1 2 3 4] = [1 2 3]]
 run-test [[1 2 3 4] = [1 2 3 5]]
+run-test ['word = first [word]]
+run-test ['word = first [word:]]
+run-test [[a b "c d e"] = [a b "c d e"]]
+run-test ['word1 = 'word2]
+run-test ["String 1" = "String 2"]
