@@ -45,9 +45,10 @@ foreach [native spec] [
     case              [cases]
     context-of        [word]
     rejoin            [block]
-    set-word?         [value]
-    word?             [value]
-    block?            [value]
+    to-word           [value]
+    type?             [value]
+    find              [series value]
+    until             [body]
     ; compiler only
     function          [spec locals body]
     make-struct       [spec]
@@ -97,6 +98,7 @@ false: off: no: 0 = 1
 func: make function! [[spec body] [make function! reduce [spec body]]]
 
 first: func [series] [pick series 0]
+second: func [series] [pick series 1]
 empty?: func [series] [0 = length-of series]
 mold*: get 'mold
 mold: func [value] [mold* get 'value ""]
@@ -106,6 +108,222 @@ probe: func [value] [
 ]
 append: func [series value] [head insert tail series value]
 context: func [code] [make context! code]
+next: func [series] [skip series 1]
+set-word?: func [value] [set-word! = type? get 'value]
+word?: func [value] [word! = type? get 'value]
+block?: func [value] [block! = type? get 'value]
+
+parse-match: func [cursor condition] [
+    either all [not empty? cursor/block do condition] [
+        context [
+            block: next cursor/block
+            rules: next cursor/rules
+            match?: yes
+            result: first cursor/block
+        ]
+    ] [
+        context [
+            block: cursor/block
+            rules: next cursor/rules
+            match?: no
+            result: none
+        ]
+    ]
+]
+parse-any: func [rule cursor] [
+    res-value: none
+    until [
+        res: parse-element rule cursor
+        if res/match? [res-value: res/result]
+        cursor/block: res/block
+        not res/match?
+    ]
+    context [
+        block: res/block
+        rules: res/rules
+        match?: yes
+        result: res-value
+    ]
+]
+parse-element: func [rule cursor] [
+    switch to-word type? rule [
+        word! [
+            switch rule [
+                any [
+                    parse-any second cursor/rules context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        collect: cursor/collect
+                    ]
+                ]
+                some [
+                    result: parse-element second cursor/rules context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        collect: cursor/collect
+                    ]
+                    if result/match? [
+                        result: parse-any second cursor/rules context [
+                            block: result/block
+                            rules: next cursor/rules
+                            collect: cursor/collect
+                        ]
+                    ]
+                    result
+                ]
+                skip * [
+                    context [
+                        block: next cursor/block
+                        rules: next cursor/rules
+                        match?: not empty? cursor/block
+                        result: if match? [first cursor/block]
+                    ]
+                ]
+                end [
+                    context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        match?: empty? cursor/block
+                        result: none
+                    ]
+                ]
+                here [
+                    context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        match?: yes
+                        result: cursor/block
+                    ]
+                ]
+            ] [
+                ; problem: will always recurse on word! - desirable?
+                parse-element get rule cursor
+            ]
+        ]
+        lit-word! [
+            parse-match cursor [rule = first cursor/block]
+        ]
+        paren! [
+            context [
+                block: cursor/block
+                rules: next cursor/rules
+                match?: yes
+                result: do rule
+            ]
+        ]
+        block! [
+            parse* context [
+                block: cursor/block
+                rules: rule
+                collect: cursor/collect
+            ]
+        ]
+        datatype! [
+            parse-match cursor [rule = type? first cursor/block]
+        ]
+    ] [
+        parse-match cursor [rule = first cursor/block]
+    ]
+]
+parse-step: func [rule cursor] [
+    switch to-word type? rule [
+        word! [
+            switch rule [
+                collect [
+                    res: parse-element second cursor/rules cur: context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        collect: make block! none
+                    ]
+                    context [
+                        block: res/block
+                        rules: res/rules
+                        match?: res/match?
+                        result: cur/collect
+                    ]
+                ]
+                ;collect-all [
+                ;    handle-collect cursor cursor/keep-all? parse-element second cursor/rules context [
+                ;        block: cursor/block
+                ;        rules: next cursor/rules
+                ;        collect: make block! none
+                ;        keep-all?: yes
+                ;    ]
+                ;]
+                copy [
+                    res: parse-element second cursor/rules context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        collect: none
+                    ]
+                    context [
+                        block: res/block
+                        rules: res/rules
+                        match?: res/match?
+                        result: copy-part cursor/block res/block
+                    ]
+                ]
+                keep [
+                    result: parse-step second cursor/rules context [
+                        block: cursor/block
+                        rules: next cursor/rules
+                        collect: none
+                    ]
+                    if all [result/match? cursor/collect] [append cursor/collect result/result]
+                    result
+                ]
+                ;object [parse-object block next rules]
+            ] [
+                parse-element rule cursor
+            ]
+        ]
+        set-word! [
+            result: parse-step second cursor/rules context [
+                block: cursor/block
+                rules: next cursor/rules
+                collect: cursor/collect
+            ]
+            if result/match? [set rule result/result]
+            result
+        ]
+    ] [
+        parse-element rule cursor
+    ]
+]
+check-alternative: func [cursor result] [
+    ; WARNING: cursor/collect is not restored
+    if not result/match? [
+        result/block: cursor/block
+        result/rules: next find result/rules '|
+    ]
+    result
+]
+; parse block according to rule, keep last result
+parse*: func [cursor] [
+    result: context [
+        block: cursor/block
+        rules: cursor/rules
+        match?: no
+        result: none
+    ]
+    while [all [not empty? result/rules '| <> first result/rules]] [
+        result: check-alternative cursor parse-step first result/rules context [
+            block: result/block
+            rules: result/rules
+            collect: cursor/collect
+        ]
+    ]
+    result
+]
+; parse block according to rule, return last result
+parse: func [block' rules'] [
+    cursor: parse* context [
+        block: block'
+        rules: rules'
+        collect: none
+    ]
+    if cursor/match? [cursor/result]
+]
 
 compiler-keywords: context [
     none: make native! [[] none]

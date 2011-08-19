@@ -259,11 +259,13 @@ block!/tail: function [block] [] [
         newlines: block/newlines
     ]
 ]
-block!/skip: function [block amount] [] [
+block!/skip: function [block amount] [pos len] [
+    pos: block/pos + amount
+    if pos > len: length-of-array block/values [pos: len]
     make-struct [
         type: block!
         values: block/values
-        pos: block/pos + amount
+        pos: pos
         newlines: block/newlines
     ]
 ]
@@ -1367,9 +1369,11 @@ function!/mold: function [func indent] [] [
 clone-array: function [arr] [] [
     apply 'arr/concat []
 ]
+clone-values: function [context] [] [
+    clone-array pick-array context/stack 0
+]
 push-context: function [context] [] [
     poke-array context/stack length-of-array context/stack context/values
-    context/values: clone-array pick-array context/stack 0
 ]
 pop-array: function [arr] [] [
     apply 'arr/pop []
@@ -1390,9 +1394,11 @@ collect-arguments: function [n target block] [value orig-block i] [
     ]
     block
 ]
-function!/do: function [func block] [result] [
+function!/do: function [func block] [result args] [
     push-context func/context
-    block: collect-arguments length-of func/spec func/context/values skip block 1
+    args: clone-values func/context
+    block: collect-arguments length-of func/spec args skip block 1
+    func/context/values: args
     result: do func/body
     pop-context func/context
     reduce [result block]
@@ -1970,6 +1976,11 @@ set-words: function [words values] [i] [
     values
 ]
 
+find: function [series value] [] [
+    while [all [not empty? series not equal? value first series]] [series: skip series 1]
+    series
+]
+
 ; ===== VALUES THAT CAN BE CONJURED ===========================================
 
 values: make-struct [
@@ -2094,7 +2105,7 @@ natives: make-struct [
     equal?: function [val1 val2] [] [make logic! equal? val1 val2]
     greater?: function [val1 val2] [] [make logic! val1/number > val2/number]
     lesser?: function [val1 val2] [] [make logic! val1/number < val2/number]
-    not-equal?: function [val1 val2] [] [make logic! val1/number <> val2/number]
+    not-equal?: function [val1 val2] [] [make logic! not equal? val1 val2]
     greater-or-equal?: function [val1 val2] [] [make logic! val1/number >= val2/number]
     lesser-or-equal?: function [val1 val2] [] [make logic! val1/number <= val2/number]
     compile: function [block] [] [
@@ -2123,6 +2134,11 @@ natives: make-struct [
         while [true? do condblock] [res: do body]
         res
     ]
+    until: function [body] [res] [
+        res: do body
+        while [not true? res] [res: do body]
+        res
+    ]
     all: function [block] [res] [
         either empty? block [
             make logic! true
@@ -2145,7 +2161,22 @@ natives: make-struct [
             res
         ]
     ]
-    switch: function [value cases def] [] [error "Internal" "SWITCH is not yet implemented" ""]
+    switch: function [value cases def] [case-block orig-cases] [
+        either empty? cases: find cases value [
+            do def
+        ] [
+            orig-cases: cases
+            while [all [
+                not empty? cases
+                case-block: first cases
+                case-block/type/name <> "block!"
+            ]] [cases: skip cases 1]
+            either empty? cases [
+                error "Script" "Invalid argument for SWITCH" mold-value orig-cases ""
+            ] [do case-block]
+        ]
+    ]
+    find: function [series value] [] [find series value]
     case: function [cases] [cond] [
         either empty? cases [
             make none! none
@@ -2176,9 +2207,14 @@ natives: make-struct [
         ]
         make string! result
     ]
-    set-word?: function [value] [] [make logic! value/type/name = "set-word!"]
-    word?: function [value] [] [make logic! value/type/name = "word!"]
-    block?: function [value] [] [make logic! value/type/name = "block!"]
+    to-word: function [value] [] [
+        either value/type/name = "datatype!" [
+            make word! value/name
+        ] [
+            error "Script" "Invalid argument for TO-WORD" mold-value value ""
+        ]
+    ]
+    type?: function [value] [] [value/type]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []
@@ -2771,7 +2807,8 @@ native-compilers: make-struct [
         ]
     ]
     context-of: function [word] [] []
-    set-word?: function [value] [] []
-    word?: function [value] [] []
-    block?: function [value] [] []
+    to-word: function [value] [] []
+    type?: function [value] [] []
+    find: function [series value] [] []
+    until: function [body] [] []
 ]

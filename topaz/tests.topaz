@@ -117,3 +117,56 @@ run-test ['word = first [word:]]
 run-test [[a b "c d e"] = [a b "c d e"]]
 run-test ['word1 = 'word2]
 run-test ["String 1" = "String 2"]
+run-test ["String 1" <> "String 2"]
+run-test [to-word 1]
+run-test [to-word word!]
+run-test [type? to-word word!]
+run-test [type? word!]
+run-test [type? 1]
+run-test [type? 'word]
+run-test [type? "String"]
+run-test [find [1 2 3] 2]
+run-test [find [a b c] 'b]
+run-test [find [a b c] 'd]
+run-test [switch 'a [a [1] b [2] c d [3]] [4]]
+run-test [switch 'b [a [1] b [2] c d [3]] [4]]
+run-test [switch 'c [a [1] b [2] c d [3]] [4]]
+run-test [switch 'd [a [1] b [2] c d [3]] [4]]
+run-test [switch 'e [a [1] b [2] c d [3]] [4]]
+; bug with skip
+run-test [empty? skip [] 1]
+; bug with recursive functions
+run-test [
+    f: func [a] [if a > 1 [f a - 1]]
+    f 2
+]
+run-test [
+    a: 1
+    until [
+        a: a + 1
+        a = 5
+    ]
+    a
+]
+run-test [parse [1 2 3] [number!]]
+run-test [parse [1 2 3] [number! number!]]
+run-test [parse [1 2 3] [number! number! number!]]
+run-test [parse [1 2 3] [number! number! number! number!]]
+run-test [parse [1 2 3] [word!]]
+run-test [parse [1 2 3] [some number!]]
+run-test [parse [1 2 3] [any number!]]
+run-test [parse [1 2 3] [collect some [keep number!]]]
+run-test [
+    interpreter: load read "topaz/interpreter.topaz"
+    parse interpreter [
+        collect any [
+            keep set-word! [
+                'function keep ('funcall-macro) keep block! block! block!
+                |
+                keep (none)
+            ]
+            |
+            skip
+        ]
+    ]
+]
