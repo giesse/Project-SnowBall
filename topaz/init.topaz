@@ -357,7 +357,7 @@ compose: func [block] [
         collect any [
             code: paren! keep (do code)
             |
-            keep collect into rule
+            keep into rule
             |
             keep *
         ]
