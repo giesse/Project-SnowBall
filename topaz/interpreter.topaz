@@ -48,8 +48,98 @@ error: function [type message where] [] [
     throw rejoin ["*** " type " error: " message "^/*** Where: " where]
 ]
 
-to-js-string: function [string] [] [
-    apply 'string/string/substr [string/pos]
+name-to-js: function [name] [] [
+    switch name [
+        "arguments" ["_arguments"]
+        "do"        ["_do"]
+        "json"      ["JSON"]
+        "case"      ["_case"]
+        "try"       ["_try"]
+        "throw"     ["_throw"]
+        "function"  ["_function"]
+        "if"        ["_if"]
+        "while"     ["_while"]
+        "switch"    ["_switch"]
+        "true"      ["_true"]
+        "false"     ["_false"]
+    ] [
+        name: apply 'name/replace [
+            regexp "-(.)" "g"
+            function [match chr] [] [
+                apply 'chr/to-upper-case []
+            ]
+        ]
+        name: apply 'name/replace [
+            regexp "^^(.)(.*)\?$" ""
+            function [match chr rest] [] [
+                rejoin ["is" apply 'chr/to-upper-case [] rest]
+            ]
+        ]
+        apply 'name/replace ["!" "_type"]
+    ]
+]
+
+collect-set-words: function [setwords block deep?] [value] [
+    while [not empty? block] [
+        value: first block
+        switch value/type/name [
+            "set-word!" [
+                append setwords value
+            ]
+            "block!" [if deep? [collect-set-words setwords value true]]
+            "paren!" [if deep? [collect-set-words setwords value true]]
+        ] []
+        block: skip block 1
+    ]
+    setwords
+]
+
+clone-array: function [arr] [] [
+    apply 'arr/concat []
+]
+
+pop-array: function [arr] [] [
+    apply 'arr/pop []
+]
+
+append-array: function [arr value] [] [
+    apply 'arr/push [value]
+]
+
+exec-re: function [str re] [] [
+    apply 're/exec [str]
+]
+
+test-re: function [str re] [] [
+    apply 're/test [str]
+]
+
+empty-array?: function [array] [] [
+    0 = length-of-array array
+]
+
+true?: function [value] [] [
+    switch value/type/name [
+        "none!" [false]
+        "logic!" [value/value]
+    ] [
+        true
+    ]
+]
+
+words-to-js: function [words] [res word] [
+    res: ""
+    if 0 < length-of words [
+        word: first words
+        res: name-to-js word/word
+        words: skip words 1
+        while [not empty? words] [
+            word: first words
+            res: rejoin [res "," name-to-js word/word]
+            words: skip words 1
+        ]
+    ]
+    res
 ]
 
 ; ===== MAKE-TYPE =============================================================
@@ -78,42 +168,6 @@ datatype!/bind: function [type context extend?] [] [
 ]
 datatype!/topaz-make: function [ignored] [] [
     error "Script" "Cannot make datatypes (yet)" ""
-]
-ast-value: function [value] [] [
-    make-struct [
-        node-type: "value/" + value/type/name
-        value: value
-        to-js: function [node context] [res] [
-            switch node/value/type/name [
-                "string!" [
-                    res: apply 'JSON/stringify [node/value/string]
-                ]
-                "char!" [
-                    res: apply 'JSON/stringify [node/value/string]
-                ]
-                "number!" [
-                    res: apply 'node/value/number/to-string []
-                ]
-                "none!" [
-                    res: "null"
-                ]
-                "logic!" [
-                    either node/value/value [
-                        res: "true"
-                    ] [
-                        res: "false"
-                    ]
-                ]
-            ] [
-                error "JS emitter" rejoin ["Cannot represent " node/value/type/name " values in JS"] ""
-            ]
-            either context = "return" [
-                rejoin ["return " res ";"]
-            ] [
-                res
-            ]
-        ]
-    ]
 ]
 datatype!/compile: function [type block] [] [
     reduce [ast-value type skip block 1]
@@ -151,8 +205,6 @@ mold-value: function [value indent] [] [
 mold: function [value] [] [
     make string! mold-value value ""
 ]
-operator?: function [block] [] []
-do-op: function [op arg1 arg2] [] []
 first: function [series] [] [
     pick series 0
 ]
@@ -171,7 +223,6 @@ do-step: function [value block] [result arg2 op] [
     ]
     reduce [result block]
 ]
-do: function [block] [] []
 get: function [word] [] [
     if not word/context [
         error "Script" "Word has no context" word/word
@@ -344,6 +395,28 @@ block!/copy: function [value] [] [
     ]
 ]
 
+new-line: function [block newline?] [] [
+    poke-array block/newlines block/pos newline?
+]
+insert-nl: function [block value newline?] [] [
+    block: insert block value
+    poke-array block/newlines block/pos - 1 newline?
+    block
+]
+append: function [block value] [] [
+    head insert tail block value
+]
+
+parse-block: function [text] [values] [
+    if #"[" = first text [
+        set [values text] parse-values make block! none skip text 1
+        if #"]" <> first text [
+            error "Syntax" "Missing ]" to-js-string text
+        ]
+        reduce [values skip text 1]
+    ]
+]
+
 ; ===== TYPES: PAREN! =========================================================
 
 paren!: make-type "paren!"
@@ -420,19 +493,6 @@ paren!/bind: function [words context extend?] [] [
     bind-values words/values words/pos context extend?
     words
 ]
-compile: function [block] [] []
-to-js: function [node context] [] [
-    apply 'node/to-js [node context]
-]
-ast-paren: function [expressions] [] [
-    make-struct [
-        node-type: "paren"
-        expressions: expressions
-        to-js: function [node context] [res] [
-            to-js node/expressions context
-        ]
-    ]
-]
 paren!/compile: function [paren block] [] [
     reduce [ast-paren compile paren skip block 1]
 ]
@@ -447,6 +507,16 @@ paren!/copy: function [value] [] [
         values: apply 'value/values/slice [value/pos]
         pos: 0
         newlines: apply 'value/newlines/slice [value/pos]
+    ]
+]
+
+parse-paren: function [text] [values] [
+    if #"(" = first text [
+        set [values text] parse-values make paren! none skip text 1
+        if #")" <> first text [
+            error "Syntax" "Missing )" to-js-string text
+        ]
+        reduce [values skip text 1]
     ]
 ]
 
@@ -529,82 +599,6 @@ path!/bind: function [path context extend?] [] [
     bind-values path/values 0 context extend?
     path
 ]
-name-to-js: function [name] [] [
-    switch name [
-        "arguments" ["_arguments"]
-        "do"        ["_do"]
-        "json"      ["JSON"]
-        "case"      ["_case"]
-        "try"       ["_try"]
-        "throw"     ["_throw"]
-        "function"  ["_function"]
-        "if"        ["_if"]
-        "while"     ["_while"]
-        "switch"    ["_switch"]
-        "true"      ["_true"]
-        "false"     ["_false"]
-    ] [
-        name: apply 'name/replace [
-            regexp "-(.)" "g"
-            function [match chr] [] [
-                apply 'chr/to-upper-case []
-            ]
-        ]
-        name: apply 'name/replace [
-            regexp "^^(.)(.*)\?$" ""
-            function [match chr rest] [] [
-                rejoin ["is" apply 'chr/to-upper-case [] rest]
-            ]
-        ]
-        apply 'name/replace ["!" "_type"]
-    ]
-]
-to-js-common: function [js-text context] [] [
-    switch context [
-        "return" [
-            rejoin ["return " js-text ";"]
-        ]
-        "statement" [
-            js-text + ";"
-        ]
-    ] [
-        js-text
-    ]
-]
-ast-get: function [word] [] [
-    make-struct [
-        node-type: "get"
-        word: word
-        to-js: function [node context] [] [
-            to-js-common name-to-js node/word/word context
-        ]
-    ]
-]
-ast-get-path: function [expr selector] [] [
-    switch selector/type/name [
-        "paren!" [
-            selector: compile selector
-        ]
-        "get-word!" [
-            selector: ast-get selector
-        ]
-    ] [
-        selector: ast-value selector
-    ]
-    make-struct [
-        node-type: "get-path"
-        expr: expr
-        selector: selector
-        to-js: function [node context] [sel] [
-            either node/selector/node-type = "value/word!" [
-                sel: "." + name-to-js node/selector/value/word
-            ] [
-                sel: rejoin ["[" to-js node/selector "expression" "]"]
-            ]
-            to-js-common rejoin [to-js node/expr "expression" sel] context
-        ]
-    ]
-]
 path!/compile: function [path block] [expr] [
     if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
     expr: ast-get first path
@@ -627,6 +621,23 @@ path!/copy: function [value] [] [
         type: path!
         values: apply 'value/values/slice [value/pos]
         pos: 0
+    ]
+]
+
+parse-path: function [text] [path value] [
+    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
+        path: make path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        reduce [head path text]
     ]
 ]
 
@@ -709,50 +720,6 @@ set-path!/bind: function [path context extend?] [] [
     bind-values path/values 0 context extend?
     path
 ]
-ast-set-path: function [expr selector set-to] [] [
-    switch selector/type/name [
-        "paren!" [
-            selector: compile selector
-        ]
-        "get-word!" [
-            selector: ast-get selector
-        ]
-    ] [
-        selector: ast-value selector
-    ]
-    make-struct [
-        node-type: "set-path"
-        expr: expr
-        selector: selector
-        set-to: set-to
-        to-js: function [node context] [res sel] [
-            either node/selector/node-type = "value/word!" [
-                sel: "." + name-to-js node/selector/value/word
-            ] [
-                sel: rejoin ["[" to-js node/selector "expression" "]"]
-            ]
-            res: rejoin [
-                to-js node/expr "expression" sel "="
-                to-js node/set-to "expression"
-            ]
-            switch context [
-                "return" [
-                    rejoin ["return (" res ");"]
-                ]
-                "statement" [
-                    res + ";"
-                ]
-                "expression" [
-                    rejoin ["(" res ")"]
-                ]
-                "paren" [
-                    rejoin ["(" res ")"]
-                ]
-            ] []
-        ]
-    ]
-]
-compile-step: function [block] [] []
 set-path!/compile: function [path block] [expr set-to] [
     if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
     expr: ast-get first path
@@ -778,6 +745,25 @@ set-path!/copy: function [value] [] [
         type: set-path!
         values: apply 'value/values/slice [value/pos]
         pos: 0
+    ]
+]
+
+parse-set-path: function [text] [path value] [
+    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
+        path: make set-path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        if all [not empty? text  #":" = first text] [
+            reduce [head path skip text 1]
+        ]
     ]
 ]
 
@@ -879,6 +865,23 @@ lit-path!/copy: function [value] [] [
     ]
 ]
 
+parse-lit-path: function [text] [path value] [
+    if all [#"'" = first text  value: parse-word-chars skip text 1  #"/" = pick text 1 + length-of-array value] [
+        path: make lit-path! none
+        path: insert path make word! value
+        text: skip text 1 + length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        reduce [head path text]
+    ]
+]
+
 ; ===== TYPES: STRING! ========================================================
 
 string!: make-type "string!"
@@ -938,6 +941,55 @@ escape: function [str] [re result match i] [
         result + apply 'str/substr [i]
     ]
 ]
+unescape: function [str] [result i j ch p] [
+    result: ""
+    i: 0
+    while [0 <= j: apply 'str/index-of [#"^^" i]] [
+        result: result + apply 'str/substr [i j - i]
+        ch: pick-array str j + 1
+        switch ch [
+            #"/" [
+                result: result + #"^/"
+                i: j + 2
+            ]
+            #"-" [
+                result: result + #"^-"
+                i: j + 2
+            ]
+            #"^^" [
+                result: result + #"^^"
+                i: j + 2
+            ]
+            #"!" [
+                result: result + #"^!"
+                i: j + 2
+            ]
+        ] [
+            case [
+                all [ch >= #"@"  ch <= #"_"] [
+                    result: result + to-char (apply 'ch/char-code-at [0]) - 64
+                    i: j + 2
+                ]
+                all [
+                    ch = #"("
+                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
+                ] [
+                    result: result + to-char apply 'parse-int [pick-array p 1 16]
+                    i: j + 1 + length-of-array pick-array p 0
+                ]
+                'else [
+                    result: result + ch
+                    i: j + 2
+                ]
+            ]
+        ]
+    ]
+    either i = 0 [
+        str
+    ] [
+        result + apply 'str/substr [i]
+    ]
+]
 string!/mold: function [string indent] [] [
     rejoin ["^"" escape string/string #"^""]
 ]
@@ -960,6 +1012,24 @@ string!/copy: function [string] [] [
         type: string!
         string: apply 'string/string/substr [string/pos]
         pos: 0
+    ]
+]
+
+to-js-string: function [string] [] [
+    apply 'string/string/substr [string/pos]
+]
+
+parse-string: function [text] [t] [
+    if #"^"" = pick text 0 [
+        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^"" ""
+        either t [
+            reduce [
+                make string! unescape pick-array t 1
+                skip text length-of-array pick-array t 0
+            ]
+        ] [
+            error "Syntax" "Missing ^"" to-js-string text
+        ]
     ]
 ]
 
@@ -990,6 +1060,16 @@ char!/compile: function [char block] [] [
 char!/equal?: function [char value] [] [false]
 char!/("char!"): make-struct []
 char!/("char!")/equal?: function [char1 char2] [] [char1/string = char2/string]
+
+parse-char: function [text] [ch] [
+    ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^"" ""
+    if ch [
+        reduce [
+            make char! unescape pick-array ch 1
+            skip text length-of-array pick-array ch 0
+        ]
+    ]
+]
 
 ; ===== TYPES: NONE! ==========================================================
 
@@ -1083,6 +1163,16 @@ number!/equal?: function [number value] [] [false]
 number!/("number!"): make-struct []
 number!/("number!")/equal?: function [num1 num2] [] [num1/number = num2/number]
 
+parse-number: function [text] [t] [
+    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""
+    if all [t  0 < length-of-array t: pick-array t 0] [
+        reduce [
+            make number! apply 'parse-float [t]
+            skip text length-of-array t
+        ]
+    ]
+]
+
 ; ===== TYPES: CONTEXT! =======================================================
 
 context!: make-type "context!"
@@ -1094,20 +1184,11 @@ context!/make: function [arguments] [] [
         stack: make-array
     ]
 ]
-collect-set-words: function [setwords block deep?] [] []
 context!/topaz-make: function [code] [ctx] [
     ctx: make context! none
     bind collect-set-words make block! none code false ctx true
     do bind code ctx false
     ctx
-]
-new-line: function [block newline?] [] [
-    poke-array block/newlines block/pos newline?
-]
-insert-nl: function [block value newline?] [] [
-    block: insert block value
-    poke-array block/newlines block/pos - 1 newline?
-    block
 ]
 context!/mold: function [context indent] [block i] [
     block: make block! none
@@ -1144,6 +1225,16 @@ context!/set-path: function [context selector set-to] [offset] [
     poke-array context/values offset set-to
 ]
 context!/equal?: function [context value] [] [false]
+
+clone-values: function [context] [] [
+    clone-array pick-array context/stack 0
+]
+push-context: function [context] [] [
+    poke-array context/stack length-of-array context/stack context/values
+]
+pop-context: function [context] [] [
+    context/values: pop-array context/stack
+]
 
 ; ===== TYPES: WORD! ==========================================================
 
@@ -1217,6 +1308,15 @@ word!/("word!")/equal?:
 word!/("set-word!")/equal?:
 word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
+parse-word: function [text] [w] [
+    if w: parse-word-chars text [
+        reduce [
+            make word! w
+            skip text length-of-array w
+        ]
+    ]
+]
+
 ; ===== TYPES: SET-WORD! ======================================================
 
 set-word!: make-type "set-word!"
@@ -1256,54 +1356,6 @@ set-word!/bind: function [word context extend?] [] [
         offset: word/offset
     ] extend?
 ]
-load: function [text all?] [] []
-ast-set: function [word set-to] [] [
-    make-struct [
-        node-type: "set"
-        word: word
-        set-to: set-to
-        to-js: function [node context] [res words name i] [
-            either node/word/type/name = "block!" [
-                if context <> "statement" [
-                    error "Compile" "SET with multiple words can only be a statement" ""
-                ]
-                words: node/word
-                res: rejoin [
-                    "var _tmp=" to-js node/set-to "expression" ";"
-                ]
-                i: 0
-                while [i < length-of words] [
-                    name: pick words i
-                    res: rejoin [
-                        res
-                        name-to-js name/word "=_tmp[" i "];"
-                    ]
-                    i: i + 1
-                ]
-                res
-            ] [
-                res: rejoin [
-                    name-to-js node/word/word "="
-                    to-js node/set-to "expression"
-                ]
-                switch context [
-                    "return" [
-                        rejoin ["return (" res ");"]
-                    ]
-                    "statement" [
-                        res + ";"
-                    ]
-                    "expression" [
-                        rejoin ["(" res ")"]
-                    ]
-                    "paren" [
-                        rejoin ["(" res ")"]
-                    ]
-                ] []
-            ]
-        ]
-    ]
-]
 set-word!/compile: function [word block] [set-to] [
     block: skip block 1
     if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
@@ -1317,6 +1369,15 @@ set-word!/("lit-word!"): make-struct []
 set-word!/("word!")/equal?:
 set-word!/("set-word!")/equal?:
 set-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+
+parse-set-word: function [text] [w] [
+    if all [w: parse-word-chars text  #":" = pick text length-of-array w] [
+        reduce [
+            make set-word! w
+            skip text 1 + length-of-array w
+        ]
+    ]
+]
 
 ; ===== TYPES: LIT-WORD! ======================================================
 
@@ -1371,26 +1432,18 @@ lit-word!/("word!")/equal?:
 lit-word!/("set-word!")/equal?:
 lit-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
+parse-lit-word: function [text] [w] [
+    if all [#"'" = first text  w: parse-word-chars skip text 1] [
+        reduce [
+            make lit-word! w
+            skip text 1 + length-of-array w
+        ]
+    ]
+]
+
 ; ===== TYPES: FUNCTION! ======================================================
 
 function!: make-type "function!"
-append: function [block value] [] [
-    head insert tail block value
-]
-collect-set-words: function [setwords block deep?] [value] [
-    while [not empty? block] [
-        value: first block
-        switch value/type/name [
-            "set-word!" [
-                append setwords value
-            ]
-            "block!" [if deep? [collect-set-words setwords value true]]
-            "paren!" [if deep? [collect-set-words setwords value true]]
-        ] []
-        block: skip block 1
-    ]
-    setwords
-]
 function!/make: function [arguments] [spec body context word] [
     set [spec body] arguments
     context: make context! none
@@ -1419,21 +1472,6 @@ function!/topaz-make: function [block] [] [
 function!/mold: function [func indent] [] [
     rejoin ["func " mold-value func/spec indent " " mold-value func/body indent]
 ]
-clone-array: function [arr] [] [
-    apply 'arr/concat []
-]
-clone-values: function [context] [] [
-    clone-array pick-array context/stack 0
-]
-push-context: function [context] [] [
-    poke-array context/stack length-of-array context/stack context/values
-]
-pop-array: function [arr] [] [
-    apply 'arr/pop []
-]
-pop-context: function [context] [] [
-    context/values: pop-array context/stack
-]
 collect-arguments: function [n target block] [value orig-block i] [
     orig-block: block
     i: 0
@@ -1458,34 +1496,6 @@ function!/do: function [func block] [result args] [
 ]
 function!/bind: function [func context extend?] [] [
     func
-]
-ast-function-call: function [name args] [] [
-    make-struct [
-        node-type: "function-call"
-        name: name
-        args: args
-        to-js: function [node context] [res i] [
-            either node/name/type/name = "path!" [
-                res: pick-array apply 'path!/compile [node/name make block! none] 0
-                res: to-js res "expression"
-            ] [
-                res: name-to-js node/name/word
-            ]
-            res: res + "("
-            if 0 < length-of-array node/args [
-                res: res + to-js pick-array node/args 0 "expression"
-                i: 1
-                while [i < length-of-array node/args] [
-                    res: rejoin [res "," to-js pick-array node/args i "expression"]
-                    i: i + 1
-                ]
-            ]
-            to-js-common res + ")" context
-        ]
-    ]
-]
-append-array: function [arr value] [] [
-    apply 'arr/push [value]
 ]
 compile-arguments: function [args n block wrap?] [expr orig-block i] [
     orig-block: block
@@ -1637,15 +1647,6 @@ expression!/compile: function [expr block] [] [
 ]
 expression!/equal?: function [expr value] [] [false]
 
-; ===== OTHER SUPPORT FUNCTIONS ===============================================
-
-exec-re: function [str re] [] [
-    apply 're/exec [str]
-]
-test-re: function [str re] [] [
-    apply 're/test [str]
-]
-
 ; ===== TYPES: PARSERS ========================================================
 
 skip-spaces: function [text] [t newline?] [
@@ -1659,146 +1660,9 @@ skip-spaces: function [text] [t newline?] [
     reduce [text newline?]
 ]
 
-empty-array?: function [array] [] [
-    0 = length-of-array array
-]
-
-parse-number: function [text] [t] [
-    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""
-    if all [t  0 < length-of-array t: pick-array t 0] [
-        reduce [
-            make number! apply 'parse-float [t]
-            skip text length-of-array t
-        ]
-    ]
-]
-
 parse-word-chars: function [text] [t] [
     if t: exec-re to-js-string text regexp "^^[!&*+\-.<=>?A-Z^^_`a-z|~-ÿ]['!&*+\-.0-9<=>?A-Z^^_`a-z|~-ÿ]*" "" [
         pick-array t 0
-    ]
-]
-
-parse-word: function [text] [w] [
-    if w: parse-word-chars text [
-        reduce [
-            make word! w
-            skip text length-of-array w
-        ]
-    ]
-]
-
-parse-set-word: function [text] [w] [
-    if all [w: parse-word-chars text  #":" = pick text length-of-array w] [
-        reduce [
-            make set-word! w
-            skip text 1 + length-of-array w
-        ]
-    ]
-]
-
-parse-lit-word: function [text] [w] [
-    if all [#"'" = first text  w: parse-word-chars skip text 1] [
-        reduce [
-            make lit-word! w
-            skip text 1 + length-of-array w
-        ]
-    ]
-]
-
-parse-values: function [values text] [] []
-
-parse-block: function [text] [values] [
-    if #"[" = first text [
-        set [values text] parse-values make block! none skip text 1
-        if #"]" <> first text [
-            error "Syntax" "Missing ]" to-js-string text
-        ]
-        reduce [values skip text 1]
-    ]
-]
-
-parse-paren: function [text] [values] [
-    if #"(" = first text [
-        set [values text] parse-values make paren! none skip text 1
-        if #")" <> first text [
-            error "Syntax" "Missing )" to-js-string text
-        ]
-        reduce [values skip text 1]
-    ]
-]
-
-unescape: function [str] [result i j ch p] [
-    result: ""
-    i: 0
-    while [0 <= j: apply 'str/index-of [#"^^" i]] [
-        result: result + apply 'str/substr [i j - i]
-        ch: pick-array str j + 1
-        switch ch [
-            #"/" [
-                result: result + #"^/"
-                i: j + 2
-            ]
-            #"-" [
-                result: result + #"^-"
-                i: j + 2
-            ]
-            #"^^" [
-                result: result + #"^^"
-                i: j + 2
-            ]
-            #"!" [
-                result: result + #"^!"
-                i: j + 2
-            ]
-        ] [
-            case [
-                all [ch >= #"@"  ch <= #"_"] [
-                    result: result + to-char (apply 'ch/char-code-at [0]) - 64
-                    i: j + 2
-                ]
-                all [
-                    ch = #"("
-                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
-                ] [
-                    result: result + to-char apply 'parse-int [pick-array p 1 16]
-                    i: j + 1 + length-of-array pick-array p 0
-                ]
-                'else [
-                    result: result + ch
-                    i: j + 2
-                ]
-            ]
-        ]
-    ]
-    either i = 0 [
-        str
-    ] [
-        result + apply 'str/substr [i]
-    ]
-]
-
-parse-string: function [text] [t] [
-    if #"^"" = pick text 0 [
-        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^"" ""
-        either t [
-            reduce [
-                make string! unescape pick-array t 1
-                skip text length-of-array pick-array t 0
-            ]
-        ] [
-            error "Syntax" "Missing ^"" to-js-string text
-        ]
-    ]
-]
-
-parse-char: function [text] [ch] [
-    ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^"" ""
-    if ch [
-        reduce [
-            make char! unescape pick-array ch 1
-            skip text length-of-array pick-array ch 0
-        ]
     ]
 ]
 
@@ -1810,59 +1674,6 @@ parse-path-element: function [text] [] [
         parse-block    text
         parse-paren    text
         parse-char     text
-    ]
-]
-
-parse-set-path: function [text] [path value] [
-    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
-        path: make set-path! none
-        path: insert path make word! value
-        text: skip text length-of-array value
-        while [all [not empty? text  #"/" = first text]] [
-            set [value text] parse-path-element skip text 1
-            either value [
-                path: insert path value
-            ] [
-                error "Syntax" "Parse error" to-js-string text
-            ]
-        ]
-        if all [not empty? text  #":" = first text] [
-            reduce [head path skip text 1]
-        ]
-    ]
-]
-
-parse-path: function [text] [path value] [
-    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
-        path: make path! none
-        path: insert path make word! value
-        text: skip text length-of-array value
-        while [all [not empty? text  #"/" = first text]] [
-            set [value text] parse-path-element skip text 1
-            either value [
-                path: insert path value
-            ] [
-                error "Syntax" "Parse error" to-js-string text
-            ]
-        ]
-        reduce [head path text]
-    ]
-]
-
-parse-lit-path: function [text] [path value] [
-    if all [#"'" = first text  value: parse-word-chars skip text 1  #"/" = pick text 1 + length-of-array value] [
-        path: make lit-path! none
-        path: insert path make word! value
-        text: skip text 1 + length-of-array value
-        while [all [not empty? text  #"/" = first text]] [
-            set [value text] parse-path-element skip text 1
-            either value [
-                path: insert path value
-            ] [
-                error "Syntax" "Parse error" to-js-string text
-            ]
-        ]
-        reduce [head path text]
     ]
 ]
 
@@ -1971,49 +1782,6 @@ compile-step: function [block] [value expr op expr2] [
     reduce [expr block]
 ]
 
-ast-expressions: function [list] [] [
-    make-struct [
-        node-type: "expressions"
-        list: list
-        to-js: function [node context] [i res] [
-            i: 0
-            res: ""
-            switch context [
-                "statement" [
-                    while [i < length-of-array node/list] [
-                        res: res + to-js pick-array node/list i "statement"
-                        i: i + 1
-                    ]
-                ]
-                "expression" [
-                    if 1 < length-of-array node/list [
-                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
-                    ]
-                    res: to-js pick-array node/list 0 "expression"
-                ]
-                "paren" [
-                    if 1 < length-of-array node/list [
-                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
-                    ]
-                    res: to-js pick-array node/list 0 "paren"
-                ]
-                "return" [
-                    while [i + 1 < length-of-array node/list] [
-                        res: res + to-js pick-array node/list i "statement"
-                        i: i + 1
-                    ]
-                    either i < length-of-array node/list [
-                        res: res + to-js pick-array node/list i "return"
-                    ] [
-                        res: "return null;"
-                    ]
-                ]
-            ] []
-            res
-        ]
-    ]
-]
-
 compile: function [block] [result expr] [
     result: make-array
     while [not empty? block] [
@@ -2070,14 +1838,6 @@ values: make-struct [
 
 ; ===== NATIVES THAT CAN BE MADE ==============================================
 
-true?: function [value] [] [
-    switch value/type/name [
-        "none!" [false]
-        "logic!" [value/value]
-    ] [
-        true
-    ]
-]
 natives: make-struct [
     foreach: function [words series body] [ctx res] [
         ctx: make context! none
@@ -2307,21 +2067,300 @@ set-word load make string! "conjure" false make native! reduce [
     ]
 ]
 
-; ===== COMPILER NATIVES ======================================================
+; ===== COMPILER ABSTRACT SYNTAX TREE =========================================
 
-words-to-js: function [words] [res word] [
-    res: ""
-    if 0 < length-of words [
-        word: first words
-        res: name-to-js word/word
-        words: skip words 1
-        while [not empty? words] [
-            word: first words
-            res: rejoin [res "," name-to-js word/word]
-            words: skip words 1
+to-js: function [node context] [] [
+    apply 'node/to-js [node context]
+]
+to-js-common: function [js-text context] [] [
+    switch context [
+        "return" [
+            rejoin ["return " js-text ";"]
+        ]
+        "statement" [
+            js-text + ";"
+        ]
+    ] [
+        js-text
+    ]
+]
+either-expr-to-js: function [node] [res] [
+    res: rejoin [
+        to-js node/condition "paren" " ? "
+        to-js node/true-body "paren" " : "
+    ]
+    either node/false-body [
+        res + to-js node/false-body "paren"
+    ] [
+        res + "null"
+    ]
+]
+either-stmt-to-js: function [node context] [res] [
+    res: rejoin [
+        "if(" to-js node/condition "expression" "){"
+        to-js node/true-body context
+        "}"
+    ]
+    if node/false-body [
+        either node/false-body/node-type = "either" [
+            res: rejoin [
+                res "else " to-js node/false-body context
+            ]
+        ] [
+            res: rejoin [
+                res "else{"
+                to-js node/false-body context
+                "}"
+            ]
         ]
     ]
     res
+]
+try-to-js: function [code name def context] [] [
+    rejoin [
+        "try{"
+        to-js code context
+        "}catch(" name-to-js name "){"
+        to-js def context
+        "}"
+    ]
+]
+
+ast-value: function [value] [] [
+    make-struct [
+        node-type: "value/" + value/type/name
+        value: value
+        to-js: function [node context] [res] [
+            switch node/value/type/name [
+                "string!" [
+                    res: apply 'JSON/stringify [node/value/string]
+                ]
+                "char!" [
+                    res: apply 'JSON/stringify [node/value/string]
+                ]
+                "number!" [
+                    res: apply 'node/value/number/to-string []
+                ]
+                "none!" [
+                    res: "null"
+                ]
+                "logic!" [
+                    either node/value/value [
+                        res: "true"
+                    ] [
+                        res: "false"
+                    ]
+                ]
+            ] [
+                error "JS emitter" rejoin ["Cannot represent " node/value/type/name " values in JS"] ""
+            ]
+            either context = "return" [
+                rejoin ["return " res ";"]
+            ] [
+                res
+            ]
+        ]
+    ]
+]
+ast-paren: function [expressions] [] [
+    make-struct [
+        node-type: "paren"
+        expressions: expressions
+        to-js: function [node context] [res] [
+            to-js node/expressions context
+        ]
+    ]
+]
+ast-get: function [word] [] [
+    make-struct [
+        node-type: "get"
+        word: word
+        to-js: function [node context] [] [
+            to-js-common name-to-js node/word/word context
+        ]
+    ]
+]
+ast-get-path: function [expr selector] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: compile selector
+        ]
+        "get-word!" [
+            selector: ast-get selector
+        ]
+    ] [
+        selector: ast-value selector
+    ]
+    make-struct [
+        node-type: "get-path"
+        expr: expr
+        selector: selector
+        to-js: function [node context] [sel] [
+            either node/selector/node-type = "value/word!" [
+                sel: "." + name-to-js node/selector/value/word
+            ] [
+                sel: rejoin ["[" to-js node/selector "expression" "]"]
+            ]
+            to-js-common rejoin [to-js node/expr "expression" sel] context
+        ]
+    ]
+]
+ast-set-path: function [expr selector set-to] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: compile selector
+        ]
+        "get-word!" [
+            selector: ast-get selector
+        ]
+    ] [
+        selector: ast-value selector
+    ]
+    make-struct [
+        node-type: "set-path"
+        expr: expr
+        selector: selector
+        set-to: set-to
+        to-js: function [node context] [res sel] [
+            either node/selector/node-type = "value/word!" [
+                sel: "." + name-to-js node/selector/value/word
+            ] [
+                sel: rejoin ["[" to-js node/selector "expression" "]"]
+            ]
+            res: rejoin [
+                to-js node/expr "expression" sel "="
+                to-js node/set-to "expression"
+            ]
+            switch context [
+                "return" [
+                    rejoin ["return (" res ");"]
+                ]
+                "statement" [
+                    res + ";"
+                ]
+                "expression" [
+                    rejoin ["(" res ")"]
+                ]
+                "paren" [
+                    rejoin ["(" res ")"]
+                ]
+            ] []
+        ]
+    ]
+]
+ast-set: function [word set-to] [] [
+    make-struct [
+        node-type: "set"
+        word: word
+        set-to: set-to
+        to-js: function [node context] [res words name i] [
+            either node/word/type/name = "block!" [
+                if context <> "statement" [
+                    error "Compile" "SET with multiple words can only be a statement" ""
+                ]
+                words: node/word
+                res: rejoin [
+                    "var _tmp=" to-js node/set-to "expression" ";"
+                ]
+                i: 0
+                while [i < length-of words] [
+                    name: pick words i
+                    res: rejoin [
+                        res
+                        name-to-js name/word "=_tmp[" i "];"
+                    ]
+                    i: i + 1
+                ]
+                res
+            ] [
+                res: rejoin [
+                    name-to-js node/word/word "="
+                    to-js node/set-to "expression"
+                ]
+                switch context [
+                    "return" [
+                        rejoin ["return (" res ");"]
+                    ]
+                    "statement" [
+                        res + ";"
+                    ]
+                    "expression" [
+                        rejoin ["(" res ")"]
+                    ]
+                    "paren" [
+                        rejoin ["(" res ")"]
+                    ]
+                ] []
+            ]
+        ]
+    ]
+]
+ast-function-call: function [name args] [] [
+    make-struct [
+        node-type: "function-call"
+        name: name
+        args: args
+        to-js: function [node context] [res i] [
+            either node/name/type/name = "path!" [
+                res: pick-array apply 'path!/compile [node/name make block! none] 0
+                res: to-js res "expression"
+            ] [
+                res: name-to-js node/name/word
+            ]
+            res: res + "("
+            if 0 < length-of-array node/args [
+                res: res + to-js pick-array node/args 0 "expression"
+                i: 1
+                while [i < length-of-array node/args] [
+                    res: rejoin [res "," to-js pick-array node/args i "expression"]
+                    i: i + 1
+                ]
+            ]
+            to-js-common res + ")" context
+        ]
+    ]
+]
+ast-expressions: function [list] [] [
+    make-struct [
+        node-type: "expressions"
+        list: list
+        to-js: function [node context] [i res] [
+            i: 0
+            res: ""
+            switch context [
+                "statement" [
+                    while [i < length-of-array node/list] [
+                        res: res + to-js pick-array node/list i "statement"
+                        i: i + 1
+                    ]
+                ]
+                "expression" [
+                    if 1 < length-of-array node/list [
+                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                    ]
+                    res: to-js pick-array node/list 0 "expression"
+                ]
+                "paren" [
+                    if 1 < length-of-array node/list [
+                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                    ]
+                    res: to-js pick-array node/list 0 "paren"
+                ]
+                "return" [
+                    while [i + 1 < length-of-array node/list] [
+                        res: res + to-js pick-array node/list i "statement"
+                        i: i + 1
+                    ]
+                    either i < length-of-array node/list [
+                        res: res + to-js pick-array node/list i "return"
+                    ] [
+                        res: "return null;"
+                    ]
+                ]
+            ] []
+            res
+        ]
+    ]
 ]
 ast-function-definition: function [spec locals body] [] [
     make-struct [
@@ -2377,38 +2416,6 @@ ast-throw: function [expr] [] [
         ]
     ]
 ]
-either-expr-to-js: function [node] [res] [
-    res: rejoin [
-        to-js node/condition "paren" " ? "
-        to-js node/true-body "paren" " : "
-    ]
-    either node/false-body [
-        res + to-js node/false-body "paren"
-    ] [
-        res + "null"
-    ]
-]
-either-stmt-to-js: function [node context] [res] [
-    res: rejoin [
-        "if(" to-js node/condition "expression" "){"
-        to-js node/true-body context
-        "}"
-    ]
-    if node/false-body [
-        either node/false-body/node-type = "either" [
-            res: rejoin [
-                res "else " to-js node/false-body context
-            ]
-        ] [
-            res: rejoin [
-                res "else{"
-                to-js node/false-body context
-                "}"
-            ]
-        ]
-    ]
-    res
-]
 ast-either: function [condition true-body false-body] [] [
     make-struct [
         node-type: "either"
@@ -2463,32 +2470,6 @@ ast-struct: function [spec] [] [
             to-js-common res + "}" context
         ]
     ]
-]
-parse-struct-spec: function [block] [result name expr] [
-    block: block/value
-    result: make-array
-    while [not empty? block] [
-        name: first block
-        if name/type/name <> "set-word!" [
-            error "Compile" "Invalid struct spec, expected set-word!, not " + name/type/name mold-value block ""
-        ]
-        block: skip block 1
-        if empty? block [
-            error "Compile" "Struct field is missing its value" mold-value skip block -1 ""
-        ]
-        set [expr block] compile-step block
-        append-array result name/word
-        append-array result expr
-    ]
-    result
-]
-compile-reduce: function [block] [result expr] [
-    result: make-array
-    while [not empty? block] [
-        set [expr block] compile-step block
-        append-array result expr
-    ]
-    result
 ]
 ast-reduce: function [exprs] [] [
     make-struct [
@@ -2690,23 +2671,6 @@ ast-switch: function [value cases def] [] [
         ]
     ]
 ]
-compile-cases: function [cases] [] []
-compile-cases: function [cases] [cond orig-cases] [
-    either empty? cases [
-        none
-    ] [
-        orig-cases: cases
-        set [cond cases] compile-step cases
-        if empty? cases [
-            error "Compile" "Missing case block after condition" mold-value orig-cases ""
-        ]
-        either cond/node-type = "value/word!" [
-            compile first cases
-        ] [
-            ast-either cond compile first cases compile-cases skip cases 1
-        ]
-    ]
-]
 ast-to-char: function [expr] [] [
     make-struct [
         node-type: "to-char"
@@ -2716,15 +2680,6 @@ ast-to-char: function [expr] [] [
                 "String.fromCharCode(" to-js node/expr "expression" ")"
             ] context
         ]
-    ]
-]
-try-to-js: function [code name def context] [] [
-    rejoin [
-        "try{"
-        to-js code context
-        "}catch(" name-to-js name "){"
-        to-js def context
-        "}"
     ]
 ]
 ast-try: function [code word def] [] [
@@ -2776,6 +2731,54 @@ ast-op: function [op val1 val2] [] [
         ]
     ]
 ]
+
+; ===== COMPILER NATIVES ======================================================
+
+parse-struct-spec: function [block] [result name expr] [
+    block: block/value
+    result: make-array
+    while [not empty? block] [
+        name: first block
+        if name/type/name <> "set-word!" [
+            error "Compile" "Invalid struct spec, expected set-word!, not " + name/type/name mold-value block ""
+        ]
+        block: skip block 1
+        if empty? block [
+            error "Compile" "Struct field is missing its value" mold-value skip block -1 ""
+        ]
+        set [expr block] compile-step block
+        append-array result name/word
+        append-array result expr
+    ]
+    result
+]
+
+compile-reduce: function [block] [result expr] [
+    result: make-array
+    while [not empty? block] [
+        set [expr block] compile-step block
+        append-array result expr
+    ]
+    result
+]
+
+compile-cases: function [cases] [cond orig-cases] [
+    either empty? cases [
+        none
+    ] [
+        orig-cases: cases
+        set [cond cases] compile-step cases
+        if empty? cases [
+            error "Compile" "Missing case block after condition" mold-value orig-cases ""
+        ]
+        either cond/node-type = "value/word!" [
+            compile first cases
+        ] [
+            ast-either cond compile first cases compile-cases skip cases 1
+        ]
+    ]
+]
+
 native-compilers: make-struct [
     foreach: function [word series body] [] []
     insert: function [series value] [] []
