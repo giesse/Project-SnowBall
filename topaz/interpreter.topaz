@@ -1449,7 +1449,9 @@ compile-arguments: function [args n block wrap?] [expr orig-block i] [
 ]
 function!/compile: function [func block] [args expr] [
     push-context func/context
-    block: compile-arguments func/context/values length-of func/spec skip block 1 true
+    args: clone-values func/context
+    block: compile-arguments args length-of func/spec skip block 1 true
+    func/context/values: args
     expr: do func/body
     pop-context func/context
     reduce [expr/expr block]
@@ -1540,6 +1542,7 @@ do-op: function [op arg1 arg2] [result] [
     switch op/func/type/name [
         "function!" [
             push-context op/func/context
+            op/func/context/values: clone-values op/func/context
             poke-array op/func/context/values 0 arg1
             poke-array op/func/context/values 1 arg2
             result: do op/func/body
