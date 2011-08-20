@@ -79,7 +79,7 @@ locals: parse interpreter [
 ]
 foreach 'w [context: func:] [append locals w]
 append locals none
-locals: probe context locals
+locals: context locals
 bind interpreter locals
 bind interpreter compiler-keywords
 
