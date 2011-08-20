@@ -170,3 +170,5 @@ run-test [
         ]
     ]
 ]
+run-test [parse [a [b c d] e] [word! into [some word!] word!]]
+run-test [compose [a b (1 + 1) d]]

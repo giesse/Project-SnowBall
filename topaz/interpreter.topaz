@@ -2051,6 +2051,12 @@ natives: make-struct [
             "word!" [
                 set-word word value
             ]
+            "set-word!" [
+                set-word word value
+            ]
+            "lit-word!" [
+                set-word word value
+            ]
             "block!" [
                 set-words word value
             ]

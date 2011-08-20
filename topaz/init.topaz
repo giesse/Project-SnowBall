@@ -195,6 +195,31 @@ parse-element: func [rule cursor] [
                         result: cursor/block
                     ]
                 ]
+                into [
+                    rule: second cursor/rules
+                    if word? rule [rule: get rule]
+                    if not block? rule [throw "Invalid argument for INTO"]
+                    either all [not empty? cursor/block block? first cursor/block] [
+                        res: parse* context [
+                            block: first cursor/block
+                            rules: rule
+                            collect: cursor/collect
+                        ]
+                        context [
+                            block: either res/match? [next cursor/block] [cursor/block]
+                            rules: skip cursor/rules 2
+                            match?: res/match?
+                            result: res/result
+                        ]
+                    ] [
+                        context [
+                            block: cursor/block
+                            rules: skip cursor/rules 2
+                            match?: no
+                            result: none
+                        ]
+                    ]
+                ]
             ] [
                 ; problem: will always recurse on word! - desirable?
                 parse-element get rule cursor
@@ -323,6 +348,19 @@ parse: func [block' rules'] [
         collect: none
     ]
     if cursor/match? [cursor/result]
+]
+
+; always deep
+compose: func [block] [
+    parse block rule: [
+        collect any [
+            code: paren! keep (do code)
+            |
+            keep collect into rule
+            |
+            keep *
+        ]
+    ]
 ]
 
 compiler-keywords: context [
