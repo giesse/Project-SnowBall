@@ -54,13 +54,32 @@ app [
     ]
 ]
 
-; make all set-words local, also mask some interpreter functions
-locals: [context: func:]
-foreach 'value interpreter [
-    if set-word? value [append locals value]
+funcall-macro: func [name spec] [
+    make function! reduce [
+        spec
+        compose [
+            make expression! [
+                apply (to-lit-word name) (spec)
+            ]
+        ]
+    ]
 ]
+
+; define function call macros, make all set-words local, mask some interpreter functions
+locals: parse interpreter [
+    collect any [
+        keep name: set-word! [
+            'function keep ('funcall-macro) keep (to-lit-word name) keep block! block! block!
+            |
+            keep (none)
+        ]
+        |
+        skip
+    ]
+]
+foreach 'w [context: func:] [append locals w]
 append locals none
-locals: context locals
+locals: probe context locals
 bind interpreter locals
 bind interpreter compiler-keywords
 
