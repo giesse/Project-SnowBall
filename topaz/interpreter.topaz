@@ -304,7 +304,7 @@ block!/do: function [block container] [] [
 ]
 bind-values: function [values pos context extend?] [] [
     while [pos < length-of-array values] [
-        bind pick-array values pos context extend?
+        poke-array values pos bind pick-array values pos context extend?
         pos: pos + 1
     ]
     none
@@ -333,6 +333,14 @@ block!/("paren!")/equal?: function [block1 block2] [pos1 pos2 len] [
         pos1 = len
     ] [
         false
+    ]
+]
+block!/copy: function [value] [] [
+    make-struct [
+        type: block!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+        newlines: apply 'value/newlines/slice [value/pos]
     ]
 ]
 
@@ -433,6 +441,14 @@ paren!/("paren!"): make-struct []
 paren!/("block!"): make-struct []
 paren!/("paren!")/equal?:
 paren!/("block!")/equal?: block!/("block!")/equal?
+paren!/copy: function [value] [] [
+    make-struct [
+        type: paren!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+        newlines: apply 'value/newlines/slice [value/pos]
+    ]
+]
 
 ; ===== TYPES: PATH! ==========================================================
 
@@ -606,6 +622,13 @@ path!/("lit-path!"): make-struct []
 path!/("path!")/equal?:
 path!/("set-path!")/equal?:
 path!/("lit-path!")/equal?: block!/("block!")/equal?
+path!/copy: function [value] [] [
+    make-struct [
+        type: path!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+    ]
+]
 
 ; ===== TYPES: SET-PATH! ======================================================
 
@@ -750,6 +773,13 @@ set-path!/("lit-path!"): make-struct []
 set-path!/("path!")/equal?:
 set-path!/("set-path!")/equal?:
 set-path!/("lit-path!")/equal?: block!/("block!")/equal?
+set-path!/copy: function [value] [] [
+    make-struct [
+        type: set-path!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+    ]
+]
 
 ; ===== TYPES: LIT-PATH! ======================================================
 
@@ -841,6 +871,13 @@ lit-path!/("lit-path!"): make-struct []
 lit-path!/("path!")/equal?:
 lit-path!/("set-path!")/equal?:
 lit-path!/("lit-path!")/equal?: block!/("block!")/equal?
+lit-path!/copy: function [value] [] [
+    make-struct [
+        type: lit-path!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+    ]
+]
 
 ; ===== TYPES: STRING! ========================================================
 
@@ -917,6 +954,13 @@ string!/equal?: function [string value] [] [false]
 string!/("string!"): make-struct []
 string!/("string!")/equal?: function [string1 string2] [] [
     (to-js-string string1) = to-js-string string2
+]
+string!/copy: function [string] [] [
+    make-struct [
+        type: string!
+        string: apply 'string/string/substr [string/pos]
+        pos: 0
+    ]
 ]
 
 ; ===== TYPES: CHAR! ==========================================================
@@ -1150,7 +1194,12 @@ bind-word: function [context word add?] [offset] [
     word
 ]
 word!/bind: function [word context extend?] [] [
-    bind-word context word extend?
+    bind-word context make-struct [
+        type: word!
+        word: word/word
+        context: word/context
+        offset: word/offset
+    ] extend?
 ]
 word!/compile: function [word block] [value] [
     value: get word
@@ -1200,16 +1249,15 @@ set-word!/do: function [word block] [set-to] [
     reduce [set-to block]
 ]
 set-word!/bind: function [word context extend?] [] [
-    bind-word context word extend?
+    bind-word context make-struct [
+        type: set-word!
+        word: word/word
+        context: word/context
+        offset: word/offset
+    ] extend?
 ]
 load: function [text all?] [] []
 ast-set: function [word set-to] [] [
-    if set-to/node-type = "function-definition" [
-        set-word word make function! reduce [
-            set-to/spec
-            load make string! rejoin ["make expression! [apply '" word/word " " mold-value set-to/spec "" "]"] true
-        ]
-    ]
     make-struct [
         node-type: "set"
         word: word
@@ -1297,7 +1345,12 @@ lit-word!/do: function [word block] [] [
     reduce [word skip block 1]
 ]
 lit-word!/bind: function [word context extend?] [] [
-    bind-word context word extend?
+    bind-word context make-struct [
+        type: lit-word!
+        word: word/word
+        context: word/context
+        offset: word/offset
+    ] extend?
 ]
 lit-word!/compile: function [word block] [] [
     reduce [
@@ -2231,6 +2284,7 @@ natives: make-struct [
         ]
     ]
     type?: function [value] [] [value/type]
+    copy: function [value] [] [apply 'value/type/copy [value]]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []
@@ -2828,4 +2882,5 @@ native-compilers: make-struct [
     type?: function [value] [] []
     find: function [series value] [] []
     until: function [body] [] []
+    copy: function [value] [] []
 ]

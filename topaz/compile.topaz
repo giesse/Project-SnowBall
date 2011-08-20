@@ -59,7 +59,7 @@ funcall-macro: func [name spec] [
         spec
         compose [
             make expression! [
-                apply (to-lit-word name) (spec)
+                apply (to-lit-word name) (copy spec)
             ]
         ]
     ]
