@@ -46,6 +46,7 @@ foreach [native spec] [
     context-of        [word]
     rejoin            [block]
     to-word           [value]
+    to-lit-word       [value]
     type?             [value]
     find              [series value]
     until             [body]

@@ -1050,7 +1050,7 @@ context!/make: function [arguments] [] [
         stack: make-array
     ]
 ]
-collect-set-words: function [set-words block deep?] [] []
+collect-set-words: function [setwords block deep?] [] []
 context!/topaz-make: function [code] [ctx] [
     ctx: make context! none
     bind collect-set-words make block! none code false ctx true
@@ -1324,19 +1324,19 @@ function!: make-type "function!"
 append: function [block value] [] [
     head insert tail block value
 ]
-collect-set-words: function [set-words block deep?] [value] [
+collect-set-words: function [setwords block deep?] [value] [
     while [not empty? block] [
         value: first block
         switch value/type/name [
             "set-word!" [
-                append set-words value
+                append setwords value
             ]
-            "block!" [if deep? [collect-set-words set-words value true]]
-            "paren!" [if deep? [collect-set-words set-words value true]]
+            "block!" [if deep? [collect-set-words setwords value true]]
+            "paren!" [if deep? [collect-set-words setwords value true]]
         ] []
         block: skip block 1
     ]
-    set-words
+    setwords
 ]
 function!/make: function [arguments] [spec body context word] [
     set [spec body] arguments
@@ -1465,7 +1465,6 @@ native!/make: function [arguments] [spec f c] [
     set [spec f c] arguments
     make-struct [
         type: native!
-        args: make-array
         spec: spec
         func: f
         compile: c
@@ -1487,9 +1486,10 @@ native!/topaz-make: function [arguments] [spec name f c] [
 native!/mold: function [func indent] [] [
     "native " + mold-value func/spec indent
 ]
-native!/do: function [func block] [] [
-    block: collect-arguments length-of func/spec func/args skip block 1
-    reduce [apply 'func/func/apply [none func/args] block]
+native!/do: function [func block] [args] [
+    args: make-array
+    block: collect-arguments length-of func/spec args skip block 1
+    reduce [apply 'func/func/apply [none args] block]
 ]
 native!/bind: function [func context extend?] [] [
     func
@@ -2223,6 +2223,13 @@ natives: make-struct [
             error "Script" "Invalid argument for TO-WORD" mold-value value ""
         ]
     ]
+    to-lit-word: function [value] [] [
+        either any [value/type/name = "word!" value/type/name = "set-word!"] [
+            make lit-word! value/word
+        ] [
+            error "Script" "Invalid argument for TO-LIT-WORD" mold-value value ""
+        ]
+    ]
     type?: function [value] [] [value/type]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
@@ -2817,6 +2824,7 @@ native-compilers: make-struct [
     ]
     context-of: function [word] [] []
     to-word: function [value] [] []
+    to-lit-word: function [value] [] []
     type?: function [value] [] []
     find: function [series value] [] []
     until: function [body] [] []
