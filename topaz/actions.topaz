@@ -1,0 +1,116 @@
+; Topaz action helpers
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== ACTION HELPERS ========================================================
+
+make: function [type arguments] [] [
+    apply 'type/make [arguments]
+]
+insert: function [series value] [] [
+    apply 'series/type/insert [series value]
+]
+head: function [series] [] [
+    apply 'series/type/head [series]
+]
+pick: function [series pos] [] [
+    apply 'series/type/pick [series pos]
+]
+length-of: function [series] [] [
+    apply 'series/type/length-of [series]
+]
+empty?: function [series] [] [
+    0 = length-of series
+]
+skip: function [series amount] [] [
+    apply 'series/type/skip [series amount]
+]
+mold-value: function [value indent] [] [
+    apply 'value/type/mold [value indent]
+]
+mold: function [value] [] [
+    make string! mold-value value ""
+]
+first: function [series] [] [
+    pick series 0
+]
+do-step: function [value block] [result arg2 op] [
+    try [
+        set [result block] apply 'value/type/do [value block]
+    ] 'e [
+        throw rejoin [e "^/*** Where: " mold-value block ""]
+    ]
+    while [op: operator? block] [
+        block: skip block 1
+        if empty? block [error "Script" "Operator missing its second argument" mold-value skip block -2 ""]
+        arg2: first block
+        set [arg2 block] apply 'arg2/type/do [arg2 block]
+        result: do-op op result arg2
+    ]
+    reduce [result block]
+]
+get: function [word] [] [
+    if not word/context [
+        error "Script" "Word has no context" word/word
+    ]
+    pick-array word/context/values word/offset
+]
+get-path: function [value selector] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: do selector
+        ]
+        "get-word!" [
+            selector: get selector
+        ]
+    ] []
+    apply 'value/type/get-path [value selector]
+]
+set-path: function [value selector set-to] [] [
+    switch selector/type/name [
+        "paren!" [
+            selector: do selector
+        ]
+        "get-word!" [
+            selector: get selector
+        ]
+    ] []
+    apply 'value/type/set-path [value selector set-to]
+]
+bind: function [words context extend?] [] [
+    apply 'words/type/bind [words context extend?]
+]
+tail: function [series] [] [
+    apply 'series/type/tail [series]
+]
+equal?: function [val1 val2] [obj] [
+    either obj: val1/type/(val2/type/name) [
+        apply 'obj/equal? [val1 val2]
+    ] [
+        apply 'val1/type/equal? [val1 val2]
+    ]
+]
+
+probe: function [value] [] [
+    print apply 'value/type/mold [value ""]
+    print "^/"
+]

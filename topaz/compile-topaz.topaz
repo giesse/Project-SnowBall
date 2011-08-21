@@ -1,12 +1,33 @@
-; Compile topaz/interpreter.topaz to topaz/interpreter.js
+; Compile Topaz to topaz/topaz.js
 
-interpreter: load read "topaz/interpreter.topaz"
+load*: func [file] [load read file]
+
+interpreter: load* "topaz/support.topaz"
 
 app: func [code] [
     foreach 'value code [
         insert tail interpreter value
     ]
 ]
+
+app-file: func [file] [app load* file]
+
+app-file "topaz/actions.topaz"
+
+types-dir: "topaz/types/"
+app-type: func [file] [app-file rejoin [types-dir file]]
+
+app-type "datatype.topaz"
+app-type "block.topaz" ; referenced by some other types
+foreach 'file read types-dir [
+    if not found? find ["datatype.topaz" "block.topaz"] file [app-type file]
+]
+
+foreach 'file [
+    "topaz/load.topaz"
+    "topaz/natives.topaz"
+    "topaz/compiler.topaz"
+] [app-file file]
 
 app [
     sys: apply 'require ["sys"]
@@ -83,4 +104,4 @@ locals: context locals
 bind interpreter locals
 bind interpreter compiler-keywords
 
-write "topaz/interpreter.js" compile interpreter
+write "topaz/topaz.js" compile interpreter

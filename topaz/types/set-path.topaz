@@ -1,0 +1,148 @@
+; Topaz types: SET-PATH!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: SET-PATH! ======================================================
+
+set-path!: make-type "set-path!"
+set-path!/make: function [arguments] [] [
+    make-struct [
+        type: set-path!
+        values: make-array
+        pos: 0
+    ]
+]
+set-path!/topaz-make: function [ignored] [] [
+    apply 'set-path!/make [none]
+]
+set-path!/insert: function [block value] [] [
+    insert-array block/values block/pos value
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: block/pos + 1
+    ]
+]
+set-path!/head: function [block] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: 0
+    ]
+]
+set-path!/tail: function [block] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: length-of-array block/values
+    ]
+]
+set-path!/skip: function [block amount] [] [
+    make-struct [
+        type: set-path!
+        values: block/values
+        pos: block/pos + amount
+    ]
+]
+set-path!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+set-path!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+set-path!/mold: function [block indent] [result pos] [
+    result: ""
+    pos: block/pos
+    if pos < length-of-array block/values [
+        result: mold-step1 result block/values pos indent ""
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step1 result block/values pos indent #"/"
+            pos: pos + 1
+        ]
+    ]
+    result + #":"
+]
+set-path!/do: function [path block] [value set-to] [
+    if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
+    value: get first path
+    path: skip path 1
+    while [1 < length-of path] [
+        value: get-path value first path
+        path: skip path 1
+    ]
+    block: skip block 1
+    if empty? block [error "Script" "set-path needs a value" mold-value skip block -1 ""]
+    set [set-to block] do-step first block block
+    set-path value first path set-to
+    reduce [set-to block]
+]
+set-path!/bind: function [path context extend?] [] [
+    bind-values path/values 0 context extend?
+    path
+]
+set-path!/compile: function [path block] [expr set-to] [
+    if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
+    expr: ast-get first path
+    path: skip path 1
+    while [1 < length-of path] [
+        expr: ast-get-path expr first path
+        path: skip path 1
+    ]
+    block: skip block 1
+    if empty? block [error "Compile" "set-path needs a value" mold-value skip block -1 ""]
+    set [set-to block] compile-step block
+    reduce [ast-set-path expr first path set-to block]
+]
+set-path!/equal?: function [path value] [] [false]
+set-path!/("path!"): make-struct []
+set-path!/("set-path!"): make-struct []
+set-path!/("lit-path!"): make-struct []
+set-path!/("path!")/equal?:
+set-path!/("set-path!")/equal?:
+set-path!/("lit-path!")/equal?: block!/("block!")/equal?
+set-path!/copy: function [value] [] [
+    make-struct [
+        type: set-path!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+    ]
+]
+
+parse-set-path: function [text] [path value] [
+    if all [value: parse-word-chars text  #"/" = pick text length-of-array value] [
+        path: make set-path! none
+        path: insert path make word! value
+        text: skip text length-of-array value
+        while [all [not empty? text  #"/" = first text]] [
+            set [value text] parse-path-element skip text 1
+            either value [
+                path: insert path value
+            ] [
+                error "Syntax" "Parse error" to-js-string text
+            ]
+        ]
+        if all [not empty? text  #":" = first text] [
+            reduce [head path skip text 1]
+        ]
+    ]
+]

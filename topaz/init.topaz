@@ -114,6 +114,7 @@ next: func [series] [skip series 1]
 set-word?: func [value] [set-word! = type? get 'value]
 word?: func [value] [word! = type? get 'value]
 block?: func [value] [block! = type? get 'value]
+found?: func [series] [all [series not empty? series]]
 
 parse-match: func [cursor condition] [
     either all [not empty? cursor/block do condition] [

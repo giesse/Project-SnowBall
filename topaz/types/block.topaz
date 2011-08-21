@@ -1,0 +1,169 @@
+; Topaz types: BLOCK!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: BLOCK! =========================================================
+
+block!: make-type "block!"
+block!/make: function [arguments] [] [
+    make-struct [
+        type: block!
+        values: make-array
+        pos: 0
+        newlines: make-array
+    ]
+]
+block!/topaz-make: function [ignored] [] [
+    apply 'block!/make [none]
+]
+block!/insert: function [block value] [] [
+    insert-array block/values block/pos value
+    insert-array block/newlines block/pos false
+    make-struct [
+        type: block!
+        values: block/values
+        pos: block/pos + 1
+        newlines: block/newlines
+    ]
+]
+block!/head: function [block] [] [
+    make-struct [
+        type: block!
+        values: block/values
+        pos: 0
+        newlines: block/newlines
+    ]
+]
+block!/tail: function [block] [] [
+    make-struct [
+        type: block!
+        values: block/values
+        pos: length-of-array block/values
+        newlines: block/newlines
+    ]
+]
+block!/skip: function [block amount] [pos len] [
+    pos: block/pos + amount
+    if pos > len: length-of-array block/values [pos: len]
+    make-struct [
+        type: block!
+        values: block/values
+        pos: pos
+        newlines: block/newlines
+    ]
+]
+block!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+block!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+mold-step1: function [result values pos indent sep] [] [
+    rejoin [result sep mold-value pick-array values pos indent]
+]
+mold-step2: function [result values newlines pos indent sep nlsep] [] [
+    if pick-array newlines pos [
+        sep: nlsep + indent
+    ]
+    mold-step1 result values pos indent sep
+]
+block!/mold: function [block indent] [result pos ind] [
+    result: "["
+    pos: block/pos
+    ind: indent + "    "
+    if pos < length-of-array block/values [
+        result: mold-step2 result block/values block/newlines pos ind "" #"^/"
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
+            pos: pos + 1
+        ]
+    ]
+    if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
+    result + #"]"
+]
+block!/do: function [block container] [] [
+    reduce [block skip container 1]
+]
+bind-values: function [values pos context extend?] [] [
+    while [pos < length-of-array values] [
+        poke-array values pos bind pick-array values pos context extend?
+        pos: pos + 1
+    ]
+    none
+]
+block!/bind: function [words context extend?] [] [
+    bind-values words/values words/pos context extend?
+    words
+]
+block!/compile: function [block container] [] [
+    reduce [ast-value block skip container 1]
+]
+block!/equal?: function [block value] [] [false]
+block!/("block!"): make-struct []
+block!/("paren!"): make-struct []
+block!/("block!")/equal?:
+block!/("paren!")/equal?: function [block1 block2] [pos1 pos2 len] [
+    len: length-of block1
+    either len = length-of block2 [
+        pos1: block1/pos
+        pos2: block2/pos
+        len: len + pos1
+        while [all [pos1 < len equal? block1/values/(pos1) block2/values/(pos2)]] [
+            pos1: pos1 + 1
+            pos2: pos2 + 1
+        ]
+        pos1 = len
+    ] [
+        false
+    ]
+]
+block!/copy: function [value] [] [
+    make-struct [
+        type: block!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+        newlines: apply 'value/newlines/slice [value/pos]
+    ]
+]
+
+new-line: function [block newline?] [] [
+    poke-array block/newlines block/pos newline?
+]
+insert-nl: function [block value newline?] [] [
+    block: insert block value
+    poke-array block/newlines block/pos - 1 newline?
+    block
+]
+append: function [block value] [] [
+    head insert tail block value
+]
+
+parse-block: function [text] [values] [
+    if #"[" = first text [
+        set [values text] parse-values make block! none skip text 1
+        if #"]" <> first text [
+            error "Syntax" "Missing ]" to-js-string text
+        ]
+        reduce [values skip text 1]
+    ]
+]

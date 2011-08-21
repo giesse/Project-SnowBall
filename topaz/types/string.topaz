@@ -1,0 +1,173 @@
+; Topaz types: STRING!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: STRING! ========================================================
+
+string!: make-type "string!"
+string!/make: function [arguments] [] [
+    make-struct [
+        type: string!
+        string: arguments
+        pos: 0
+    ]
+]
+string!/topaz-make: function [ignored] [] [
+    apply 'string!/make [""]
+]
+string!/length-of: function [string] [] [
+    (length-of-array string/string) - string/pos
+]
+string!/pick: function [string pos] [] [
+    pick-array string/string string/pos + pos
+]
+string!/skip: function [string amount] [] [
+    make-struct [
+        type: string!
+        string: string/string
+        pos: string/pos + amount
+    ]
+]
+escape: function [str] [re result match i] [
+    re: regexp "[\x00-\x19^^^"]" "mg"
+    result: ""
+    i: 0
+    while [match: apply 're/exec [str]] [
+        result: result + apply 'str/substr [i match/index - i]
+        switch pick-array str match/index [
+            #"^^" [
+                result: result + "^^^^"
+            ]
+            #"^/" [
+                result: result + "^^/"
+            ]
+            #"^"" [
+                result: result + "^^^""
+            ]
+            #"^-" [
+                result: result + "^^-"
+            ]
+            #"^!" [
+                result: result + "^^!"
+            ]
+        ] [
+            result: rejoin [result #"^^" to-char (apply 'str/char-code-at [match/index]) + 64]
+        ]
+        i: match/index + 1
+    ]
+    either i = 0 [
+        str
+    ] [
+        result + apply 'str/substr [i]
+    ]
+]
+unescape: function [str] [result i j ch p] [
+    result: ""
+    i: 0
+    while [0 <= j: apply 'str/index-of [#"^^" i]] [
+        result: result + apply 'str/substr [i j - i]
+        ch: pick-array str j + 1
+        switch ch [
+            #"/" [
+                result: result + #"^/"
+                i: j + 2
+            ]
+            #"-" [
+                result: result + #"^-"
+                i: j + 2
+            ]
+            #"^^" [
+                result: result + #"^^"
+                i: j + 2
+            ]
+            #"!" [
+                result: result + #"^!"
+                i: j + 2
+            ]
+        ] [
+            case [
+                all [ch >= #"@"  ch <= #"_"] [
+                    result: result + to-char (apply 'ch/char-code-at [0]) - 64
+                    i: j + 2
+                ]
+                all [
+                    ch = #"("
+                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
+                ] [
+                    result: result + to-char apply 'parse-int [pick-array p 1 16]
+                    i: j + 1 + length-of-array pick-array p 0
+                ]
+                'else [
+                    result: result + ch
+                    i: j + 2
+                ]
+            ]
+        ]
+    ]
+    either i = 0 [
+        str
+    ] [
+        result + apply 'str/substr [i]
+    ]
+]
+string!/mold: function [string indent] [] [
+    rejoin ["^"" escape string/string #"^""]
+]
+string!/do: function [string block] [] [
+    reduce [string skip block 1]
+]
+string!/bind: function [value context extend?] [] [
+    value
+]
+string!/compile: function [string block] [] [
+    reduce [ast-value string skip block 1]
+]
+string!/equal?: function [string value] [] [false]
+string!/("string!"): make-struct []
+string!/("string!")/equal?: function [string1 string2] [] [
+    (to-js-string string1) = to-js-string string2
+]
+string!/copy: function [string] [] [
+    make-struct [
+        type: string!
+        string: apply 'string/string/substr [string/pos]
+        pos: 0
+    ]
+]
+
+to-js-string: function [string] [] [
+    apply 'string/string/substr [string/pos]
+]
+
+parse-string: function [text] [t] [
+    if #"^"" = pick text 0 [
+        t: exec-re to-js-string text regexp "^^^"(([^^^"^^\f\n\r]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)^"" ""
+        either t [
+            reduce [
+                make string! unescape pick-array t 1
+                skip text length-of-array pick-array t 0
+            ]
+        ] [
+            error "Syntax" "Missing ^"" to-js-string text
+        ]
+    ]
+]

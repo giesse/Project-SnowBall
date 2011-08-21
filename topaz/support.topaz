@@ -1,0 +1,141 @@
+; Topaz support functions
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== SUPPORT FUNCTIONS =====================================================
+
+print: function [text] [] [
+    apply 'sys/print [text]
+    text
+]
+
+js-probe: function [value] [] [
+    print apply 'sys/inspect [value]
+    print "^/"
+    value
+]
+
+length-of-array: function [arr] [] [
+    arr/length
+]
+
+insert-array: function [arr pos value] [] [
+    apply 'arr/splice [pos 0 value]
+]
+
+error: function [type message where] [] [
+    throw rejoin ["*** " type " error: " message "^/*** Where: " where]
+]
+
+name-to-js: function [name] [] [
+    switch name [
+        "arguments" ["_arguments"]
+        "do"        ["_do"]
+        "json"      ["JSON"]
+        "case"      ["_case"]
+        "try"       ["_try"]
+        "throw"     ["_throw"]
+        "function"  ["_function"]
+        "if"        ["_if"]
+        "while"     ["_while"]
+        "switch"    ["_switch"]
+        "true"      ["_true"]
+        "false"     ["_false"]
+    ] [
+        name: apply 'name/replace [
+            regexp "-(.)" "g"
+            function [match chr] [] [
+                apply 'chr/to-upper-case []
+            ]
+        ]
+        name: apply 'name/replace [
+            regexp "^^(.)(.*)\?$" ""
+            function [match chr rest] [] [
+                rejoin ["is" apply 'chr/to-upper-case [] rest]
+            ]
+        ]
+        apply 'name/replace ["!" "_type"]
+    ]
+]
+
+collect-set-words: function [setwords block deep?] [value] [
+    while [not empty? block] [
+        value: first block
+        switch value/type/name [
+            "set-word!" [
+                append setwords value
+            ]
+            "block!" [if deep? [collect-set-words setwords value true]]
+            "paren!" [if deep? [collect-set-words setwords value true]]
+        ] []
+        block: skip block 1
+    ]
+    setwords
+]
+
+clone-array: function [arr] [] [
+    apply 'arr/concat []
+]
+
+pop-array: function [arr] [] [
+    apply 'arr/pop []
+]
+
+append-array: function [arr value] [] [
+    apply 'arr/push [value]
+]
+
+exec-re: function [str re] [] [
+    apply 're/exec [str]
+]
+
+test-re: function [str re] [] [
+    apply 're/test [str]
+]
+
+empty-array?: function [array] [] [
+    0 = length-of-array array
+]
+
+true?: function [value] [] [
+    switch value/type/name [
+        "none!" [false]
+        "logic!" [value/value]
+    ] [
+        true
+    ]
+]
+
+words-to-js: function [words] [res word] [
+    res: ""
+    if 0 < length-of words [
+        word: first words
+        res: name-to-js word/word
+        words: skip words 1
+        while [not empty? words] [
+            word: first words
+            res: rejoin [res "," name-to-js word/word]
+            words: skip words 1
+        ]
+    ]
+    res
+]

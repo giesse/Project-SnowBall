@@ -1,0 +1,125 @@
+; Topaz types: PAREN!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: PAREN! =========================================================
+
+paren!: make-type "paren!"
+paren!/make: function [arguments] [] [
+    make-struct [
+        type: paren!
+        values: make-array
+        pos: 0
+        newlines: make-array
+    ]
+]
+paren!/topaz-make: function [ignored] [] [
+    apply 'paren!/make [none]
+]
+paren!/insert: function [block value] [] [
+    insert-array block/values block/pos value
+    insert-array block/newlines block/pos false
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: block/pos + 1
+        newlines: block/newlines
+    ]
+]
+paren!/head: function [block] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: 0
+        newlines: block/newlines
+    ]
+]
+paren!/tail: function [block] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: length-of-array block/values
+        newlines: block/newlines
+    ]
+]
+paren!/skip: function [block amount] [] [
+    make-struct [
+        type: paren!
+        values: block/values
+        pos: block/pos + amount
+        newlines: block/newlines
+    ]
+]
+paren!/pick: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+paren!/length-of: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+paren!/mold: function [block indent] [result pos ind] [
+    result: "("
+    pos: block/pos
+    ind: indent + "    "
+    if pos < length-of-array block/values [
+        result: mold-step2 result block/values block/newlines pos ind "" #"^/"
+        pos: pos + 1
+        while [pos < length-of-array block/values] [
+            result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
+            pos: pos + 1
+        ]
+    ]
+    if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
+    result + #")"
+]
+paren!/do: function [paren block] [] [
+    reduce [do paren skip block 1]
+]
+paren!/bind: function [words context extend?] [] [
+    bind-values words/values words/pos context extend?
+    words
+]
+paren!/compile: function [paren block] [] [
+    reduce [ast-paren compile paren skip block 1]
+]
+paren!/equal?: block!/equal?
+paren!/("paren!"): make-struct []
+paren!/("block!"): make-struct []
+paren!/("paren!")/equal?:
+paren!/("block!")/equal?: block!/("block!")/equal?
+paren!/copy: function [value] [] [
+    make-struct [
+        type: paren!
+        values: apply 'value/values/slice [value/pos]
+        pos: 0
+        newlines: apply 'value/newlines/slice [value/pos]
+    ]
+]
+
+parse-paren: function [text] [values] [
+    if #"(" = first text [
+        set [values text] parse-values make paren! none skip text 1
+        if #")" <> first text [
+            error "Syntax" "Missing )" to-js-string text
+        ]
+        reduce [values skip text 1]
+    ]
+]

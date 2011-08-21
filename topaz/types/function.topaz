@@ -1,0 +1,102 @@
+; Topaz types: FUNCTION!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: FUNCTION! ======================================================
+
+function!: make-type "function!"
+function!/make: function [arguments] [spec body context word] [
+    set [spec body] arguments
+    context: make context! none
+    while [not empty? spec] [
+        word: first spec
+        if word/type/name <> "word!" [
+            error "Script" "Invalid function spec" mold-value spec ""
+        ]
+        if 0 <= get-word-offset context word/word [
+            error "Script" "Duplicate function argument name" mold-value spec ""
+        ]
+        add-word context word none
+        spec: skip spec 1
+    ]
+    bind collect-set-words make block! none body true context true
+    make-struct [
+        type: function!
+        context: context
+        spec: head spec
+        body: bind body context false
+    ]
+]
+function!/topaz-make: function [block] [] [
+    apply 'function!/make [block/values]
+]
+function!/mold: function [func indent] [] [
+    rejoin ["func " mold-value func/spec indent " " mold-value func/body indent]
+]
+collect-arguments: function [n target block] [value orig-block i] [
+    orig-block: block
+    i: 0
+    while [i < n] [
+        if empty? block [
+            error "Script" "Not enough arguments for function" mold-value skip orig-block -1 ""
+        ]
+        set [value block] do-step first block block
+        poke-array target i value
+        i: i + 1
+    ]
+    block
+]
+function!/do: function [func block] [result args] [
+    push-context func/context
+    args: clone-values func/context
+    block: collect-arguments length-of func/spec args skip block 1
+    func/context/values: args
+    result: do func/body
+    pop-context func/context
+    reduce [result block]
+]
+function!/bind: function [func context extend?] [] [
+    func
+]
+compile-arguments: function [args n block wrap?] [expr orig-block i] [
+    orig-block: block
+    i: 0
+    while [i < n] [
+        if empty? block [
+            error "Compile" "Not enough arguments for function" mold-value skip orig-block -1 ""
+        ]
+        set [expr block] compile-step block
+        poke-array args i either wrap? [make expression! expr] [expr]
+        i: i + 1
+    ]
+    block
+]
+function!/compile: function [func block] [args expr] [
+    push-context func/context
+    args: clone-values func/context
+    block: compile-arguments args length-of func/spec skip block 1 true
+    func/context/values: args
+    expr: do func/body
+    pop-context func/context
+    reduce [expr/expr block]
+]
+function!/equal?: function [func value] [] [false]

@@ -1,0 +1,60 @@
+; Topaz types: NUMBER!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: NUMBER! ========================================================
+
+number!: make-type "number!"
+number!/make: function [arguments] [] [
+    make-struct [
+        type: number!
+        number: arguments
+    ]
+]
+number!/topaz-make: function [ignored] [] [
+    apply 'number!/make [0]
+]
+number!/mold: function [number indent] [] [
+    apply 'number/number/to-string []
+]
+number!/do: function [number block] [] [
+    reduce [number skip block 1]
+]
+number!/bind: function [value context extend?] [] [
+    value
+]
+number!/compile: function [number block] [] [
+    reduce [ast-value number skip block 1]
+]
+number!/equal?: function [number value] [] [false]
+number!/("number!"): make-struct []
+number!/("number!")/equal?: function [num1 num2] [] [num1/number = num2/number]
+
+parse-number: function [text] [t] [
+    t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""
+    if all [t  0 < length-of-array t: pick-array t 0] [
+        reduce [
+            make number! apply 'parse-float [t]
+            skip text length-of-array t
+        ]
+    ]
+]

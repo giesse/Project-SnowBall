@@ -1,19 +1,16 @@
 NODE = nodejs
 NODEINT = rlwrap nodejs
 
-all: topaz/interpreter.js
+all: topaz/topaz.js
 
-tests: topaz/interpreter.js topaz/tests.topaz
-	${NODE} topaz/interpreter.js topaz/tests.topaz
-
-compile-next: topaz/interpreter.js topaz/compile-next.topaz
-	${NODE} topaz/interpreter.js topaz/compile-next.topaz
+tests: topaz/topaz.js topaz/tests.topaz
+	${NODE} topaz/topaz.js topaz/tests.topaz
 
 repl: all
-	${NODEINT} topaz/interpreter.js
+	${NODEINT} topaz/topaz.js
 
-topaz/interpreter.js: topaz/bootstrap.js topaz/interpreter.topaz topaz/init.topaz topaz/compile.topaz
-	${NODE} topaz/bootstrap.js topaz/compile.topaz
+topaz/topaz.js: topaz/bootstrap.js topaz/actions.topaz topaz/compiler.topaz topaz/init.topaz topaz/load.topaz topaz/natives.topaz topaz/support.topaz topaz/types/* topaz/compile-topaz.topaz
+	${NODE} topaz/bootstrap.js topaz/compile-topaz.topaz
 
 topaz/bootstrap.js:
 	wget -O topaz/bootstrap.js http://www.colellachiara.com/soft/topaz/bootstrap.js

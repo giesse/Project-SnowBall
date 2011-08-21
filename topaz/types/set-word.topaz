@@ -1,0 +1,84 @@
+; Topaz types: SET-WORD!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: SET-WORD! ======================================================
+
+set-word!: make-type "set-word!"
+set-word!/make: function [arguments] [] [
+    make-struct [
+        type: set-word!
+        word: arguments
+        context: none
+        offset: none
+    ]
+]
+set-word!/topaz-make: function [string] [] [
+    apply 'set-word!/make [string/string]
+]
+set-word!/mold: function [word indent] [] [
+    word/word + #":"
+]
+set-word: function [word value] [] [
+    if not word/context [
+        error "Script" "Word has no context" word/word
+    ]
+    poke-array word/context/values word/offset value
+    value
+]
+set-word!/do: function [word block] [set-to] [
+    block: skip block 1
+    if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
+    set [set-to block] do-step first block block
+    set-word word set-to
+    reduce [set-to block]
+]
+set-word!/bind: function [word context extend?] [] [
+    bind-word context make-struct [
+        type: set-word!
+        word: word/word
+        context: word/context
+        offset: word/offset
+    ] extend?
+]
+set-word!/compile: function [word block] [set-to] [
+    block: skip block 1
+    if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
+    set [set-to block] compile-step block
+    reduce [ast-set word set-to block]
+]
+set-word!/equal?: function [word value] [] [false]
+set-word!/("word!"): make-struct []
+set-word!/("set-word!"): make-struct []
+set-word!/("lit-word!"): make-struct []
+set-word!/("word!")/equal?:
+set-word!/("set-word!")/equal?:
+set-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+
+parse-set-word: function [text] [w] [
+    if all [w: parse-word-chars text  #":" = pick text length-of-array w] [
+        reduce [
+            make set-word! w
+            skip text 1 + length-of-array w
+        ]
+    ]
+]

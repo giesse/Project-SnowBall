@@ -1,0 +1,77 @@
+; Topaz types: OP!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: OP! ============================================================
+
+op!: make-type "op!"
+op!/make: function [arguments] [] [
+    if 2 <> length-of arguments/spec [
+        error "Script" "Function must take exactly two arguments" ""
+    ]
+    make-struct [
+        type: op!
+        func: arguments
+    ]
+]
+op!/topaz-make: function [func] [] [
+    apply 'op!/make [func]
+]
+op!/mold: function [op indent] [] [
+    "make op! " + mold-value op/func indent
+]
+op!/do: function [op block] [] [
+    error "Script" "Infix use of OP!s is not supported" mold-value block ""
+]
+op!/bind: function [op context extend?] [] [
+    op
+]
+op!/compile: function [op block] [] [
+    error "Compile" "Infix use of OP!s is not supported" mold-value block ""
+]
+operator?: function [block] [value] [
+    all [
+        not empty? block
+        value: first block
+        value/type/name = "word!"
+        value: get value
+        value/type/name = "op!"
+        value
+    ]
+]
+do-op: function [op arg1 arg2] [result] [
+    switch op/func/type/name [
+        "function!" [
+            push-context op/func/context
+            op/func/context/values: clone-values op/func/context
+            poke-array op/func/context/values 0 arg1
+            poke-array op/func/context/values 1 arg2
+            result: do op/func/body
+            pop-context op/func/context
+            result
+        ]
+        "native!" [
+            apply 'op/func/func [arg1 arg2]
+        ]
+    ] []
+]
+op!/equal?: function [op value] [] [false]

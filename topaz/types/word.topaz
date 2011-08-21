@@ -1,0 +1,103 @@
+; Topaz types: WORD!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: WORD! ==========================================================
+
+word!: make-type "word!"
+word!/make: function [arguments] [] [
+    make-struct [
+        type: word!
+        word: arguments
+        context: none
+        offset: none
+    ]
+]
+word!/topaz-make: function [string] [] [
+    apply 'word!/make [string/string]
+]
+word!/mold: function [word indent] [] [
+    word/word
+]
+word!/do: function [word block] [] [
+    word: get word
+    case [
+        not word [
+            error "Script" "Word has no value" mold-value block ""
+        ]
+        any [word/type/name = "function!" word/type/name = "native!"] [
+            apply 'word/type/do [word block]
+        ]
+        'else [
+            reduce [word skip block 1]
+        ]
+    ]
+]
+add-word: function [context word value] [l] [
+    l: length-of-array context/words
+    poke-array context/words l word/word
+    poke-array context/values l value
+    l
+]
+bind-word: function [context word add?] [offset] [
+    offset: get-word-offset context word/word
+    if all [add? offset < 0] [
+        offset: add-word context word none
+    ]
+    if offset >= 0 [
+        word/context: context
+        word/offset: offset
+    ]
+    word
+]
+word!/bind: function [word context extend?] [] [
+    bind-word context make-struct [
+        type: word!
+        word: word/word
+        context: word/context
+        offset: word/offset
+    ] extend?
+]
+word!/compile: function [word block] [value] [
+    value: get word
+    either all [value any [value/type/name = "function!" value/type/name = "native!" value/type/name = "expression!"]] [
+        apply 'value/type/compile [value block]
+    ] [
+        reduce [ast-get word skip block 1]
+    ]
+]
+word!/equal?: function [word value] [] [false]
+word!/("word!"): make-struct []
+word!/("set-word!"): make-struct []
+word!/("lit-word!"): make-struct []
+word!/("word!")/equal?:
+word!/("set-word!")/equal?:
+word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+
+parse-word: function [text] [w] [
+    if w: parse-word-chars text [
+        reduce [
+            make word! w
+            skip text length-of-array w
+        ]
+    ]
+]
