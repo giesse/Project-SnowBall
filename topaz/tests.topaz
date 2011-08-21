@@ -11,9 +11,6 @@ run-test: func [test] [
     print ""
 ]
 
-; Prove it's able to load and mold itself without erroring out
-run-test [length-of mold load read "topaz/interpreter.topaz"]
-
 run-test ['word [1 2 3] (1 2 3) 'lit/path "string" #"C"]
 run-test [a: 1 a]
 run-test [make datatype! 0]
@@ -157,7 +154,7 @@ run-test [parse [1 2 3] [some number!]]
 run-test [parse [1 2 3] [any number!]]
 run-test [parse [1 2 3] [collect some [keep number!]]]
 run-test [
-    interpreter: load read "topaz/interpreter.topaz"
+    interpreter: load read "topaz/support.topaz"
     parse interpreter [
         collect any [
             keep set-word! [
