@@ -4,7 +4,7 @@ run-test: func [test] [
     prin ">> " print mold* test ">> "
     try [
         test: do test
-        prin "== " print mold* get 'test "== "
+        prin "== " print mold* :test "== "
     ] 'error [
         print error
     ]
@@ -31,6 +31,11 @@ run-test [get 'make]
 run-test [get 'insert]
 run-test [get 'block!]
 run-test [get 'func]
+run-test [:datatype!]
+run-test [:make]
+run-test [:insert]
+run-test [:block!]
+run-test [:func]
 run-test [tail [1 2 3]]
 run-test [probe [1 2 3]]
 run-test [make block! 0]
@@ -50,7 +55,7 @@ run-test [append [1 2 3] 4]
 run-test [make native! [[series value] insert]]
 run-test [load "1 2 3"]
 run-test [reduce [1 2 3]]
-run-test [reduce [get 'datatype! get 'make get 'func append [1 2 3] 4]]
+run-test [reduce [get 'datatype! :make :func append [1 2 3] 4]]
 run-test [f: func [a b c] [reduce [a b c]]]
 run-test [f 1 2 3]
 run-test [f 'a 'b 'c]
@@ -60,7 +65,7 @@ run-test [read "topaz/init.topaz"]
 run-test [load read "topaz/init.topaz"]
 run-test [1 + 1]
 run-test [1 - 1]
-run-test [g: func [a b] [probe a probe b a + b] ++: make op! get 'g]
+run-test [g: func [a b] [probe a probe b a + b] ++: make op! :g]
 run-test [1 ++ 1]
 run-test [1 > 2]
 run-test [1 < 2]

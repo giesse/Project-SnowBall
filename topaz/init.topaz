@@ -102,18 +102,18 @@ func: make function! [[spec body] [make function! reduce [spec body]]]
 first: func [series] [pick series 0]
 second: func [series] [pick series 1]
 empty?: func [series] [0 = length-of series]
-mold*: get 'mold
-mold: func [value] [mold* get 'value ""]
+mold*: :mold
+mold: func [value] [mold* :value ""]
 probe: func [value] [
-    print mold get 'value
-    get 'value
+    print mold :value
+    :value
 ]
 append: func [series value] [head insert tail series value]
 context: func [code] [make context! code]
 next: func [series] [skip series 1]
-set-word?: func [value] [set-word! = type-of get 'value]
-word?: func [value] [word! = type-of get 'value]
-block?: func [value] [block! = type-of get 'value]
+set-word?: func [value] [set-word! = type-of :value]
+word?: func [value] [word! = type-of :value]
+block?: func [value] [block! = type-of :value]
 found?: func [series] [all [series not empty? series]]
 
 parse-match: func [cursor condition] [

@@ -1,4 +1,4 @@
-; Topaz types: LIT-WORD!
+; Topaz types: GET-WORD!
 ;
 ; Copyright 2011 Gabriele Santilli
 ;
@@ -21,65 +21,54 @@
 ; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ; OTHER DEALINGS IN THE SOFTWARE.
 
-; ===== TYPES: LIT-WORD! ======================================================
+; ===== TYPES: GET-WORD! ======================================================
 
-lit-word!: make-type "lit-word!"
-lit-word!/make: function [arguments] [] [
+get-word!: make-type "get-word!"
+get-word!/make: function [arguments] [] [
     make-struct [
-        type: lit-word!
+        type: get-word!
         word: arguments
         context: none
         offset: none
     ]
 ]
-lit-word!/topaz-make: function [string] [] [
-    apply 'lit-word!/make [string/string]
+get-word!/topaz-make: function [string] [] [
+    apply 'get-word!/make [string/string]
 ]
-lit-word!/mold: function [word indent] [] [
-    "'" + word/word
+get-word!/mold: function [word indent] [] [
+    ":" + word/word
 ]
-lit-word!/do: function [word block] [] [
-    word: make-struct [
-        type: word!
-        word: word/word
-        context: word/context
-        offset: word/offset
+get-word!/do: function [word block] [] [
+    if not word: get word [
+        error "Script" "Word has no value" mold-value block ""
     ]
     reduce [word skip block 1]
 ]
-lit-word!/bind: function [word context extend?] [] [
+get-word!/bind: function [word context extend?] [] [
     bind-word context make-struct [
-        type: lit-word!
+        type: get-word!
         word: word/word
         context: word/context
         offset: word/offset
     ] extend?
 ]
-lit-word!/compile: function [word block] [] [
-    reduce [
-        ast-value make-struct [
-            type: word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ]
-        skip block 1
-    ]
+get-word!/compile: function [word block] [] [
+    reduce [ast-get word skip block 1]
 ]
-lit-word!/equal?: function [word value] [] [false]
-lit-word!/("word!"): make-struct []
-lit-word!/("get-word!"): make-struct []
-lit-word!/("set-word!"): make-struct []
-lit-word!/("lit-word!"): make-struct []
-lit-word!/("word!")/equal?:
-lit-word!/("get-word!")/equal?:
-lit-word!/("set-word!")/equal?:
-lit-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+get-word!/equal?: function [word value] [] [false]
+get-word!/("word!"): make-struct []
+get-word!/("get-word!"): make-struct []
+get-word!/("set-word!"): make-struct []
+get-word!/("lit-word!"): make-struct []
+get-word!/("word!")/equal?:
+get-word!/("get-word!")/equal?:
+get-word!/("set-word!")/equal?:
+get-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
-parse-lit-word: function [text] [w] [
-    if all [#"'" = first text  w: parse-word-chars skip text 1] [
+parse-get-word: function [text] [w] [
+    if all [#":" = first text  w: parse-word-chars skip text 1] [
         reduce [
-            make lit-word! w
+            make get-word! w
             skip text 1 + length-of-array w
         ]
     ]

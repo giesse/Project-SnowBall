@@ -68,9 +68,11 @@ set-word!/compile: function [word block] [set-to] [
 ]
 set-word!/equal?: function [word value] [] [false]
 set-word!/("word!"): make-struct []
+set-word!/("get-word!"): make-struct []
 set-word!/("set-word!"): make-struct []
 set-word!/("lit-word!"): make-struct []
 set-word!/("word!")/equal?:
+set-word!/("get-word!")/equal?:
 set-word!/("set-word!")/equal?:
 set-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
