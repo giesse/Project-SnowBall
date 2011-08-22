@@ -23,95 +23,98 @@
 
 ; ===== TYPES: PAREN! =========================================================
 
-paren!: make-type "paren!"
-paren!/make: function [arguments] [] [
-    make-struct [
-        type: paren!
-        values: make-array
-        pos: 0
-        newlines: make-array
-    ]
-]
-paren!/topaz-make: function [ignored] [] [
-    apply 'paren!/make [none]
-]
-paren!/insert: function [block value] [] [
-    insert-array block/values block/pos value
-    insert-array block/newlines block/pos false
-    make-struct [
-        type: paren!
-        values: block/values
-        pos: block/pos + 1
-        newlines: block/newlines
-    ]
-]
-paren!/head: function [block] [] [
-    make-struct [
-        type: paren!
-        values: block/values
-        pos: 0
-        newlines: block/newlines
-    ]
-]
-paren!/tail: function [block] [] [
-    make-struct [
-        type: paren!
-        values: block/values
-        pos: length-of-array block/values
-        newlines: block/newlines
-    ]
-]
-paren!/skip: function [block amount] [] [
-    make-struct [
-        type: paren!
-        values: block/values
-        pos: block/pos + amount
-        newlines: block/newlines
-    ]
-]
-paren!/pick: function [block pos] [] [
-    pick-array block/values block/pos + pos
-]
-paren!/length-of: function [block] [] [
-    (length-of-array block/values) - block/pos
-]
-paren!/mold: function [block indent] [result pos ind] [
-    result: "("
-    pos: block/pos
-    ind: indent + "    "
-    if pos < length-of-array block/values [
-        result: mold-step2 result block/values block/newlines pos ind "" #"^/"
-        pos: pos + 1
-        while [pos < length-of-array block/values] [
-            result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
-            pos: pos + 1
+paren!: make-type "paren!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: paren!
+            values: make-array
+            pos: 0
+            newlines: make-array
         ]
     ]
-    if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
-    result + #")"
-]
-paren!/do: function [paren block] [] [
-    reduce [do paren skip block 1]
-]
-paren!/bind: function [words context extend?] [] [
-    bind-values words/values words/pos context extend?
-    words
-]
-paren!/compile: function [paren block] [] [
-    reduce [ast-paren compile paren skip block 1]
-]
-paren!/equal?: block!/equal?
-paren!/("paren!"): make-struct []
-paren!/("block!"): make-struct []
-paren!/("paren!")/equal?:
-paren!/("block!")/equal?: block!/("block!")/equal?
-paren!/copy: function [value] [] [
-    make-struct [
-        type: paren!
-        values: apply 'value/values/slice [value/pos]
-        pos: 0
-        newlines: apply 'value/newlines/slice [value/pos]
+    topaz-make: function [ignored] [] [
+        apply 'paren!/make [none]
     ]
+    insert: function [block value] [] [
+        insert-array block/values block/pos value
+        insert-array block/newlines block/pos false
+        make-struct [
+            type: paren!
+            values: block/values
+            pos: block/pos + 1
+            newlines: block/newlines
+        ]
+    ]
+    head: function [block] [] [
+        make-struct [
+            type: paren!
+            values: block/values
+            pos: 0
+            newlines: block/newlines
+        ]
+    ]
+    tail: function [block] [] [
+        make-struct [
+            type: paren!
+            values: block/values
+            pos: length-of-array block/values
+            newlines: block/newlines
+        ]
+    ]
+    skip: function [block amount] [] [
+        make-struct [
+            type: paren!
+            values: block/values
+            pos: block/pos + amount
+            newlines: block/newlines
+        ]
+    ]
+    pick: function [block pos] [] [
+        pick-array block/values block/pos + pos
+    ]
+    length-of: function [block] [] [
+        (length-of-array block/values) - block/pos
+    ]
+    mold: function [block indent] [result pos ind] [
+        result: "("
+        pos: block/pos
+        ind: indent + "    "
+        if pos < length-of-array block/values [
+            result: mold-step2 result block/values block/newlines pos ind "" #"^/"
+            pos: pos + 1
+            while [pos < length-of-array block/values] [
+                result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
+                pos: pos + 1
+            ]
+        ]
+        if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
+        result + #")"
+    ]
+    do: function [paren block] [] [
+        reduce [do paren skip block 1]
+    ]
+    bind: function [words context extend?] [] [
+        bind-values words/values words/pos context extend?
+        words
+    ]
+    compile: function [paren block] [] [
+        reduce [ast-paren compile paren skip block 1]
+    ]
+    equal?: block!/equal?
+    copy: function [value] [] [
+        make-struct [
+            type: paren!
+            values: apply 'value/values/slice [value/pos]
+            pos: 0
+            newlines: apply 'value/newlines/slice [value/pos]
+        ]
+    ]
+]
+paren!/("paren!"): make-struct [
+    equal?: :compare-blocks
+]
+paren!/("block!"): make-struct [
+    equal?: :compare-blocks
 ]
 
 parse-paren: function [text] [values] [

@@ -23,35 +23,73 @@
 
 ; ===== TYPES: WORD! ==========================================================
 
-word!: make-type "word!"
-word!/make: function [arguments] [] [
-    make-struct [
-        type: word!
-        word: arguments
-        context: none
-        offset: none
-    ]
-]
-word!/topaz-make: function [string] [] [
-    apply 'word!/make [string/string]
-]
-word!/mold: function [word indent] [] [
-    word/word
-]
-word!/do: function [word block] [] [
-    word: get word
-    case [
-        not word [
-            error "Script" "Word has no value" mold-value block ""
-        ]
-        any [word/type/name = "function!" word/type/name = "native!"] [
-            apply 'word/type/do [word block]
-        ]
-        'else [
-            reduce [word skip block 1]
+word!: make-type "word!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: word!
+            word: arguments
+            context: none
+            offset: none
         ]
     ]
+    topaz-make: function [string] [] [
+        apply 'word!/make [string/string]
+    ]
+    mold: function [word indent] [] [
+        word/word
+    ]
+    do: function [word block] [] [
+        word: get word
+        case [
+            not word [
+                error "Script" "Word has no value" mold-value block ""
+            ]
+            any [word/type/name = "function!" word/type/name = "native!"] [
+                apply 'word/type/do [word block]
+            ]
+            'else [
+                reduce [word skip block 1]
+            ]
+        ]
+    ]
+    bind: function [word context extend?] [] [
+        bind-word context make-struct [
+            type: word!
+            word: word/word
+            context: word/context
+            offset: word/offset
+        ] extend?
+    ]
+    compile: function [word block] [value] [
+        value: get word
+        either all [
+            value
+            any [
+                value/type/name = "function!"
+                value/type/name = "native!"
+                value/type/name = "expression!"
+            ]
+        ] [
+            apply 'value/type/compile [value block]
+        ] [
+            reduce [ast-get word skip block 1]
+        ]
+    ]
+    equal?: function [word value] [] [false]
 ]
+word!/("word!"): make-struct [
+    equal?: :compare-words
+]
+word!/("get-word!"): make-struct [
+    equal?: :compare-words
+]
+word!/("set-word!"): make-struct [
+    equal?: :compare-words
+]
+word!/("lit-word!"): make-struct [
+    equal?: :compare-words
+]
+
 add-word: function [context word value] [l] [
     l: length-of-array context/words
     poke-array context/words l word/word
@@ -69,31 +107,6 @@ bind-word: function [context word add?] [offset] [
     ]
     word
 ]
-word!/bind: function [word context extend?] [] [
-    bind-word context make-struct [
-        type: word!
-        word: word/word
-        context: word/context
-        offset: word/offset
-    ] extend?
-]
-word!/compile: function [word block] [value] [
-    value: get word
-    either all [value any [value/type/name = "function!" value/type/name = "native!" value/type/name = "expression!"]] [
-        apply 'value/type/compile [value block]
-    ] [
-        reduce [ast-get word skip block 1]
-    ]
-]
-word!/equal?: function [word value] [] [false]
-word!/("word!"): make-struct []
-word!/("get-word!"): make-struct []
-word!/("set-word!"): make-struct []
-word!/("lit-word!"): make-struct []
-word!/("word!")/equal?:
-word!/("get-word!")/equal?:
-word!/("set-word!")/equal?:
-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
 parse-word: function [text] [w] [
     if w: parse-word-chars text [

@@ -23,106 +23,110 @@
 
 ; ===== TYPES: PATH! ==========================================================
 
-path!: make-type "path!"
-path!/make: function [arguments] [] [
-    make-struct [
-        type: path!
-        values: make-array
-        pos: 0
-    ]
-]
-path!/topaz-make: function [ignored] [] [
-    apply 'path!/make [none]
-]
-path!/insert: function [block value] [] [
-    insert-array block/values block/pos value
-    make-struct [
-        type: path!
-        values: block/values
-        pos: block/pos + 1
-    ]
-]
-path!/head: function [block] [] [
-    make-struct [
-        type: path!
-        values: block/values
-        pos: 0
-    ]
-]
-path!/tail: function [block] [] [
-    make-struct [
-        type: path!
-        values: block/values
-        pos: length-of-array block/values
-    ]
-]
-path!/skip: function [block amount] [] [
-    make-struct [
-        type: path!
-        values: block/values
-        pos: block/pos + amount
-    ]
-]
-path!/pick: function [block pos] [] [
-    pick-array block/values block/pos + pos
-]
-path!/length-of: function [block] [] [
-    (length-of-array block/values) - block/pos
-]
-path!/mold: function [block indent] [result pos] [
-    result: ""
-    pos: block/pos
-    if pos < length-of-array block/values [
-        result: mold-step1 result block/values pos indent ""
-        pos: pos + 1
-        while [pos < length-of-array block/values] [
-            result: mold-step1 result block/values pos indent #"/"
-            pos: pos + 1
+path!: make-type "path!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: path!
+            values: make-array
+            pos: 0
         ]
     ]
-    result
-]
-path!/do: function [path block] [value] [
-    if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
-    value: get first path
-    path: skip path 1
-    while [not empty? path] [
-        value: get-path value first path
+    topaz-make: function [ignored] [] [
+        apply 'path!/make [none]
+    ]
+    insert: function [block value] [] [
+        insert-array block/values block/pos value
+        make-struct [
+            type: path!
+            values: block/values
+            pos: block/pos + 1
+        ]
+    ]
+    head: function [block] [] [
+        make-struct [
+            type: path!
+            values: block/values
+            pos: 0
+        ]
+    ]
+    tail: function [block] [] [
+        make-struct [
+            type: path!
+            values: block/values
+            pos: length-of-array block/values
+        ]
+    ]
+    skip: function [block amount] [] [
+        make-struct [
+            type: path!
+            values: block/values
+            pos: block/pos + amount
+        ]
+    ]
+    pick: function [block pos] [] [
+        pick-array block/values block/pos + pos
+    ]
+    length-of: function [block] [] [
+        (length-of-array block/values) - block/pos
+    ]
+    mold: function [block indent] [result pos] [
+        result: ""
+        pos: block/pos
+        if pos < length-of-array block/values [
+            result: mold-step1 result block/values pos indent ""
+            pos: pos + 1
+            while [pos < length-of-array block/values] [
+                result: mold-step1 result block/values pos indent #"/"
+                pos: pos + 1
+            ]
+        ]
+        result
+    ]
+    do: function [path block] [value] [
+        if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
+        value: get first path
         path: skip path 1
+        while [not empty? path] [
+            value: get-path value first path
+            path: skip path 1
+        ]
+        either any [value/type/name = "function!" value/type/name = "native!"] [
+            apply 'value/type/do [value block]
+        ] [
+            reduce [value skip block 1]
+        ]
     ]
-    either any [value/type/name = "function!" value/type/name = "native!"] [
-        apply 'value/type/do [value block]
-    ] [
-        reduce [value skip block 1]
+    bind: function [path context extend?] [] [
+        bind-values path/values 0 context extend?
+        path
     ]
-]
-path!/bind: function [path context extend?] [] [
-    bind-values path/values 0 context extend?
-    path
-]
-path!/compile: function [path block] [expr] [
-    if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
-    expr: ast-get first path
-    path: skip path 1
-    while [not empty? path] [
-        expr: ast-get-path expr first path
+    compile: function [path block] [expr] [
+        if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
+        expr: ast-get first path
         path: skip path 1
+        while [not empty? path] [
+            expr: ast-get-path expr first path
+            path: skip path 1
+        ]
+        reduce [expr skip block 1]
     ]
-    reduce [expr skip block 1]
+    equal?: function [path value] [] [false]
+    copy: function [value] [] [
+        make-struct [
+            type: path!
+            values: apply 'value/values/slice [value/pos]
+            pos: 0
+        ]
+    ]
 ]
-path!/equal?: function [path value] [] [false]
-path!/("path!"): make-struct []
-path!/("set-path!"): make-struct []
-path!/("lit-path!"): make-struct []
-path!/("path!")/equal?:
-path!/("set-path!")/equal?:
-path!/("lit-path!")/equal?: block!/("block!")/equal?
-path!/copy: function [value] [] [
-    make-struct [
-        type: path!
-        values: apply 'value/values/slice [value/pos]
-        pos: 0
-    ]
+path!/("path!"): make-struct [
+    equal?: :compare-blocks
+]
+path!/("set-path!"): make-struct [
+    equal?: :compare-blocks
+]
+path!/("lit-path!"): make-struct [
+    equal?: :compare-blocks
 ]
 
 parse-path: function [text] [path value] [

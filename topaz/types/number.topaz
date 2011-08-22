@@ -23,31 +23,33 @@
 
 ; ===== TYPES: NUMBER! ========================================================
 
-number!: make-type "number!"
-number!/make: function [arguments] [] [
-    make-struct [
-        type: number!
-        number: arguments
+number!: make-type "number!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: number!
+            number: arguments
+        ]
     ]
+    topaz-make: function [ignored] [] [
+        apply 'number!/make [0]
+    ]
+    mold: function [number indent] [] [
+        apply 'number/number/to-string []
+    ]
+    do: function [number block] [] [
+        reduce [number skip block 1]
+    ]
+    bind: function [value context extend?] [] [
+        value
+    ]
+    compile: function [number block] [] [
+        reduce [ast-value number skip block 1]
+    ]
+    equal?: function [number value] [] [false]
 ]
-number!/topaz-make: function [ignored] [] [
-    apply 'number!/make [0]
+number!/("number!"): make-struct [
+    equal?: function [num1 num2] [] [num1/number = num2/number]
 ]
-number!/mold: function [number indent] [] [
-    apply 'number/number/to-string []
-]
-number!/do: function [number block] [] [
-    reduce [number skip block 1]
-]
-number!/bind: function [value context extend?] [] [
-    value
-]
-number!/compile: function [number block] [] [
-    reduce [ast-value number skip block 1]
-]
-number!/equal?: function [number value] [] [false]
-number!/("number!"): make-struct []
-number!/("number!")/equal?: function [num1 num2] [] [num1/number = num2/number]
 
 parse-number: function [text] [t] [
     t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""

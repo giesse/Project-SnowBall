@@ -23,30 +23,57 @@
 
 ; ===== TYPES: STRING! ========================================================
 
-string!: make-type "string!"
-string!/make: function [arguments] [] [
-    make-struct [
-        type: string!
-        string: arguments
-        pos: 0
+string!: make-type "string!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: string!
+            string: arguments
+            pos: 0
+        ]
+    ]
+    topaz-make: function [ignored] [] [
+        apply 'string!/make [""]
+    ]
+    length-of: function [string] [] [
+        (length-of-array string/string) - string/pos
+    ]
+    pick: function [string pos] [] [
+        pick-array string/string string/pos + pos
+    ]
+    skip: function [string amount] [] [
+        make-struct [
+            type: string!
+            string: string/string
+            pos: string/pos + amount
+        ]
+    ]
+    mold: function [string indent] [] [
+        rejoin ["^"" escape string/string #"^""]
+    ]
+    do: function [string block] [] [
+        reduce [string skip block 1]
+    ]
+    bind: function [value context extend?] [] [
+        value
+    ]
+    compile: function [string block] [] [
+        reduce [ast-value string skip block 1]
+    ]
+    equal?: function [string value] [] [false]
+    copy: function [string] [] [
+        make-struct [
+            type: string!
+            string: to-js-string string
+            pos: 0
+        ]
     ]
 ]
-string!/topaz-make: function [ignored] [] [
-    apply 'string!/make [""]
-]
-string!/length-of: function [string] [] [
-    (length-of-array string/string) - string/pos
-]
-string!/pick: function [string pos] [] [
-    pick-array string/string string/pos + pos
-]
-string!/skip: function [string amount] [] [
-    make-struct [
-        type: string!
-        string: string/string
-        pos: string/pos + amount
+string!/("string!"): make-struct [
+    equal?: function [string1 string2] [] [
+        (to-js-string string1) = to-js-string string2
     ]
 ]
+
 escape: function [str] [re result match i] [
     re: regexp "[\x00-\x19^^^"]" "mg"
     result: ""
@@ -129,31 +156,6 @@ unescape: function [str] [result i j ch p] [
         result + apply 'str/substr [i]
     ]
 ]
-string!/mold: function [string indent] [] [
-    rejoin ["^"" escape string/string #"^""]
-]
-string!/do: function [string block] [] [
-    reduce [string skip block 1]
-]
-string!/bind: function [value context extend?] [] [
-    value
-]
-string!/compile: function [string block] [] [
-    reduce [ast-value string skip block 1]
-]
-string!/equal?: function [string value] [] [false]
-string!/("string!"): make-struct []
-string!/("string!")/equal?: function [string1 string2] [] [
-    (to-js-string string1) = to-js-string string2
-]
-string!/copy: function [string] [] [
-    make-struct [
-        type: string!
-        string: apply 'string/string/substr [string/pos]
-        pos: 0
-    ]
-]
-
 to-js-string: function [string] [] [
     apply 'string/string/substr [string/pos]
 ]

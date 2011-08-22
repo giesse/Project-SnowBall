@@ -139,3 +139,21 @@ words-to-js: function [words] [res word] [
     ]
     res
 ]
+
+compare-blocks: function [block1 block2] [pos1 pos2 len] [
+    len: length-of block1
+    either len = length-of block2 [
+        pos1: block1/pos
+        pos2: block2/pos
+        len: len + pos1
+        while [all [pos1 < len equal? block1/values/(pos1) block2/values/(pos2)]] [
+            pos1: pos1 + 1
+            pos2: pos2 + 1
+        ]
+        pos1 = len
+    ] [
+        false
+    ]
+]
+
+compare-words: function [word1 word2] [] [word1/word = word2/word]

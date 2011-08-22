@@ -23,58 +23,63 @@
 
 ; ===== TYPES: LIT-WORD! ======================================================
 
-lit-word!: make-type "lit-word!"
-lit-word!/make: function [arguments] [] [
-    make-struct [
-        type: lit-word!
-        word: arguments
-        context: none
-        offset: none
+lit-word!: make-type "lit-word!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: lit-word!
+            word: arguments
+            context: none
+            offset: none
+        ]
     ]
-]
-lit-word!/topaz-make: function [string] [] [
-    apply 'lit-word!/make [string/string]
-]
-lit-word!/mold: function [word indent] [] [
-    "'" + word/word
-]
-lit-word!/do: function [word block] [] [
-    word: make-struct [
-        type: word!
-        word: word/word
-        context: word/context
-        offset: word/offset
+    topaz-make: function [string] [] [
+        apply 'lit-word!/make [string/string]
     ]
-    reduce [word skip block 1]
-]
-lit-word!/bind: function [word context extend?] [] [
-    bind-word context make-struct [
-        type: lit-word!
-        word: word/word
-        context: word/context
-        offset: word/offset
-    ] extend?
-]
-lit-word!/compile: function [word block] [] [
-    reduce [
-        ast-value make-struct [
+    mold: function [word indent] [] [
+        "'" + word/word
+    ]
+    do: function [word block] [] [
+        word: make-struct [
             type: word!
             word: word/word
             context: word/context
             offset: word/offset
         ]
-        skip block 1
+        reduce [word skip block 1]
     ]
+    bind: function [word context extend?] [] [
+        bind-word context make-struct [
+            type: lit-word!
+            word: word/word
+            context: word/context
+            offset: word/offset
+        ] extend?
+    ]
+    compile: function [word block] [] [
+        reduce [
+            ast-value make-struct [
+                type: word!
+                word: word/word
+                context: word/context
+                offset: word/offset
+            ]
+            skip block 1
+        ]
+    ]
+    equal?: function [word value] [] [false]
 ]
-lit-word!/equal?: function [word value] [] [false]
-lit-word!/("word!"): make-struct []
-lit-word!/("get-word!"): make-struct []
-lit-word!/("set-word!"): make-struct []
-lit-word!/("lit-word!"): make-struct []
-lit-word!/("word!")/equal?:
-lit-word!/("get-word!")/equal?:
-lit-word!/("set-word!")/equal?:
-lit-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+lit-word!/("word!"): make-struct [
+    equal?: :compare-words
+]
+lit-word!/("get-word!"): make-struct [
+    equal?: :compare-words
+]
+lit-word!/("set-word!"): make-struct [
+    equal?: :compare-words
+]
+lit-word!/("lit-word!"): make-struct [
+    equal?: :compare-words
+]
 
 parse-lit-word: function [text] [w] [
     if all [#"'" = first text  w: parse-word-chars skip text 1] [

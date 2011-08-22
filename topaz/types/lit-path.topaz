@@ -23,100 +23,104 @@
 
 ; ===== TYPES: LIT-PATH! ======================================================
 
-lit-path!: make-type "lit-path!"
-lit-path!/make: function [arguments] [] [
-    make-struct [
-        type: lit-path!
-        values: make-array
-        pos: 0
-    ]
-]
-lit-path!/topaz-make: function [ignored] [] [
-    apply 'lit-path!/make [none]
-]
-lit-path!/insert: function [block value] [] [
-    insert-array block/values block/pos value
-    make-struct [
-        type: lit-path!
-        values: block/values
-        pos: block/pos + 1
-    ]
-]
-lit-path!/head: function [block] [] [
-    make-struct [
-        type: lit-path!
-        values: block/values
-        pos: 0
-    ]
-]
-lit-path!/tail: function [block] [] [
-    make-struct [
-        type: lit-path!
-        values: block/values
-        pos: length-of-array block/values
-    ]
-]
-lit-path!/skip: function [block amount] [] [
-    make-struct [
-        type: lit-path!
-        values: block/values
-        pos: block/pos + amount
-    ]
-]
-lit-path!/pick: function [block pos] [] [
-    pick-array block/values block/pos + pos
-]
-lit-path!/length-of: function [block] [] [
-    (length-of-array block/values) - block/pos
-]
-lit-path!/mold: function [block indent] [result pos] [
-    result: "'"
-    pos: block/pos
-    if pos < length-of-array block/values [
-        result: mold-step1 result block/values pos indent ""
-        pos: pos + 1
-        while [pos < length-of-array block/values] [
-            result: mold-step1 result block/values pos indent #"/"
-            pos: pos + 1
+lit-path!: make-type "lit-path!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: lit-path!
+            values: make-array
+            pos: 0
         ]
     ]
-    result
-]
-lit-path!/do: function [path block] [] [
-    path: make-struct [
-        type: path!
-        values: path/values
-        pos: path/pos
+    topaz-make: function [ignored] [] [
+        apply 'lit-path!/make [none]
     ]
-    reduce [path skip block 1]
-]
-lit-path!/bind: function [path context extend?] [] [
-    bind-values path/values 0 context extend?
-    path
-]
-lit-path!/compile: function [path block] [] [
-    reduce [
-        ast-value make-struct [
+    insert: function [block value] [] [
+        insert-array block/values block/pos value
+        make-struct [
+            type: lit-path!
+            values: block/values
+            pos: block/pos + 1
+        ]
+    ]
+    head: function [block] [] [
+        make-struct [
+            type: lit-path!
+            values: block/values
+            pos: 0
+        ]
+    ]
+    tail: function [block] [] [
+        make-struct [
+            type: lit-path!
+            values: block/values
+            pos: length-of-array block/values
+        ]
+    ]
+    skip: function [block amount] [] [
+        make-struct [
+            type: lit-path!
+            values: block/values
+            pos: block/pos + amount
+        ]
+    ]
+    pick: function [block pos] [] [
+        pick-array block/values block/pos + pos
+    ]
+    length-of: function [block] [] [
+        (length-of-array block/values) - block/pos
+    ]
+    mold: function [block indent] [result pos] [
+        result: "'"
+        pos: block/pos
+        if pos < length-of-array block/values [
+            result: mold-step1 result block/values pos indent ""
+            pos: pos + 1
+            while [pos < length-of-array block/values] [
+                result: mold-step1 result block/values pos indent #"/"
+                pos: pos + 1
+            ]
+        ]
+        result
+    ]
+    do: function [path block] [] [
+        path: make-struct [
             type: path!
             values: path/values
             pos: path/pos
         ]
-        skip block 1
+        reduce [path skip block 1]
+    ]
+    bind: function [path context extend?] [] [
+        bind-values path/values 0 context extend?
+        path
+    ]
+    compile: function [path block] [] [
+        reduce [
+            ast-value make-struct [
+                type: path!
+                values: path/values
+                pos: path/pos
+            ]
+            skip block 1
+        ]
+    ]
+    equal?: function [path value] [] [false]
+    copy: function [value] [] [
+        make-struct [
+            type: lit-path!
+            values: apply 'value/values/slice [value/pos]
+            pos: 0
+        ]
     ]
 ]
-lit-path!/equal?: function [path value] [] [false]
-lit-path!/("path!"): make-struct []
-lit-path!/("set-path!"): make-struct []
-lit-path!/("lit-path!"): make-struct []
-lit-path!/("path!")/equal?:
-lit-path!/("set-path!")/equal?:
-lit-path!/("lit-path!")/equal?: block!/("block!")/equal?
-lit-path!/copy: function [value] [] [
-    make-struct [
-        type: lit-path!
-        values: apply 'value/values/slice [value/pos]
-        pos: 0
-    ]
+lit-path!/("path!"): make-struct [
+    equal?: :compare-blocks
+]
+lit-path!/("set-path!"): make-struct [
+    equal?: :compare-blocks
+]
+lit-path!/("lit-path!"): make-struct [
+    equal?: :compare-blocks
 ]
 
 parse-lit-path: function [text] [path value] [

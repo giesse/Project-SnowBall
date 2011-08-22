@@ -23,47 +23,52 @@
 
 ; ===== TYPES: GET-WORD! ======================================================
 
-get-word!: make-type "get-word!"
-get-word!/make: function [arguments] [] [
-    make-struct [
-        type: get-word!
-        word: arguments
-        context: none
-        offset: none
+get-word!: make-type "get-word!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: get-word!
+            word: arguments
+            context: none
+            offset: none
+        ]
     ]
-]
-get-word!/topaz-make: function [string] [] [
-    apply 'get-word!/make [string/string]
-]
-get-word!/mold: function [word indent] [] [
-    ":" + word/word
-]
-get-word!/do: function [word block] [] [
-    if not word: get word [
-        error "Script" "Word has no value" mold-value block ""
+    topaz-make: function [string] [] [
+        apply 'get-word!/make [string/string]
     ]
-    reduce [word skip block 1]
+    mold: function [word indent] [] [
+        ":" + word/word
+    ]
+    do: function [word block] [] [
+        if not word: get word [
+            error "Script" "Word has no value" mold-value block ""
+        ]
+        reduce [word skip block 1]
+    ]
+    bind: function [word context extend?] [] [
+        bind-word context make-struct [
+            type: get-word!
+            word: word/word
+            context: word/context
+            offset: word/offset
+        ] extend?
+    ]
+    compile: function [word block] [] [
+        reduce [ast-get word skip block 1]
+    ]
+    equal?: function [word value] [] [false]
 ]
-get-word!/bind: function [word context extend?] [] [
-    bind-word context make-struct [
-        type: get-word!
-        word: word/word
-        context: word/context
-        offset: word/offset
-    ] extend?
+get-word!/("word!"): make-struct [
+    equal?: :compare-words
 ]
-get-word!/compile: function [word block] [] [
-    reduce [ast-get word skip block 1]
+get-word!/("get-word!"): make-struct [
+    equal?: :compare-words
 ]
-get-word!/equal?: function [word value] [] [false]
-get-word!/("word!"): make-struct []
-get-word!/("get-word!"): make-struct []
-get-word!/("set-word!"): make-struct []
-get-word!/("lit-word!"): make-struct []
-get-word!/("word!")/equal?:
-get-word!/("get-word!")/equal?:
-get-word!/("set-word!")/equal?:
-get-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
+get-word!/("set-word!"): make-struct [
+    equal?: :compare-words
+]
+get-word!/("lit-word!"): make-struct [
+    equal?: :compare-words
+]
 
 parse-get-word: function [text] [w] [
     if all [#":" = first text  w: parse-word-chars skip text 1] [

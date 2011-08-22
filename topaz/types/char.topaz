@@ -23,31 +23,33 @@
 
 ; ===== TYPES: CHAR! ==========================================================
 
-char!: make-type "char!"
-char!/make: function [arguments] [] [
-    make-struct [
-        type: char!
-        string: arguments
+char!: make-type "char!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: char!
+            string: arguments
+        ]
     ]
+    topaz-make: function [number] [] [
+        apply 'char!/make [to-char number/number]
+    ]
+    mold: function [char indent] [] [
+        rejoin ["#^"" escape char/string "^""]
+    ]
+    do: function [char block] [] [
+        reduce [char skip block 1]
+    ]
+    bind: function [value context extend?] [] [
+        value
+    ]
+    compile: function [char block] [] [
+        reduce [ast-value char skip block 1]
+    ]
+    equal?: function [char value] [] [false]
 ]
-char!/topaz-make: function [number] [] [
-    apply 'char!/make [to-char number/number]
+char!/("char!"): make-struct [
+    equal?: function [char1 char2] [] [char1/string = char2/string]
 ]
-char!/mold: function [char indent] [] [
-    rejoin ["#^"" escape char/string "^""]
-]
-char!/do: function [char block] [] [
-    reduce [char skip block 1]
-]
-char!/bind: function [value context extend?] [] [
-    value
-]
-char!/compile: function [char block] [] [
-    reduce [ast-value char skip block 1]
-]
-char!/equal?: function [char value] [] [false]
-char!/("char!"): make-struct []
-char!/("char!")/equal?: function [char1 char2] [] [char1/string = char2/string]
 
 parse-char: function [text] [ch] [
     ch: exec-re to-js-string text regexp "^^#^"(\^^?.|\^^\([0-9A-Fa-f]+\))^"" ""

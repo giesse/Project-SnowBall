@@ -21,36 +21,34 @@
 ; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ; OTHER DEALINGS IN THE SOFTWARE.
 
-; ===== MAKE-TYPE =============================================================
-
-datatype!: none
-
-make-type: function [name] [] [
-    make-struct [
-        type: datatype!
-        name: name
-    ]
-]
-
 ; ===== TYPES: DATATYPE! ======================================================
 
-datatype!: make-type "datatype!"
+; datatype! has a circular reference
+datatype!: none
+
+; make-type is defined as a macro in compile-topaz.topaz
+
+datatype!: make-type "datatype!" [
+    mold: function [type indent] [] [
+        type/name
+    ]
+    do: function [type block] [] [
+        reduce [type skip block 1]
+    ]
+    bind: function [type context extend?] [] [
+        type
+    ]
+    topaz-make: function [ignored] [] [
+        error "Script" "Cannot make datatypes (yet)" ""
+    ]
+    compile: function [type block] [] [
+        reduce [ast-value type skip block 1]
+    ]
+    equal?: function [type value] [] [false]
+]
+datatype!/("datatype!"): make-struct [
+    equal?: function [type1 type2] [] [type1/name = type2/name]
+]
+
+; fix the circular reference
 datatype!/type: datatype!
-datatype!/mold: function [type indent] [] [
-    type/name
-]
-datatype!/do: function [type block] [] [
-    reduce [type skip block 1]
-]
-datatype!/bind: function [type context extend?] [] [
-    type
-]
-datatype!/topaz-make: function [ignored] [] [
-    error "Script" "Cannot make datatypes (yet)" ""
-]
-datatype!/compile: function [type block] [] [
-    reduce [ast-value type skip block 1]
-]
-datatype!/equal?: function [type value] [] [false]
-datatype!/("datatype!"): make-struct []
-datatype!/("datatype!")/equal?: function [type1 type2] [] [type1/name = type2/name]

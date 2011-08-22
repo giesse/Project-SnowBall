@@ -23,31 +23,34 @@
 
 ; ===== TYPES: OP! ============================================================
 
-op!: make-type "op!"
-op!/make: function [arguments] [] [
-    if 2 <> length-of arguments/spec [
-        error "Script" "Function must take exactly two arguments" ""
+op!: make-type "op!" [
+    make: function [arguments] [] [
+        if 2 <> length-of arguments/spec [
+            error "Script" "Function must take exactly two arguments" ""
+        ]
+        make-struct [
+            type: op!
+            func: arguments
+        ]
     ]
-    make-struct [
-        type: op!
-        func: arguments
+    topaz-make: function [func] [] [
+        apply 'op!/make [func]
     ]
+    mold: function [op indent] [] [
+        "make op! " + mold-value op/func indent
+    ]
+    do: function [op block] [] [
+        error "Script" "Infix use of OP!s is not supported" mold-value block ""
+    ]
+    bind: function [op context extend?] [] [
+        op
+    ]
+    compile: function [op block] [] [
+        error "Compile" "Infix use of OP!s is not supported" mold-value block ""
+    ]
+    equal?: function [op value] [] [false]
 ]
-op!/topaz-make: function [func] [] [
-    apply 'op!/make [func]
-]
-op!/mold: function [op indent] [] [
-    "make op! " + mold-value op/func indent
-]
-op!/do: function [op block] [] [
-    error "Script" "Infix use of OP!s is not supported" mold-value block ""
-]
-op!/bind: function [op context extend?] [] [
-    op
-]
-op!/compile: function [op block] [] [
-    error "Compile" "Infix use of OP!s is not supported" mold-value block ""
-]
+
 operator?: function [block] [value] [
     all [
         not empty? block
@@ -74,4 +77,3 @@ do-op: function [op arg1 arg2] [result] [
         ]
     ] []
 ]
-op!/equal?: function [op value] [] [false]

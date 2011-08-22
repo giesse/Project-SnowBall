@@ -23,37 +23,39 @@
 
 ; ===== TYPES: LOGIC! =========================================================
 
-logic!: make-type "logic!"
-logic!/make: function [value] [] [
-    make-struct [
-        type: logic!
-        value: value
+logic!: make-type "logic!" [
+    make: function [value] [] [
+        make-struct [
+            type: logic!
+            value: value
+        ]
     ]
-]
-logic!/topaz-make: function [value] [] [
-    switch value/type/name [
-        "none!" [apply 'logic!/make [false]]
-        "logic!" [apply 'logic!/make [value/value]]
-    ] [
-        apply 'logic!/make [true]
+    topaz-make: function [value] [] [
+        switch value/type/name [
+            "none!" [apply 'logic!/make [false]]
+            "logic!" [apply 'logic!/make [value/value]]
+        ] [
+            apply 'logic!/make [true]
+        ]
     ]
-]
-logic!/mold: function [value indent] [] [
-    either value/value [
-        "true"
-    ] [
-        "false"
+    mold: function [value indent] [] [
+        either value/value [
+            "true"
+        ] [
+            "false"
+        ]
     ]
+    do: function [value block] [] [
+        reduce [value skip block 1]
+    ]
+    bind: function [value context extend?] [] [
+        value
+    ]
+    compile: function [value block] [] [
+        reduce [ast-value value skip block 1]
+    ]
+    equal?: function [logic value] [] [false]
 ]
-logic!/do: function [value block] [] [
-    reduce [value skip block 1]
+logic!/("logic!"): make-struct [
+    equal?: function [logic1 logic2] [] [logic1/value = logic2/value]
 ]
-logic!/bind: function [value context extend?] [] [
-    value
-]
-logic!/compile: function [value block] [] [
-    reduce [ast-value value skip block 1]
-]
-logic!/equal?: function [logic value] [] [false]
-logic!/("logic!"): make-struct []
-logic!/("logic!")/equal?: function [logic1 logic2] [] [logic1/value = logic2/value]

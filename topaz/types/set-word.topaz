@@ -23,21 +23,57 @@
 
 ; ===== TYPES: SET-WORD! ======================================================
 
-set-word!: make-type "set-word!"
-set-word!/make: function [arguments] [] [
-    make-struct [
-        type: set-word!
-        word: arguments
-        context: none
-        offset: none
+set-word!: make-type "set-word!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: set-word!
+            word: arguments
+            context: none
+            offset: none
+        ]
     ]
+    topaz-make: function [string] [] [
+        apply 'set-word!/make [string/string]
+    ]
+    mold: function [word indent] [] [
+        word/word + #":"
+    ]
+    do: function [word block] [set-to] [
+        block: skip block 1
+        if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
+        set [set-to block] do-step first block block
+        set-word word set-to
+        reduce [set-to block]
+    ]
+    bind: function [word context extend?] [] [
+        bind-word context make-struct [
+            type: set-word!
+            word: word/word
+            context: word/context
+            offset: word/offset
+        ] extend?
+    ]
+    compile: function [word block] [set-to] [
+        block: skip block 1
+        if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
+        set [set-to block] compile-step block
+        reduce [ast-set word set-to block]
+    ]
+    equal?: function [word value] [] [false]
 ]
-set-word!/topaz-make: function [string] [] [
-    apply 'set-word!/make [string/string]
+set-word!/("word!"): make-struct [
+    equal?: :compare-words
 ]
-set-word!/mold: function [word indent] [] [
-    word/word + #":"
+set-word!/("get-word!"): make-struct [
+    equal?: :compare-words
 ]
+set-word!/("set-word!"): make-struct [
+    equal?: :compare-words
+]
+set-word!/("lit-word!"): make-struct [
+    equal?: :compare-words
+]
+
 set-word: function [word value] [] [
     if not word/context [
         error "Script" "Word has no context" word/word
@@ -45,36 +81,6 @@ set-word: function [word value] [] [
     poke-array word/context/values word/offset value
     value
 ]
-set-word!/do: function [word block] [set-to] [
-    block: skip block 1
-    if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
-    set [set-to block] do-step first block block
-    set-word word set-to
-    reduce [set-to block]
-]
-set-word!/bind: function [word context extend?] [] [
-    bind-word context make-struct [
-        type: set-word!
-        word: word/word
-        context: word/context
-        offset: word/offset
-    ] extend?
-]
-set-word!/compile: function [word block] [set-to] [
-    block: skip block 1
-    if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
-    set [set-to block] compile-step block
-    reduce [ast-set word set-to block]
-]
-set-word!/equal?: function [word value] [] [false]
-set-word!/("word!"): make-struct []
-set-word!/("get-word!"): make-struct []
-set-word!/("set-word!"): make-struct []
-set-word!/("lit-word!"): make-struct []
-set-word!/("word!")/equal?:
-set-word!/("get-word!")/equal?:
-set-word!/("set-word!")/equal?:
-set-word!/("lit-word!")/equal?: function [word1 word2] [] [word1/word = word2/word]
 
 parse-set-word: function [text] [w] [
     if all [w: parse-word-chars text  #":" = pick text length-of-array w] [

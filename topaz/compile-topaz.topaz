@@ -14,13 +14,25 @@ app-file: func [file] [app load* file]
 
 app-file "topaz/actions.topaz"
 
+; MAKE-TYPE macro
+make-type: func [name actions] [
+    struct: compose [
+        type: datatype!
+        name: (name)
+    ]
+    ; actions is an expression! here, hopefully ast-value containing a block!
+    foreach 'value actions/value [append struct value]
+    make expression! compose [
+        make-struct (struct)
+    ]
+]
+
 types-dir: "topaz/types/"
 app-type: func [file] [app-file rejoin [types-dir file]]
 
 app-type "datatype.topaz"
-app-type "block.topaz" ; referenced by some other types
 foreach 'file read types-dir [
-    if not found? find ["datatype.topaz" "block.topaz"] file [app-type file]
+    if file <> "datatype.topaz" [app-type file]
 ]
 
 foreach 'file [

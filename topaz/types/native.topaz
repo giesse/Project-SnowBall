@@ -23,43 +23,44 @@
 
 ; ===== TYPES: NATIVE! ========================================================
 
-native!: make-type "native!"
-native!/make: function [arguments] [spec f c] [
-    set [spec f c] arguments
-    make-struct [
-        type: native!
-        spec: spec
-        func: f
-        compile: c
+native!: make-type "native!" [
+    make: function [arguments] [spec f c] [
+        set [spec f c] arguments
+        make-struct [
+            type: native!
+            spec: spec
+            func: f
+            compile: c
+        ]
     ]
-]
-native!/topaz-make: function [arguments] [spec name f c] [
-    set [spec name] arguments/values
-    name: name/word
-    f: natives/(name-to-js name)
-    c: native-compilers/(name-to-js name)
-    if any [f/length <> length-of spec c/length <> length-of spec] [
-        error "Script" rejoin [
-            "The native code for " apply 'name/to-upper-case []
-            " does not match the number of arguments in the spec"
-        ] mold-value spec ""
+    topaz-make: function [arguments] [spec name f c] [
+        set [spec name] arguments/values
+        name: name/word
+        f: natives/(name-to-js name)
+        c: native-compilers/(name-to-js name)
+        if any [f/length <> length-of spec c/length <> length-of spec] [
+            error "Script" rejoin [
+                "The native code for " apply 'name/to-upper-case []
+                " does not match the number of arguments in the spec"
+            ] mold-value spec ""
+        ]
+        apply 'native!/make [reduce [spec f c]]
     ]
-    apply 'native!/make [reduce [spec f c]]
+    mold: function [func indent] [] [
+        "native " + mold-value func/spec indent
+    ]
+    do: function [func block] [args] [
+        args: make-array
+        block: collect-arguments length-of func/spec args skip block 1
+        reduce [apply 'func/func/apply [none args] block]
+    ]
+    bind: function [func context extend?] [] [
+        func
+    ]
+    compile: function [func block] [args] [
+        args: make-array
+        block: compile-arguments args length-of func/spec skip block 1 false
+        reduce [apply 'func/compile/apply [none args] block]
+    ]
+    equal?: function [func value] [] [false]
 ]
-native!/mold: function [func indent] [] [
-    "native " + mold-value func/spec indent
-]
-native!/do: function [func block] [args] [
-    args: make-array
-    block: collect-arguments length-of func/spec args skip block 1
-    reduce [apply 'func/func/apply [none args] block]
-]
-native!/bind: function [func context extend?] [] [
-    func
-]
-native!/compile: function [func block] [args] [
-    args: make-array
-    block: compile-arguments args length-of func/spec skip block 1 false
-    reduce [apply 'func/compile/apply [none args] block]
-]
-native!/equal?: function [func value] [] [false]
