@@ -47,7 +47,7 @@ foreach [native spec] [
     rejoin            [block]
     to-word           [value]
     to-lit-word       [value]
-    type?             [value]
+    type-of           [value]
     find              [series value]
     until             [body]
     copy              [series]
@@ -111,9 +111,9 @@ probe: func [value] [
 append: func [series value] [head insert tail series value]
 context: func [code] [make context! code]
 next: func [series] [skip series 1]
-set-word?: func [value] [set-word! = type? get 'value]
-word?: func [value] [word! = type? get 'value]
-block?: func [value] [block! = type? get 'value]
+set-word?: func [value] [set-word! = type-of get 'value]
+word?: func [value] [word! = type-of get 'value]
+block?: func [value] [block! = type-of get 'value]
 found?: func [series] [all [series not empty? series]]
 
 parse-match: func [cursor condition] [
@@ -149,7 +149,7 @@ parse-any: func [rule cursor] [
     ]
 ]
 parse-element: func [rule cursor] [
-    switch to-word type? rule [
+    switch to-word type-of rule [
         word! [
             switch rule [
                 any [
@@ -247,14 +247,14 @@ parse-element: func [rule cursor] [
             ]
         ]
         datatype! [
-            parse-match cursor [rule = type? first cursor/block]
+            parse-match cursor [rule = type-of first cursor/block]
         ]
     ] [
         parse-match cursor [rule = first cursor/block]
     ]
 ]
 parse-step: func [rule cursor] [
-    switch to-word type? rule [
+    switch to-word type-of rule [
         word! [
             switch rule [
                 collect [

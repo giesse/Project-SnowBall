@@ -341,7 +341,7 @@ natives: make-struct [
             error "Script" "Invalid argument for TO-LIT-WORD" mold-value value ""
         ]
     ]
-    type?: function [value] [] [value/type]
+    type-of: function [value] [] [value/type]
     copy: function [value] [] [apply 'value/type/copy [value]]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
