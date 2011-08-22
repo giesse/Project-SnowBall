@@ -50,3 +50,13 @@ expression!/compile: function [expr block] [] [
     reduce [expr/expr skip block 1]
 ]
 expression!/equal?: function [expr value] [] [false]
+expression!/get-path: function [expr selector] [] [
+    if any [
+        selector/type/name <> "word!"
+        selector/word <> "value"
+        not test-re expr/expr/node-type regexp "^^value\/.*" ""
+    ] [
+        error "Script" "Invalid path" mold-value selector ""
+    ]
+    expr/expr/value
+]

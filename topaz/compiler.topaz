@@ -106,7 +106,10 @@ ast-value: function [value] [] [
                     ]
                 ]
             ] [
-                error "JS emitter" rejoin ["Cannot represent " node/value/type/name " values in JS"] ""
+                error
+                    "JS emitter"
+                    rejoin ["Cannot represent " node/value/type/name " values in JS"]
+                    mold-value node/value ""
             ]
             either context = "return" [
                 rejoin ["return " res ";"]
