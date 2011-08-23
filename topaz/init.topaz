@@ -65,7 +65,7 @@ foreach [native spec] [
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic! context! expression!
+    none! logic! context! expression! get-word!
 ] [
     set word conjure word
 ]
@@ -89,7 +89,7 @@ system: make context! [
     words: conjure 'system-words
     datatypes: reduce [
         datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-        none! logic! context! native! expression!
+        none! logic! context! native! expression! get-word!
     ]
 ]
 
@@ -108,7 +108,17 @@ probe: func [value] [
     print mold :value
     :value
 ]
-append: func [series value] [head insert tail series value]
+append: func [series value] [
+    head either block? :value [
+        series: tail series
+        foreach 'val value [
+            series: insert series :val
+        ]
+        series
+    ] [
+        insert tail series :value
+    ]
+]
 context: func [code] [make context! code]
 next: func [series] [skip series 1]
 set-word?: func [value] [set-word! = type-of :value]
@@ -297,7 +307,7 @@ parse-step: func [rule cursor] [
                         rules: next cursor/rules
                         collect: none
                     ]
-                    if all [result/match? cursor/collect] [append cursor/collect result/result]
+                    if all [result/match? cursor/collect] [insert tail cursor/collect result/result]
                     result
                 ]
                 ;object [parse-object block next rules]

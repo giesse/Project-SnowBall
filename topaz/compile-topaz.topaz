@@ -21,7 +21,7 @@ make-type: func [name actions] [
         name: (name)
     ]
     ; actions is an expression! here, hopefully ast-value containing a block!
-    foreach 'value actions/value [append struct value]
+    append struct actions/value
     make expression! compose [
         make-struct (struct)
     ]
@@ -110,9 +110,7 @@ locals: parse interpreter [
         skip
     ]
 ]
-foreach 'w [context: func:] [append locals w]
-append locals none
-locals: context locals
+locals: context append locals [context: func: none]
 bind interpreter locals
 bind interpreter compiler-keywords
 
