@@ -111,7 +111,7 @@ funcall-macro: func [name spec] [
         spec
         compose [
             make expression! [
-                apply (to-lit-word name) (copy spec)
+                apply (make lit-word! name) (copy spec)
             ]
         ]
     ]
@@ -121,7 +121,7 @@ funcall-macro: func [name spec] [
 locals: parse interpreter [
     collect any [
         keep name: set-word! [
-            'function keep ('funcall-macro) keep (to-lit-word name) keep block! block! block!
+            'function keep ('funcall-macro) keep (make lit-word! name) keep block! block! block!
             |
             keep (none)
         ]

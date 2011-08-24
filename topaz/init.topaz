@@ -45,8 +45,6 @@ foreach [native spec] [
     case              [cases]
     context-of        [word]
     rejoin            [block]
-    to-word           [value]
-    to-lit-word       [value]
     type-of           [value]
     find              [series value]
     until             [body]
@@ -159,7 +157,7 @@ parse-any: func [rule cursor] [
     ]
 ]
 parse-element: func [rule cursor] [
-    switch to-word type-of rule [
+    switch make word! type-of rule [
         word! [
             switch rule [
                 any [
@@ -264,7 +262,7 @@ parse-element: func [rule cursor] [
     ]
 ]
 parse-step: func [rule cursor] [
-    switch to-word type-of rule [
+    switch make word! type-of rule [
         word! [
             switch rule [
                 collect [

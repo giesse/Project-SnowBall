@@ -837,8 +837,6 @@ native-compilers: make-struct [
         ]
     ]
     context-of: function [word] [] []
-    to-word: function [value] [] []
-    to-lit-word: function [value] [] []
     type-of: function [value] [] []
     find: function [series value] [] []
     until: function [body] [] []

@@ -328,20 +328,6 @@ natives: make-struct [
         ]
         make string! result
     ]
-    to-word: function [value] [] [
-        either value/type/name = "datatype!" [
-            make word! value/name
-        ] [
-            error "Script" "Invalid argument for TO-WORD" mold-value value ""
-        ]
-    ]
-    to-lit-word: function [value] [] [
-        either any [value/type/name = "word!" value/type/name = "set-word!"] [
-            make lit-word! value/word
-        ] [
-            error "Script" "Invalid argument for TO-LIT-WORD" mold-value value ""
-        ]
-    ]
     type-of: function [value] [] [value/type]
     copy: function [value] [] [apply 'value/type/copy [value]]
     ; not really used in the interpreter
