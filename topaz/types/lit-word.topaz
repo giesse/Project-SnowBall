@@ -24,49 +24,20 @@
 ; ===== TYPES: LIT-WORD! ======================================================
 
 lit-word!: make-type "lit-word!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: lit-word!
-            word: arguments
-            context: none
-            offset: none
-        ]
-    ]
-    topaz-make: function [string] [] [
-        apply 'lit-word!/make [string/string]
-    ]
-    mold: function [word indent] [] [
-        "'" + word/word
-    ]
+    make: function [arguments] [] [make-word lit-word! arguments none]
+    topaz-make: function [value] [] [topaz-make-word lit-word! value]
+    mold: function [word indent] [] ["'" + word/word]
     do: function [word block] [] [
-        word: make-struct [
-            type: word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ]
-        reduce [word skip block 1]
+        reduce [convert-word word word! skip block 1]
     ]
-    bind: function [word context extend?] [] [
-        bind-word context make-struct [
-            type: lit-word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ] extend?
-    ]
+    bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [] [
         reduce [
-            ast-value make-struct [
-                type: word!
-                word: word/word
-                context: word/context
-                offset: word/offset
-            ]
+            ast-value convert-word word word!
             skip block 1
         ]
     ]
-    equal?: function [word value] [] [false]
+    equal?: :default-equal?
 ]
 lit-word!/("word!"): make-struct [
     equal?: :compare-words

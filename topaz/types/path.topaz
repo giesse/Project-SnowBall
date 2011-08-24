@@ -23,52 +23,48 @@
 
 ; ===== TYPES: PATH! ==========================================================
 
+insert-path: function [path value] [] [
+    insert-array path/values path/pos value
+    make-path path/type make-struct [
+        values: path/values
+        pos: path/pos + 1
+    ]
+]
+
+skip-path: function [path amount] [pos len] [
+    pos: path/pos + amount
+    case [
+        pos > len: length-of-array path/values [pos: len]
+        pos < 0 [pos: 0]
+    ]
+    make-path path/type make-struct [
+        values: path/values
+        pos: pos
+    ]
+]
+
+head-path: function [path] [] [
+    make-path path/type make-struct [
+        values: path/values
+    ]
+]
+
+tail-path: function [path] [] [
+    make-path path/type make-struct [
+        values: path/values
+        pos: length-of-array path/values
+    ]
+]
+
 path!: make-type "path!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: path!
-            values: make-array
-            pos: 0
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'path!/make [none]
-    ]
-    insert: function [block value] [] [
-        insert-array block/values block/pos value
-        make-struct [
-            type: path!
-            values: block/values
-            pos: block/pos + 1
-        ]
-    ]
-    head: function [block] [] [
-        make-struct [
-            type: path!
-            values: block/values
-            pos: 0
-        ]
-    ]
-    tail: function [block] [] [
-        make-struct [
-            type: path!
-            values: block/values
-            pos: length-of-array block/values
-        ]
-    ]
-    skip: function [block amount] [] [
-        make-struct [
-            type: path!
-            values: block/values
-            pos: block/pos + amount
-        ]
-    ]
-    pick: function [block pos] [] [
-        pick-array block/values block/pos + pos
-    ]
-    length-of: function [block] [] [
-        (length-of-array block/values) - block/pos
-    ]
+    make: function [arguments] [] [make-path path! arguments]
+    topaz-make: function [value] [] [topaz-make-path path! value]
+    insert: :insert-path
+    head: :head-path
+    tail: :tail-path
+    skip: :skip-path
+    pick: :pick-block
+    length-of: :length-of-block
     mold: function [block indent] [result pos] [
         result: ""
         pos: block/pos
@@ -96,10 +92,7 @@ path!: make-type "path!" [
             reduce [value skip block 1]
         ]
     ]
-    bind: function [path context extend?] [] [
-        bind-values path/values 0 context extend?
-        path
-    ]
+    bind: :bind-block
     compile: function [path block] [expr] [
         if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
         expr: ast-get first path
@@ -110,14 +103,8 @@ path!: make-type "path!" [
         ]
         reduce [expr skip block 1]
     ]
-    equal?: function [path value] [] [false]
-    copy: function [value] [] [
-        make-struct [
-            type: path!
-            values: apply 'value/values/slice [value/pos]
-            pos: 0
-        ]
-    ]
+    equal?: :default-equal?
+    copy: function [value] [] [copy-path path! value]
 ]
 path!/("path!"): make-struct [
     equal?: :compare-blocks
@@ -127,6 +114,45 @@ path!/("set-path!"): make-struct [
 ]
 path!/("lit-path!"): make-struct [
     equal?: :compare-blocks
+]
+
+make-path: function [type args] [] [
+    if not args [args: make-struct []]
+    make-struct [
+        type: type
+        values: any [args/values make-array]
+        pos: any [args/pos 0]
+    ]
+]
+
+topaz-make-path: function [type value] [] [
+    switch value/type/name [
+        "block!"    [copy-path type value]
+        "paren!"    [copy-path type value]
+        "path!"     [copy-path type value]
+        "lit-path!" [copy-path type value]
+        "set-path!" [copy-path type value]
+    ] [make-path type none]
+]
+
+copy-path: function [type value] [] [
+    make-path type make-struct [
+        values: apply 'value/values/slice [value/pos]
+    ]
+]
+
+path-to-block: function [type value] [values newlines i] [
+    values: apply 'value/values/slice [value/pos]
+    newlines: make-array
+    i: 0
+    while [i <= length-of-array values] [
+        append-array newlines false
+        i: i + 1
+    ]
+    make-block type make-struct [
+        values: values
+        newlines: newlines
+    ]
 ]
 
 parse-path: function [text] [path value] [

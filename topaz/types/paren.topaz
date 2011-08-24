@@ -24,57 +24,14 @@
 ; ===== TYPES: PAREN! =========================================================
 
 paren!: make-type "paren!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: paren!
-            values: make-array
-            pos: 0
-            newlines: make-array
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'paren!/make [none]
-    ]
-    insert: function [block value] [] [
-        insert-array block/values block/pos value
-        insert-array block/newlines block/pos false
-        make-struct [
-            type: paren!
-            values: block/values
-            pos: block/pos + 1
-            newlines: block/newlines
-        ]
-    ]
-    head: function [block] [] [
-        make-struct [
-            type: paren!
-            values: block/values
-            pos: 0
-            newlines: block/newlines
-        ]
-    ]
-    tail: function [block] [] [
-        make-struct [
-            type: paren!
-            values: block/values
-            pos: length-of-array block/values
-            newlines: block/newlines
-        ]
-    ]
-    skip: function [block amount] [] [
-        make-struct [
-            type: paren!
-            values: block/values
-            pos: block/pos + amount
-            newlines: block/newlines
-        ]
-    ]
-    pick: function [block pos] [] [
-        pick-array block/values block/pos + pos
-    ]
-    length-of: function [block] [] [
-        (length-of-array block/values) - block/pos
-    ]
+    make: function [arguments] [] [make-block paren! arguments]
+    topaz-make: function [value] [] [topaz-make-block paren! value]
+    insert: :insert-block
+    head: :head-block
+    tail: :tail-block
+    skip: :skip-block
+    pick: :pick-block
+    length-of: :length-of-block
     mold: function [block indent] [result pos ind] [
         result: "("
         pos: block/pos
@@ -93,22 +50,12 @@ paren!: make-type "paren!" [
     do: function [paren block] [] [
         reduce [do paren skip block 1]
     ]
-    bind: function [words context extend?] [] [
-        bind-values words/values words/pos context extend?
-        words
-    ]
+    bind: :bind-block
     compile: function [paren block] [] [
         reduce [ast-paren compile paren skip block 1]
     ]
-    equal?: block!/equal?
-    copy: function [value] [] [
-        make-struct [
-            type: paren!
-            values: apply 'value/values/slice [value/pos]
-            pos: 0
-            newlines: apply 'value/newlines/slice [value/pos]
-        ]
-    ]
+    equal?: :default-equal?
+    copy: function [value] [] [copy-block paren! value]
 ]
 paren!/("paren!"): make-struct [
     equal?: :compare-blocks

@@ -23,21 +23,12 @@
 
 ; ===== TYPES: WORD! ==========================================================
 
+compare-words: function [word1 word2] [] [word1/word = word2/word]
+
 word!: make-type "word!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: word!
-            word: arguments
-            context: none
-            offset: none
-        ]
-    ]
-    topaz-make: function [string] [] [
-        apply 'word!/make [string/string]
-    ]
-    mold: function [word indent] [] [
-        word/word
-    ]
+    make: function [arguments] [] [make-word word! arguments none]
+    topaz-make: function [value] [] [topaz-make-word word! value]
+    mold: function [word indent] [] [word/word]
     do: function [word block] [] [
         word: get word
         case [
@@ -52,14 +43,7 @@ word!: make-type "word!" [
             ]
         ]
     ]
-    bind: function [word context extend?] [] [
-        bind-word context make-struct [
-            type: word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ] extend?
-    ]
+    bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [value] [
         value: get word
         either all [
@@ -75,7 +59,7 @@ word!: make-type "word!" [
             reduce [ast-get word skip block 1]
         ]
     ]
-    equal?: function [word value] [] [false]
+    equal?: :default-equal?
 ]
 word!/("word!"): make-struct [
     equal?: :compare-words
@@ -90,22 +74,34 @@ word!/("lit-word!"): make-struct [
     equal?: :compare-words
 ]
 
-add-word: function [context word value] [l] [
-    l: length-of-array context/words
-    poke-array context/words l word/word
-    poke-array context/values l value
-    l
+make-word: function [type word args] [] [
+    if not args [args: make-struct []]
+    make-struct [
+        type: type
+        word: word
+        context: args/context
+        offset: args/offset
+    ]
 ]
-bind-word: function [context word add?] [offset] [
-    offset: get-word-offset context word/word
-    if all [add? offset < 0] [
-        offset: add-word context word none
+
+topaz-make-word: function [type value] [] [
+    switch value/type/name [
+        "string!" [make-word type to-js-string value none]
+        "word!" [convert-word value type]
+        "set-word!" [convert-word value type]
+        "get-word!" [convert-word value type]
+        "lit-word!" [convert-word value type]
+        "datatype!" [make-word type value/name none]
+    ] [
+        error "Script" "Invalid argument for MAKE WORD!" mold-value value ""
     ]
-    if offset >= 0 [
-        word/context: context
-        word/offset: offset
+]
+
+convert-word: function [word type] [] [
+    make-word type word/word make-struct [
+        context: word/context
+        offset: word/offset
     ]
-    word
 ]
 
 parse-word: function [text] [w] [

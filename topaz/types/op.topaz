@@ -34,7 +34,12 @@ op!: make-type "op!" [
         ]
     ]
     topaz-make: function [func] [] [
-        apply 'op!/make [func]
+        switch func/type/name [
+            "function!" [apply 'op!/make [func]]
+            "native!" [apply 'op!/make [func]]
+        ] [
+            error "Script" "Invalid argument for MAKE OP!" mold-value func ""
+        ]
     ]
     mold: function [op indent] [] [
         "make op! " + mold-value op/func indent
@@ -42,13 +47,11 @@ op!: make-type "op!" [
     do: function [op block] [] [
         error "Script" "Infix use of OP!s is not supported" mold-value block ""
     ]
-    bind: function [op context extend?] [] [
-        op
-    ]
+    bind: function [op context extend?] [] [op]
     compile: function [op block] [] [
         error "Compile" "Infix use of OP!s is not supported" mold-value block ""
     ]
-    equal?: function [op value] [] [false]
+    equal?: :default-equal?
 ]
 
 operator?: function [block] [value] [

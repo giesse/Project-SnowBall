@@ -30,8 +30,26 @@ number!: make-type "number!" [
             number: arguments
         ]
     ]
-    topaz-make: function [ignored] [] [
-        apply 'number!/make [0]
+    topaz-make: function [value] [] [
+        switch value/type/name [
+            "none!" [
+                apply 'number!/make [0]
+            ]
+            "number!" [
+                value
+            ]
+            "string!" [
+                apply 'number!/make [apply 'parse-float [value/string]]
+            ]
+            "char!" [
+                apply 'number!/make [apply 'value/string/char-code-at [0]]
+            ]
+            "logic!" [
+                apply 'number!/make [value/value + 0]
+            ]
+        ] [
+            error "Script" "Invalid argument for MAKE NUMBER!" mold-value value ""
+        ]
     ]
     mold: function [number indent] [] [
         apply 'number/number/to-string []
@@ -39,13 +57,11 @@ number!: make-type "number!" [
     do: function [number block] [] [
         reduce [number skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [number block] [] [
         reduce [ast-value number skip block 1]
     ]
-    equal?: function [number value] [] [false]
+    equal?: :default-equal?
 ]
 number!/("number!"): make-struct [
     equal?: function [num1 num2] [] [num1/number = num2/number]

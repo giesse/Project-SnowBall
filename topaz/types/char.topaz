@@ -30,8 +30,20 @@ char!: make-type "char!" [
             string: arguments
         ]
     ]
-    topaz-make: function [number] [] [
-        apply 'char!/make [to-char number/number]
+    topaz-make: function [value] [] [
+        switch value/type/name [
+            "number!" [
+                apply 'char!/make [to-char value/number]
+            ]
+            "char!" [
+                apply 'char!/make [value/string]
+            ]
+            "none!" [
+                apply 'char!/make [to-char 0]
+            ]
+        ] [
+            error "Script" "Invalid argument for MAKE CHAR!" mold-value value ""
+        ]
     ]
     mold: function [char indent] [] [
         rejoin ["#^"" escape char/string "^""]
@@ -39,13 +51,12 @@ char!: make-type "char!" [
     do: function [char block] [] [
         reduce [char skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [char block] [] [
         reduce [ast-value char skip block 1]
     ]
-    equal?: function [char value] [] [false]
+    equal?: :default-equal?
+    copy: function [value] [] [value]
 ]
 char!/("char!"): make-struct [
     equal?: function [char1 char2] [] [char1/string = char2/string]

@@ -24,51 +24,14 @@
 ; ===== TYPES: SET-PATH! ======================================================
 
 set-path!: make-type "set-path!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: set-path!
-            values: make-array
-            pos: 0
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'set-path!/make [none]
-    ]
-    insert: function [block value] [] [
-        insert-array block/values block/pos value
-        make-struct [
-            type: set-path!
-            values: block/values
-            pos: block/pos + 1
-        ]
-    ]
-    head: function [block] [] [
-        make-struct [
-            type: set-path!
-            values: block/values
-            pos: 0
-        ]
-    ]
-    tail: function [block] [] [
-        make-struct [
-            type: set-path!
-            values: block/values
-            pos: length-of-array block/values
-        ]
-    ]
-    skip: function [block amount] [] [
-        make-struct [
-            type: set-path!
-            values: block/values
-            pos: block/pos + amount
-        ]
-    ]
-    pick: function [block pos] [] [
-        pick-array block/values block/pos + pos
-    ]
-    length-of: function [block] [] [
-        (length-of-array block/values) - block/pos
-    ]
+    make: function [arguments] [] [make-path set-path! arguments]
+    topaz-make: function [value] [] [topaz-make-path set-path! value]
+    insert: :insert-path
+    head: :head-path
+    tail: :tail-path
+    skip: :skip-path
+    pick: :pick-block
+    length-of: :length-of-block
     mold: function [block indent] [result pos] [
         result: ""
         pos: block/pos
@@ -96,10 +59,7 @@ set-path!: make-type "set-path!" [
         set-path value first path set-to
         reduce [set-to block]
     ]
-    bind: function [path context extend?] [] [
-        bind-values path/values 0 context extend?
-        path
-    ]
+    bind: :bind-block
     compile: function [path block] [expr set-to] [
         if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
         expr: ast-get first path
@@ -113,14 +73,8 @@ set-path!: make-type "set-path!" [
         set [set-to block] compile-step block
         reduce [ast-set-path expr first path set-to block]
     ]
-    equal?: function [path value] [] [false]
-    copy: function [value] [] [
-        make-struct [
-            type: set-path!
-            values: apply 'value/values/slice [value/pos]
-            pos: 0
-        ]
-    ]
+    equal?: :default-equal?
+    copy: function [value] [] [copy-path set-path! value]
 ]
 set-path!/("path!"): make-struct [
     equal?: :compare-blocks

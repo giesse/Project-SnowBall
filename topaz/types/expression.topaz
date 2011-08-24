@@ -33,9 +33,13 @@ expression!: make-type "expression!" [
         ]
     ]
     topaz-make: function [code] [] [
-        code: compile code
-        if 1 = length-of-array code/list [code: pick-array code/list 0]
-        apply 'expression!/make [code]
+        either code/type/name = "block!" [
+            code: compile code
+            if 1 = length-of-array code/list [code: pick-array code/list 0]
+            apply 'expression!/make [code]
+        ] [
+            error "Script" "Invaild argument for MAKE EXPRESSION!" mold-value code ""
+        ]
     ]
     mold: function [expr indent] [] [
         rejoin ["#[expr " expr/expr/node-type "]"]
@@ -43,13 +47,11 @@ expression!: make-type "expression!" [
     do: function [expr block] [] [
         reduce [expr skip block 1]
     ]
-    bind: function [expr context extend?] [] [
-        expr
-    ]
+    bind: function [expr context extend?] [] [expr]
     compile: function [expr block] [] [
         reduce [expr/expr skip block 1]
     ]
-    equal?: function [expr value] [] [false]
+    equal?: :default-equal?
     get-path: function [expr selector] [] [
         if any [
             selector/type/name <> "word!"
@@ -60,4 +62,5 @@ expression!: make-type "expression!" [
         ]
         expr/expr/value
     ]
+    copy: function [value] [] [value]
 ]

@@ -54,13 +54,11 @@ native!: make-type "native!" [
         block: collect-arguments length-of func/spec args skip block 1
         reduce [apply 'func/func/apply [none args] block]
     ]
-    bind: function [func context extend?] [] [
-        func
-    ]
+    bind: function [func context extend?] [] [func]
     compile: function [func block] [args] [
         args: make-array
         block: compile-arguments args length-of func/spec skip block 1 false
         reduce [apply 'func/compile/apply [none args] block]
     ]
-    equal?: function [func value] [] [false]
+    equal?: :default-equal?
 ]

@@ -24,38 +24,20 @@
 ; ===== TYPES: GET-WORD! ======================================================
 
 get-word!: make-type "get-word!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: get-word!
-            word: arguments
-            context: none
-            offset: none
-        ]
-    ]
-    topaz-make: function [string] [] [
-        apply 'get-word!/make [string/string]
-    ]
-    mold: function [word indent] [] [
-        ":" + word/word
-    ]
+    make: function [arguments] [] [make-word get-word! arguments none]
+    topaz-make: function [value] [] [topaz-make-word get-word! value]
+    mold: function [word indent] [] [":" + word/word]
     do: function [word block] [] [
         if not word: get word [
             error "Script" "Word has no value" mold-value block ""
         ]
         reduce [word skip block 1]
     ]
-    bind: function [word context extend?] [] [
-        bind-word context make-struct [
-            type: get-word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ] extend?
-    ]
+    bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [] [
         reduce [ast-get word skip block 1]
     ]
-    equal?: function [word value] [] [false]
+    equal?: :default-equal?
 ]
 get-word!/("word!"): make-struct [
     equal?: :compare-words

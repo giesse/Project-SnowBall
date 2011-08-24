@@ -23,60 +23,82 @@
 
 ; ===== TYPES: BLOCK! =========================================================
 
+compare-blocks: function [block1 block2] [pos1 pos2 len] [
+    len: length-of block1
+    either len = length-of block2 [
+        pos1: block1/pos
+        pos2: block2/pos
+        len: len + pos1
+        while [all [pos1 < len equal? block1/values/(pos1) block2/values/(pos2)]] [
+            pos1: pos1 + 1
+            pos2: pos2 + 1
+        ]
+        pos1 = len
+    ] [
+        false
+    ]
+]
+
+insert-block: function [block value] [] [
+    insert-array block/values block/pos value
+    insert-array block/newlines block/pos false
+    make-block block/type make-struct [
+        values: block/values
+        pos: block/pos + 1
+        newlines: block/newlines
+    ]
+]
+
+skip-block: function [block amount] [pos len] [
+    pos: block/pos + amount
+    case [
+        pos > len: length-of-array block/values [pos: len]
+        pos < 0 [pos: 0]
+    ]
+    make-block block/type make-struct [
+        values: block/values
+        pos: pos
+        newlines: block/newlines
+    ]
+]
+
+head-block: function [block] [] [
+    make-block block/type make-struct [
+        values: block/values
+        newlines: block/newlines
+    ]
+]
+
+tail-block: function [block] [] [
+    make-block block/type make-struct [
+        values: block/values
+        pos: length-of-array block/values
+        newlines: block/newlines
+    ]
+]
+
+pick-block: function [block pos] [] [
+    pick-array block/values block/pos + pos
+]
+
+length-of-block: function [block] [] [
+    (length-of-array block/values) - block/pos
+]
+
+bind-block: function [words context extend?] [] [
+    bind-values words/values words/pos context extend?
+    words
+]
+
 block!: make-type "block!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: block!
-            values: make-array
-            pos: 0
-            newlines: make-array
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'block!/make [none]
-    ]
-    insert: function [block value] [] [
-        insert-array block/values block/pos value
-        insert-array block/newlines block/pos false
-        make-struct [
-            type: block!
-            values: block/values
-            pos: block/pos + 1
-            newlines: block/newlines
-        ]
-    ]
-    head: function [block] [] [
-        make-struct [
-            type: block!
-            values: block/values
-            pos: 0
-            newlines: block/newlines
-        ]
-    ]
-    tail: function [block] [] [
-        make-struct [
-            type: block!
-            values: block/values
-            pos: length-of-array block/values
-            newlines: block/newlines
-        ]
-    ]
-    skip: function [block amount] [pos len] [
-        pos: block/pos + amount
-        if pos > len: length-of-array block/values [pos: len]
-        make-struct [
-            type: block!
-            values: block/values
-            pos: pos
-            newlines: block/newlines
-        ]
-    ]
-    pick: function [block pos] [] [
-        pick-array block/values block/pos + pos
-    ]
-    length-of: function [block] [] [
-        (length-of-array block/values) - block/pos
-    ]
+    make: function [arguments] [] [make-block block! arguments]
+    topaz-make: function [value] [] [topaz-make-block block! value]
+    insert: :insert-block
+    head: :head-block
+    tail: :tail-block
+    skip: :skip-block
+    pick: :pick-block
+    length-of: :length-of-block
     mold: function [block indent] [result pos ind] [
         result: "["
         pos: block/pos
@@ -95,28 +117,46 @@ block!: make-type "block!" [
     do: function [block container] [] [
         reduce [block skip container 1]
     ]
-    bind: function [words context extend?] [] [
-        bind-values words/values words/pos context extend?
-        words
-    ]
+    bind: :bind-block
     compile: function [block container] [] [
         reduce [ast-value block skip container 1]
     ]
-    equal?: function [block value] [] [false]
-    copy: function [value] [] [
-        make-struct [
-            type: block!
-            values: apply 'value/values/slice [value/pos]
-            pos: 0
-            newlines: apply 'value/newlines/slice [value/pos]
-        ]
-    ]
+    equal?: :default-equal?
+    copy: function [value] [] [copy-block block! value]
 ]
 block!/("block!"): make-struct [
     equal?: :compare-blocks
 ]
 block!/("paren!"): make-struct [
     equal?: :compare-blocks
+]
+
+make-block: function [type args] [] [
+    if not args [args: make-struct []]
+    make-struct [
+        type: type
+        values: any [args/values make-array]
+        pos: any [args/pos 0]
+        newlines: any [args/newlines make-array]
+    ]
+]
+
+copy-block: function [type value] [] [
+    make-block type make-struct [
+        values: apply 'value/values/slice [value/pos]
+        newlines: apply 'value/newlines/slice [value/pos]
+    ]
+]
+
+topaz-make-block: function [type value] [] [
+    switch value/type/name [
+        "block!"    [copy-block type value]
+        "paren!"    [copy-block type value]
+        "path!"     [path-to-block type value]
+        "lit-path!" [path-to-block type value]
+        "set-path!" [path-to-block type value]
+        "string!"   [load-raw type value]
+    ] [make-block type none]
 ]
 
 bind-values: function [values pos context extend?] [] [

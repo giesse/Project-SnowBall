@@ -25,17 +25,14 @@
 
 logic!: make-type "logic!" [
     make: function [value] [] [
-        make-struct [
-            type: logic!
-            value: value
-        ]
+        either value [true-value] [false-value]
     ]
     topaz-make: function [value] [] [
         switch value/type/name [
-            "none!" [apply 'logic!/make [false]]
-            "logic!" [apply 'logic!/make [value/value]]
+            "none!" [false-value]
+            "logic!" [value]
         ] [
-            apply 'logic!/make [true]
+            true-value
         ]
     ]
     mold: function [value indent] [] [
@@ -48,14 +45,21 @@ logic!: make-type "logic!" [
     do: function [value block] [] [
         reduce [value skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [value block] [] [
         reduce [ast-value value skip block 1]
     ]
-    equal?: function [logic value] [] [false]
+    equal?: :default-equal?
 ]
 logic!/("logic!"): make-struct [
     equal?: function [logic1 logic2] [] [logic1/value = logic2/value]
+]
+
+true-value: make-struct [
+    type: logic!
+    value: true
+]
+false-value: make-struct [
+    type: logic!
+    value: false
 ]

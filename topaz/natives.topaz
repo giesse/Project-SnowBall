@@ -215,7 +215,7 @@ natives: make-struct [
             res: do code
         ] 'e [
             ctx: make context! none
-            bind-word ctx word true
+            word: bind-word ctx word true
             set-word word make string! e
             res: do bind def ctx false
         ]

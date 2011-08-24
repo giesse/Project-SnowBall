@@ -88,11 +88,15 @@ parse-values: function [values text] [value newline?] [
 
 system-words: make context! none
 
-load: function [text all?] [values] [
-    set [values text] parse-values make block! none text
+load-raw: function [type text] [values] [
+    set [values text] parse-values make type none text
     if not empty? text [
         error "Syntax" "Parse error" to-js-string text
     ]
+    values
+]
+load: function [text all?] [values] [
+    values: load-raw block! text
     bind values system-words true
     either all [not all? 1 = length-of values] [
         first values

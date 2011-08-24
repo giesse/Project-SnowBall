@@ -24,28 +24,23 @@
 ; ===== TYPES: NONE! ==========================================================
 
 none!: make-type "none!" [
-    make: function [ignored] [] [
-        make-struct [
-            type: none!
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'none!/make [none]
-    ]
-    mold: function [value indent] [] [
-        "none"
-    ]
+    make: function [ignored] [] [none-value]
+    topaz-make: function [ignored] [] [none-value]
+    mold: function [value indent] [] ["none"]
     do: function [value block] [] [
         reduce [value skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [value block] [] [
         reduce [ast-value value skip block 1]
     ]
-    equal?: function [val1 val2] [] [false]
+    equal?: :default-equal?
+    copy: function [value] [] [value]
 ]
 none!/("none!"): make-struct [
     equal?: function [val1 val2] [] [true]
+]
+
+none-value: make-struct [
+    type: none!
 ]

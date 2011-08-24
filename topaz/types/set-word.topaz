@@ -24,20 +24,9 @@
 ; ===== TYPES: SET-WORD! ======================================================
 
 set-word!: make-type "set-word!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: set-word!
-            word: arguments
-            context: none
-            offset: none
-        ]
-    ]
-    topaz-make: function [string] [] [
-        apply 'set-word!/make [string/string]
-    ]
-    mold: function [word indent] [] [
-        word/word + #":"
-    ]
+    make: function [arguments] [] [make-word set-word! arguments none]
+    topaz-make: function [value] [] [topaz-make-word set-word! value]
+    mold: function [word indent] [] [word/word + #":"]
     do: function [word block] [set-to] [
         block: skip block 1
         if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
@@ -45,21 +34,14 @@ set-word!: make-type "set-word!" [
         set-word word set-to
         reduce [set-to block]
     ]
-    bind: function [word context extend?] [] [
-        bind-word context make-struct [
-            type: set-word!
-            word: word/word
-            context: word/context
-            offset: word/offset
-        ] extend?
-    ]
+    bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [set-to] [
         block: skip block 1
         if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
         set [set-to block] compile-step block
         reduce [ast-set word set-to block]
     ]
-    equal?: function [word value] [] [false]
+    equal?: :default-equal?
 ]
 set-word!/("word!"): make-struct [
     equal?: :compare-words

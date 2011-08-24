@@ -25,18 +25,25 @@
 
 context!: make-type "context!" [
     make: function [arguments] [] [
+        if not arguments [arguments: make-struct []]
         make-struct [
             type: context!
-            words: make-array
-            values: make-array
-            stack: make-array
+            words: any [arguments/words make-array]
+            values: any [arguments/values make-array]
+            stack: any [arguments/stack make-array]
         ]
     ]
     topaz-make: function [code] [ctx] [
-        ctx: make context! none
-        bind collect-set-words make block! none code false ctx true
-        do bind code ctx false
-        ctx
+        switch code/type/name [
+            "block!" [
+                ctx: make context! none
+                bind collect-set-words make block! none code false ctx true
+                do bind code ctx false
+                ctx
+            ]
+        ] [
+            error "Script" "Invalid argument for MAKE CONTEXT!" mold-value code ""
+        ]
     ]
     mold: function [context indent] [block i] [
         block: make block! none
@@ -51,9 +58,7 @@ context!: make-type "context!" [
     do: function [context block] [] [
         reduce [context skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [context block] [] [
         reduce [ast-value context skip block 1]
     ]
@@ -69,7 +74,7 @@ context!: make-type "context!" [
         ]
         poke-array context/values offset set-to
     ]
-    equal?: function [context value] [] [false]
+    equal?: :default-equal?
 ]
 
 get-word-offset: function [context word] [] [
@@ -83,4 +88,26 @@ push-context: function [context] [] [
 ]
 pop-context: function [context] [] [
     context/values: pop-array context/stack
+]
+
+add-word: function [context word value] [l] [
+    l: length-of-array context/words
+    poke-array context/words l word/word
+    poke-array context/values l value
+    l
+]
+
+bind-word: function [context word add?] [offset] [
+    offset: get-word-offset context word/word
+    if all [add? offset < 0] [
+        offset: add-word context word none
+    ]
+    either offset >= 0 [
+        make-word word/type word/word make-struct [
+            context: context
+            offset: offset
+        ]
+    ] [
+        word
+    ]
 ]

@@ -74,6 +74,7 @@ run-test [compile [a: 1 + 1]]
 run-test [
     ; makes 'print local
     compile-test: func [] [
+        print: func [text] [make expression! [apply 'print [text]]]
         compile [
             print: function [text] [] [
                 apply 'sys/print [text]

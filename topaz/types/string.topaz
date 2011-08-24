@@ -24,15 +24,14 @@
 ; ===== TYPES: STRING! ========================================================
 
 string!: make-type "string!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: string!
-            string: arguments
-            pos: 0
+    make: function [arguments] [] [make-string arguments 0]
+    topaz-make: function [value] [] [
+        switch value/type/name [
+            "none!" [make-string "" 0]
+            "string!" [make-string to-js-string value 0]
+        ] [
+            make-string mold-value value "" 0
         ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'string!/make [""]
     ]
     length-of: function [string] [] [
         (length-of-array string/string) - string/pos
@@ -41,11 +40,7 @@ string!: make-type "string!" [
         pick-array string/string string/pos + pos
     ]
     skip: function [string amount] [] [
-        make-struct [
-            type: string!
-            string: string/string
-            pos: string/pos + amount
-        ]
+        make-string string/string string/pos + amount
     ]
     mold: function [string indent] [] [
         rejoin ["^"" escape string/string #"^""]
@@ -53,19 +48,13 @@ string!: make-type "string!" [
     do: function [string block] [] [
         reduce [string skip block 1]
     ]
-    bind: function [value context extend?] [] [
-        value
-    ]
+    bind: function [value context extend?] [] [value]
     compile: function [string block] [] [
         reduce [ast-value string skip block 1]
     ]
-    equal?: function [string value] [] [false]
+    equal?: :default-equal?
     copy: function [string] [] [
-        make-struct [
-            type: string!
-            string: to-js-string string
-            pos: 0
-        ]
+        make-string to-js-string string 0
     ]
 ]
 string!/("string!"): make-struct [
@@ -158,6 +147,14 @@ unescape: function [str] [result i j ch p] [
 ]
 to-js-string: function [string] [] [
     apply 'string/string/substr [string/pos]
+]
+
+make-string: function [string pos] [] [
+    make-struct [
+        type: string!
+        string: string
+        pos: pos
+    ]
 ]
 
 parse-string: function [text] [t] [

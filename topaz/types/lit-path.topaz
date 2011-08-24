@@ -24,51 +24,14 @@
 ; ===== TYPES: LIT-PATH! ======================================================
 
 lit-path!: make-type "lit-path!" [
-    make: function [arguments] [] [
-        make-struct [
-            type: lit-path!
-            values: make-array
-            pos: 0
-        ]
-    ]
-    topaz-make: function [ignored] [] [
-        apply 'lit-path!/make [none]
-    ]
-    insert: function [block value] [] [
-        insert-array block/values block/pos value
-        make-struct [
-            type: lit-path!
-            values: block/values
-            pos: block/pos + 1
-        ]
-    ]
-    head: function [block] [] [
-        make-struct [
-            type: lit-path!
-            values: block/values
-            pos: 0
-        ]
-    ]
-    tail: function [block] [] [
-        make-struct [
-            type: lit-path!
-            values: block/values
-            pos: length-of-array block/values
-        ]
-    ]
-    skip: function [block amount] [] [
-        make-struct [
-            type: lit-path!
-            values: block/values
-            pos: block/pos + amount
-        ]
-    ]
-    pick: function [block pos] [] [
-        pick-array block/values block/pos + pos
-    ]
-    length-of: function [block] [] [
-        (length-of-array block/values) - block/pos
-    ]
+    make: function [arguments] [] [make-path lit-path! arguments]
+    topaz-make: function [value] [] [topaz-make-path lit-path! value]
+    insert: :insert-path
+    head: :head-path
+    tail: :tail-path
+    skip: :skip-path
+    pick: :pick-block
+    length-of: :length-of-block
     mold: function [block indent] [result pos] [
         result: "'"
         pos: block/pos
@@ -83,17 +46,9 @@ lit-path!: make-type "lit-path!" [
         result
     ]
     do: function [path block] [] [
-        path: make-struct [
-            type: path!
-            values: path/values
-            pos: path/pos
-        ]
-        reduce [path skip block 1]
+        reduce [copy-path path! path skip block 1]
     ]
-    bind: function [path context extend?] [] [
-        bind-values path/values 0 context extend?
-        path
-    ]
+    bind: :bind-block
     compile: function [path block] [] [
         reduce [
             ast-value make-struct [
@@ -104,14 +59,8 @@ lit-path!: make-type "lit-path!" [
             skip block 1
         ]
     ]
-    equal?: function [path value] [] [false]
-    copy: function [value] [] [
-        make-struct [
-            type: lit-path!
-            values: apply 'value/values/slice [value/pos]
-            pos: 0
-        ]
-    ]
+    equal?: :default-equal?
+    copy: function [value] [] [copy-path lit-path! value]
 ]
 lit-path!/("path!"): make-struct [
     equal?: :compare-blocks
