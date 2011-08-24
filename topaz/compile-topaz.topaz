@@ -26,6 +26,10 @@ make-type: func [name actions] [
         make-struct (struct)
     ]
 ]
+macro: func [name spec body] [
+    set name/value func spec/value body/value
+    make expression! []
+]
 
 types-dir: "topaz/types/"
 app-type: func [file] [app-file rejoin [types-dir file]]
@@ -125,6 +129,8 @@ locals: parse interpreter [
             |
             keep (none)
         ]
+        |
+        'macro name: lit-word! block! block! keep (make set-word! name) keep (none)
         |
         skip
     ]
