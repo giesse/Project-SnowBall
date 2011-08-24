@@ -41,8 +41,9 @@ expression!: make-type "expression!" [
             error "Script" "Invaild argument for MAKE EXPRESSION!" mold-value code ""
         ]
     ]
-    mold: function [expr indent] [] [
-        rejoin ["#[expr " expr/expr/node-type "]"]
+    mold: function [expr indent] [js] [
+        try [js: to-js expr/expr "statement"] 'e [js: "TO-JS error"]
+        rejoin ["#[expr " expr/expr/node-type " {" js "}]"]
     ]
     do: function [expr block] [] [
         reduce [expr skip block 1]
