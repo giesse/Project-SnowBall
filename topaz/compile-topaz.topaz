@@ -30,10 +30,29 @@ make-type: func [name actions] [
 types-dir: "topaz/types/"
 app-type: func [file] [app-file rejoin [types-dir file]]
 
-app-type "datatype.topaz"
-foreach 'file read types-dir [
-    if file <> "datatype.topaz" [app-type file]
-]
+; until dependency resolution is added...
+foreach 'type [
+    "datatype.topaz"
+    "block.topaz"
+    "paren.topaz"
+    "path.topaz"
+    "lit-path.topaz"
+    "set-path.topaz"
+    "word.topaz"
+    "get-word.topaz"
+    "lit-word.topaz"
+    "set-word.topaz"
+    "context.topaz"
+    "function.topaz"
+    "native.topaz"
+    "op.topaz"
+    "string.topaz"
+    "char.topaz"
+    "none.topaz"
+    "logic.topaz"
+    "number.topaz"
+    "expression.topaz"
+] [app-type type]
 
 foreach 'file [
     "topaz/load.topaz"
