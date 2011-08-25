@@ -42,8 +42,8 @@ insert-array: function [arr pos value] [] [
     apply 'arr/splice [pos 0 value]
 ]
 
-macro 'error [type message where] [
-    make expression! [throw rejoin ["*** " type " error: " message "^/*** Where: " where]]
+error: function [type message where] [] [
+    throw rejoin ["*** " type " error: " message "^/*** Where: " where]
 ]
 
 name-to-js: function [name] [] [
@@ -112,8 +112,8 @@ test-re: function [str re] [] [
     apply 're/test [str]
 ]
 
-macro 'empty-array? [array] [
-    make expression! [0 = length-of-array array]
+empty-array?: function [array] [] [
+    0 = length-of-array array
 ]
 
 true?: function [value] [] [
