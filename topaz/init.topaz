@@ -57,6 +57,7 @@ foreach [native spec] [
     pick-array        [array position]
     regexp            [exp flags]
     to-char           [number]
+    js-error?         [value]
 ] [
     set native make native! reduce [spec native]
 ]

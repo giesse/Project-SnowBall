@@ -342,6 +342,7 @@ natives: make-struct [
     pick-array: function [arr pos] [] []
     regexp: function [exp flags] [] []
     to-char: function [number] [] []
+    js-error?: function [x] [] []
 ]
 
 ; ===== CONJURE ===============================================================

@@ -128,6 +128,15 @@ ast-paren: function [expressions] [] [
         ]
     ]
 ]
+ast-literal: function [text] [] [
+    make-struct [
+        node-type: "literal"
+        text: text
+        to-js: function [node context] [] [
+            to-js-common node/text context
+        ]
+    ]
+]
 ast-get: function [word] [] [
     make-struct [
         node-type: "get"
@@ -670,7 +679,7 @@ ast-op: function [op val1 val2] [] [
         val1: val1
         val2: val2
         to-js: function [node context] [res] [
-            res: rejoin [to-js node/val1 "paren" node/op to-js node/val2 "paren"]
+            res: rejoin [to-js node/val1 "paren" " " node/op " " to-js node/val2 "paren"]
             switch context [
                 "statement" [
                     error "Compile" "Cannot use operator as a statement" ""
@@ -841,4 +850,7 @@ native-compilers: make-struct [
     find: function [series value] [] []
     until: function [body] [] []
     copy: function [value] [] []
+    js-error?: function [value] [] [
+        ast-op "instanceof" value ast-literal "Error"
+    ]
 ]
