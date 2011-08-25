@@ -4,5 +4,3 @@ The Makefile automatically downloads a bootstrap JS file for the
 initial compilation.
 
 More details about Topaz will be available soon.
-
-Please ignore the stuff inside old/
