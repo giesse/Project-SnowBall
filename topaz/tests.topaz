@@ -180,3 +180,17 @@ run-test [
     e: make expression! [1]
     e/value
 ]
+run-test [
+    obj: make object! [
+        one: 1
+        two: 2
+        three: 1 + 2
+        flag
+    ]
+]
+run-test [obj/one]
+run-test [obj/three]
+run-test [obj/flag]
+run-test [obj/four]
+run-test [obj/five: 5]
+run-test [obj]

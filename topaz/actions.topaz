@@ -53,6 +53,12 @@ mold: function [value] [] [
 first: function [series] [] [
     pick series 0
 ]
+second: function [series] [] [
+    pick series 1
+]
+next: function [series] [] [
+    skip series 1
+]
 do-step: function [value block] [result arg2 op] [
     try [
         set [result block] apply 'value/type/do [value block]

@@ -141,3 +141,13 @@ words-to-js: function [words] [res word] [
 ]
 
 default-equal?: function [value1 value2] [] [false]
+
+_foreach: function [arr fnc] [] [
+    apply 'arr/for-each [fnc]
+]
+macro 'foreach [word arr body] [
+    word: system/words/reduce [word/value]
+    system/words/make system/words/expression! compose [
+        _foreach arr function (word) [] body
+    ]
+]

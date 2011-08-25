@@ -133,6 +133,7 @@ values: make-struct [
     system-words: system-words
     expression!: expression!
     get-word!: get-word!
+    object!: object!
 ]
 
 ; ===== NATIVES THAT CAN BE MADE ==============================================

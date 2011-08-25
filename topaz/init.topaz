@@ -63,7 +63,7 @@ foreach [native spec] [
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic! context! expression! get-word!
+    none! logic! context! expression! get-word! object!
 ] [
     set word conjure word
 ]
@@ -87,7 +87,7 @@ system: make context! [
     words: conjure 'system-words
     datatypes: reduce [
         datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-        none! logic! context! native! expression! get-word!
+        none! logic! context! native! expression! get-word! object!
     ]
 ]
 
