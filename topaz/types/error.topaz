@@ -64,7 +64,7 @@ error!: make-type "error!" [
             indent "    category: '" err/category "^/"
             indent "    id: '" err/id "^/"
             indent "    message: ^"" escape err/message "^"^/"
-            either err/args [rejoin ["    args: " mold-value err/args indent + "    " "^/"]] [""]
+            either err/args [rejoin [indent "    args: " mold-value err/args indent + "    " "^/"]] [""]
             indent "]"
         ]
     ]
