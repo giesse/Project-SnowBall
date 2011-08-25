@@ -1,0 +1,120 @@
+; Topaz types: ERROR!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: ERROR! =========================================================
+
+error!: make-type "error!" [
+    make: function [args] [res] [
+        if not args [args: make-struct []]
+        res: make-struct [
+            type: error!
+            category: any [args/category "Internal"]
+            id: any [args/id "unspecified"]
+            message: any [args/message "Unspecified error"]
+            args: args/args
+            stack: make block! none
+        ]
+        if args/stack [append res/stack args/stack]
+        res
+    ]
+    topaz-make: function [value] [blk] [
+        switch value/type/name [
+            "block!" [
+                blk: make block! none
+                append blk make none! none
+                append blk value
+                topaz-make-error apply 'object!/topaz-make [blk]
+            ]
+            "object!" [
+                topaz-make-error value
+            ]
+            "error!" [value]
+        ] [
+            apply 'error!/make [make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE ERROR!"
+                args: value
+            ]]
+        ]
+    ]
+    mold: function [err indent] [] [
+        rejoin [
+            "make error! [^/"
+            indent "    category: '" err/category "^/"
+            indent "    id: '" err/id "^/"
+            indent "    message: ^"" escape err/message "^"^/"
+            either err/args [rejoin ["    args: " mold-value err/args indent + "    " "^/"]] [""]
+            indent "]"
+        ]
+    ]
+    do: function [err block] [] [
+        reduce [err skip block 1]
+    ]
+    bind: function [value context extend?] [] [value]
+    compile: function [err block] [] [
+        reduce [ast-value err skip block 1]
+    ]
+    equal?: :default-equal?
+    copy: function [value] [] [value]
+]
+error!/("error!"): make-struct [
+    equal?: function [err1 err2] [] [
+        all [
+            err1/category = err2/category
+            err1/id = err2/id
+        ]
+    ]
+]
+
+topaz-make-error: function [obj] [args] [
+    obj: obj/map
+    args: make-struct []
+    if obj/category [
+        args/category: either obj/category/type/name = "word!" [obj/category/word] [none]
+    ]
+    if obj/id [
+        args/id: either obj/id/type/name = "word!" [obj/id/word] [none]
+    ]
+    if obj/message [
+        args/message: either obj/message/type/name = "string!" [obj/message/string] [none]
+    ]
+    if all [obj/args obj/args/type/name <> "none!"] [
+        args/args: obj/args
+    ]
+    apply 'error!/make [args]
+]
+
+error: function [args] [] [
+    throw apply 'error!/make [args]
+]
+form-error: function [err] [res] [
+    res: rejoin [
+        "*** " err/category " error: " err/message
+        either err/args [rejoin [": " mold-value err/args ""]] [""]
+    ]
+    foreach 'item err/stack/values [
+        res: rejoin [res "^/*** Stack: " mold-value item "         : "]
+    ]
+    res
+]

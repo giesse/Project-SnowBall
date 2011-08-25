@@ -42,7 +42,12 @@ context!: make-type "context!" [
                 ctx
             ]
         ] [
-            error "Script" "Invalid argument for MAKE CONTEXT!" mold-value code ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE CONTEXT!"
+                args: code
+            ]
         ]
     ]
     mold: function [context indent] [block i] [
@@ -64,13 +69,23 @@ context!: make-type "context!" [
     ]
     get-path: function [context selector] [offset] [
         if any [selector/type/name <> "word!" 0 > offset: get-word-offset context selector/word] [
-            error "Script" "Invalid path" mold-value selector ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Invalid path value"
+                args: selector
+            ]
         ]
         pick-array context/values offset
     ]
     set-path: function [context selector set-to] [offset] [
         if any [selector/type/name <> "word!" 0 > offset: get-word-offset context selector/word] [
-            error "Script" "Invalid path" mold-value selector ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Invalid path value"
+                args: selector
+            ]
         ]
         poke-array context/values offset set-to
     ]

@@ -6,7 +6,7 @@ run-test: func [test] [
         test: do test
         prin "== " print mold* :test "== "
     ] 'error [
-        print error
+        print form-error error
     ]
     print ""
 ]
@@ -88,7 +88,8 @@ run-test [
 ]
 run-test [write "test.txt" "This is a test"]
 run-test [read "test.txt"]
-run-test [throw "An error"]
+run-test [cause make error! [category: 'Script id: 'user-error message: "An error"]]
+run-test [catch [throw "Something" none]]
 run-test [if true ["Was true"]]
 run-test [if false ["Was true"]]
 run-test [either true ["Was true"] ["Was false"]]

@@ -29,7 +29,13 @@ set-word!: make-type "set-word!" [
     mold: function [word indent] [] [word/word + #":"]
     do: function [word block] [set-to] [
         block: skip block 1
-        if empty? block [error "Script" "set-word needs a value" mold-value skip block -1 ""]
+        if empty? block [
+            error make-struct [
+                category: "Script"
+                id: "missing-argument"
+                message: "SET-WORD! needs a value"
+            ]
+        ]
         set [set-to block] do-step first block block
         set-word word set-to
         reduce [set-to block]
@@ -37,7 +43,13 @@ set-word!: make-type "set-word!" [
     bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [set-to] [
         block: skip block 1
-        if empty? block [error "Compile" "set-word needs a value" mold-value skip block -1 ""]
+        if empty? block [
+            error make-struct [
+                category: "Compilation"
+                id: "missing-argument"
+                message: "SET-WORD! needs a value"
+            ]
+        ]
         set [set-to block] compile-step block
         reduce [ast-set word set-to block]
     ]
@@ -58,7 +70,12 @@ set-word!/("lit-word!"): make-struct [
 
 set-word: function [word value] [] [
     if not word/context [
-        error "Script" "Word has no context" word/word
+        error make-struct [
+            category: "Script"
+            id: "no-context"
+            message: "Word has no context"
+            args: word
+        ]
     ]
     poke-array word/context/values word/offset value
     value

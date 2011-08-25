@@ -191,7 +191,12 @@ parse-block: function [text] [values] [
     if #"[" = first text [
         set [values text] parse-values make block! none skip text 1
         if #"]" <> first text [
-            error "Syntax" "Missing ]" to-js-string text
+            error make-struct [
+                category: "Syntax"
+                id: "load-error"
+                message: "Missing ]"
+                stack: text
+            ]
         ]
         reduce [values skip text 1]
     ]

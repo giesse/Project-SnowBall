@@ -82,7 +82,12 @@ parse-lit-path: function [text] [path value] [
             either value [
                 path: insert path value
             ] [
-                error "Syntax" "Parse error" to-js-string text
+                error make-struct [
+                    category: "Syntax"
+                    id: "load-error"
+                    message: "Parse error"
+                    stack: text
+                ]
             ]
         ]
         reduce [head path text]

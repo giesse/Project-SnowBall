@@ -38,7 +38,12 @@ expression!: make-type "expression!" [
             if 1 = length-of-array code/list [code: pick-array code/list 0]
             apply 'expression!/make [code]
         ] [
-            error "Script" "Invaild argument for MAKE EXPRESSION!" mold-value code ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invaild argument for MAKE EXPRESSION!"
+                args: code
+            ]
         ]
     ]
     mold: function [expr indent] [js] [
@@ -59,7 +64,12 @@ expression!: make-type "expression!" [
             selector/word <> "value"
             not test-re expr/expr/node-type regexp "^^value\/.*" ""
         ] [
-            error "Script" "Invalid path" mold-value selector ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Invalid path value"
+                args: selector
+            ]
         ]
         expr/expr/value
     ]

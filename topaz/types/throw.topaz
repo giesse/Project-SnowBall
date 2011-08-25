@@ -1,4 +1,4 @@
-; Topaz types: MAKE-TYPE and DATATYPE!
+; Topaz types: THROW!
 ;
 ; Copyright 2011 Gabriele Santilli
 ;
@@ -21,38 +21,30 @@
 ; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ; OTHER DEALINGS IN THE SOFTWARE.
 
-; ===== TYPES: DATATYPE! ======================================================
+; ===== TYPES: THROW! =========================================================
 
-; datatype! has a circular reference
-datatype!: none
+; This is an internal datatype
 
-; make-type is defined as a macro in compile-topaz.topaz
-
-datatype!: make-type "datatype!" [
-    mold: function [type indent] [] [
-        type/name
-    ]
-    do: function [type block] [] [
-        reduce [type skip block 1]
-    ]
-    bind: function [type context extend?] [] [
-        type
-    ]
-    topaz-make: function [ignored] [] [
-        error make-struct [
-            category: "Internal"
-            id: "not-implemented"
-            message: "Cannot make datatypes (yet)"
+throw!: make-type "throw!" [
+    make: function [arguments] [] [
+        make-struct [
+            type: throw!
+            value: arguments
         ]
     ]
-    compile: function [type block] [] [
-        reduce [ast-value type skip block 1]
-    ]
-    equal?: function [type value] [] [false]
-]
-datatype!/("datatype!"): make-struct [
-    equal?: function [type1 type2] [] [type1/name = type2/name]
+    topaz-make: function [value] [] [should-not-happen "MAKE" "THROW!"]
+    mold: function [value indent] [] [should-not-happen "MOLD" "THROW!"]
+    do: function [value block] [] [should-not-happen "DO" "THROW!"]
+    bind: function [value context extend?] [] [should-not-happen "BIND" "THROW!"]
+    compile: function [value block] [] [should-not-happen "COMPILE" "THROW!"]
+    equal?: :default-equal?
+    copy: function [value] [] [value]
 ]
 
-; fix the circular reference
-datatype!/type: datatype!
+should-not-happen: function [name type] [] [
+    error make-struct [
+        category: "Internal"
+        id: "should-not-happen"
+        message: rejoin [name " on " type " should not happen"]
+    ]
+]

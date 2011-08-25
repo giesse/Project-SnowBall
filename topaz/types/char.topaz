@@ -42,7 +42,12 @@ char!: make-type "char!" [
                 apply 'char!/make [to-char 0]
             ]
         ] [
-            error "Script" "Invalid argument for MAKE CHAR!" mold-value value ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE CHAR!"
+                args: value
+            ]
         ]
     ]
     mold: function [char indent] [] [

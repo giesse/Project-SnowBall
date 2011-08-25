@@ -49,6 +49,9 @@ foreach [native spec] [
     find              [series value]
     until             [body]
     copy              [series]
+    cause             [error]
+    catch             [code]
+    form-error        [error]
     ; compiler only
     function          [spec locals body]
     make-struct       [spec]
@@ -64,7 +67,7 @@ foreach [native spec] [
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic! context! expression! get-word! object!
+    none! logic! context! expression! get-word! object! error!
 ] [
     set word conjure word
 ]
@@ -88,7 +91,7 @@ system: make context! [
     words: conjure 'system-words
     datatypes: reduce [
         datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-        none! logic! context! native! expression! get-word! object!
+        none! logic! context! native! expression! get-word! object! error!
     ]
 ]
 

@@ -57,6 +57,9 @@ foreach 'type [
     "number.topaz"
     "expression.topaz"
     "object.topaz"
+    "throw.topaz"
+    "return.topaz"
+    "error.topaz"
 ] [app-type type]
 
 foreach 'file [
@@ -77,15 +80,38 @@ app [
         do load make string! init-code true
     ] 'e [
         print "FATAL: error during initialization^/"
-        print e + "^/"
+        e: handle-js-error e
+        if e/type/name <> "error!" [
+            e: make error! make-struct [
+                category: "Internal"
+                id: "unhandled-throw"
+                message: "Unhandled throw during initialization"
+                args: e/type
+            ]
+        ]
+        print form-error e
+        print "^/"
         apply 'process/exit [1]
     ]
 
+    handle-top-level-error: function [e] [] [
+        e: handle-js-error e
+        if e/type/name <> "error!" [
+            e: make error! make-struct [
+                category: "Script"
+                id: "unhandled-throw"
+                message: "Unhandled exception (THROW without CATCH)"
+                args: e/type
+            ]
+        ]
+        print form-error e
+        print "^/"
+    ]
     either 2 < length-of-array process/argv [
         try [
             do load read pick-array process/argv 2 true
         ] 'e [
-            print e + "^/"
+            handle-top-level-error e
         ]
     ] [
         print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License^/"
@@ -102,7 +128,8 @@ app [
                         print "== " print mold-value chunk "== "
                         print "^/>> "
                     ] 'e [
-                        print e + "^/>> "
+                        handle-top-level-error e
+                        print ">> "
                     ]
                 ]
             ]

@@ -40,7 +40,12 @@ object!: make-type "object!" [
                 case [
                     parent/type/name = "none!" [parent: none]
                     parent/type/name <> "object!" [
-                        error "Script" "Invalid object parent" mold-value parent ""
+                        error make-struct [
+                            category: "Script"
+                            id: "invalid-spec"
+                            message: "Invalid object parent"
+                            args: parent
+                        ]
                     ]
                 ]
                 obj: make object! make-struct [parent: parent]
@@ -50,7 +55,12 @@ object!: make-type "object!" [
                 obj: make object! make-struct [parent: code]
             ]
         ] [
-            error "Script" "Invalid argument for MAKE OBJECT!" mold-value code ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE OBJECT!"
+                args: code
+            ]
         ]
         obj
     ]
@@ -76,7 +86,12 @@ object!: make-type "object!" [
             selector/type/name <> "set-word!"
             selector/type/name <> "get-word!"
         ] [
-            error "Script" "Invalid path value" mold-value selector ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Invalid path value"
+                args: selector
+            ]
         ]
         get-word-in-object object selector/word
     ]
@@ -87,7 +102,12 @@ object!: make-type "object!" [
             selector/type/name <> "set-word!"
             selector/type/name <> "get-word!"
         ] [
-            error "Script" "Invalid path value" mold-value selector ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Invalid path value"
+                args: selector
+            ]
         ]
         set-word-in-object object selector/word set-to
     ]
@@ -119,7 +139,13 @@ parse-object-spec: function [obj spec] [word value] [
                 set-word-in-object obj word/word make logic! true
             ]
         ] [
-            error "Script" "Invalid object spec" mold-value spec ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Invalid object spec value"
+                args: word
+                stack: spec
+            ]
         ]
     ]
     obj

@@ -68,11 +68,22 @@ compile-step: function [block] [value expr op expr2] [
     try [
         set [expr block] apply 'value/type/compile [value block]
     ] 'e [
-        throw rejoin [e "^/*** Compiling: " mold-value block ""]
+        e: handle-js-error e
+        if e/type/name = "error!" [
+            append e/stack block
+        ]
+        throw e
     ]
     while [op: operator? block] [
         block: skip block 1
-        if empty? block [error "Compile" "Operator missing its second argument" mold-value skip block -2 ""]
+        if empty? block [
+            error make-struct [
+                category: "Compilation"
+                id: "missing-argument"
+                message: "Operator missing its second argument"
+                stack: skip block -2
+            ]
+        ]
         value: first block
         set [expr2 block] apply 'value/type/compile [value block]
         expr: compile-op op expr expr2
@@ -134,6 +145,7 @@ values: make-struct [
     expression!: expression!
     get-word!: get-word!
     object!: object!
+    error!: error!
 ]
 
 ; ===== NATIVES THAT CAN BE MADE ==============================================
@@ -147,7 +159,12 @@ natives: make-struct [
             ]
             "block!" []
         ] [
-            error "Script" "FOREACH expected a word! or block! - not " + words/type/name ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "FOREACH expected a word! or block!, not"
+                args: words/type
+            ]
         ]
         bind words ctx true
         bind body ctx false
@@ -174,7 +191,12 @@ natives: make-struct [
                 set-words word value
             ]
         ] [
-            error "Script" "SET expected a word! or block! - not " + word/type/name ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "SET expected a word! or block!, not"
+                args: word/type
+            ]
         ]
     ]
     reduce: function [block] [result value] [
@@ -195,7 +217,12 @@ natives: make-struct [
     get: function [word] [value] [
         value: get word
         if not value [
-            error "Script" "Word has no value" mold-value word ""
+            error make-struct [
+                category: "Script"
+                id: "no-value"
+                message: "Word has no value"
+                args: word
+            ]
         ]
         value
     ]
@@ -215,12 +242,41 @@ natives: make-struct [
         try [
             res: do code
         ] 'e [
-            ctx: make context! none
-            word: bind-word ctx word true
-            set-word word make string! e
-            res: do bind def ctx false
+            e: handle-js-error e
+            either e/type/name = "error!" [
+                ctx: make context! none
+                word: bind-word ctx word true
+                set-word word e
+                res: do bind def ctx false
+            ] [
+                throw e
+            ]
         ]
         res
+    ]
+    catch: function [code] [res] [
+        try [
+            res: do code
+        ] 'e [
+            e: handle-js-error e
+            either e/type/name = "throw!" [
+                res: e/value
+            ] [
+                throw e
+            ]
+        ]
+        res
+    ]
+    form-error: function [err] [] [
+        if err/type/name <> "error!" [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for FORM-ERROR"
+                args: err
+            ]
+        ]
+        make string! form-error err
     ]
     add: function [val1 val2] [] [make number! val1/number + val2/number]
     subtract: function [val1 val2] [] [make number! val1/number - val2/number]
@@ -237,7 +293,18 @@ natives: make-struct [
         write to-js-string filename to-js-string text
     ]
     throw: function [value] [] [
-        throw value/string
+        throw make throw! value
+    ]
+    cause: function [err] [] [
+        if err/type/name <> "error!" [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for CAUSE, expected ERROR!, not"
+                args: err/type
+            ]
+        ]
+        throw err
     ]
     if: function [condition body] [] [
         either true? condition [
@@ -250,7 +317,13 @@ natives: make-struct [
         do either true? condition [true-body] [false-body]
     ]
     not: function [value] [] [make logic! not true? value]
-    apply: function [func args] [] [error "Internal" "APPLY is not yet implemented" ""]
+    apply: function [func args] [] [
+        error make-struct [
+            category: "Internal"
+            id: "not-implemented"
+            message: "APPLY is not yet implemented"
+        ]
+    ]
     while: function [condblock body] [res] [
         res: make none! none
         while [true? do condblock] [res: do body]
@@ -294,7 +367,12 @@ natives: make-struct [
                 case-block/type/name <> "block!"
             ]] [cases: skip cases 1]
             either empty? cases [
-                error "Script" "Invalid argument for SWITCH" mold-value orig-cases ""
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-spec"
+                    message: "SWITCH is missing the case block after the matched value"
+                    stack: orig-cases
+                ]
             ] [do case-block]
         ]
     ]

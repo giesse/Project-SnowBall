@@ -26,7 +26,11 @@
 op!: make-type "op!" [
     make: function [arguments] [] [
         if 2 <> length-of arguments/spec [
-            error "Script" "Function must take exactly two arguments" ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Function must take exactly two arguments"
+            ]
         ]
         make-struct [
             type: op!
@@ -38,18 +42,31 @@ op!: make-type "op!" [
             "function!" [apply 'op!/make [func]]
             "native!" [apply 'op!/make [func]]
         ] [
-            error "Script" "Invalid argument for MAKE OP!" mold-value func ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE OP!"
+                args: func
+            ]
         ]
     ]
     mold: function [op indent] [] [
         "make op! " + mold-value op/func indent
     ]
     do: function [op block] [] [
-        error "Script" "Infix use of OP!s is not supported" mold-value block ""
+        error make-struct [
+            category: "Script"
+            id: "invalid-infix"
+            message: "Infix use of OP!s is not supported"
+        ]
     ]
     bind: function [op context extend?] [] [op]
     compile: function [op block] [] [
-        error "Compile" "Infix use of OP!s is not supported" mold-value block ""
+        error make-struct [
+            category: "Compilation"
+            id: "invalid-infix"
+            message: "Infix use of OP!s is not supported"
+        ]
     ]
     equal?: :default-equal?
 ]

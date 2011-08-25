@@ -79,7 +79,13 @@ path!: make-type "path!" [
         result
     ]
     do: function [path block] [value] [
-        if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
+        if empty? path [
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Empty PATH! value"
+            ]
+        ]
         value: get first path
         path: skip path 1
         while [not empty? path] [
@@ -94,7 +100,13 @@ path!: make-type "path!" [
     ]
     bind: :bind-block
     compile: function [path block] [expr] [
-        if empty? path [error "Internal" "Empty PATH! value" mold-value block ""]
+        if empty? path [
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-path"
+                message: "Empty PATH! value"
+            ]
+        ]
         expr: ast-get first path
         path: skip path 1
         while [not empty? path] [
@@ -165,7 +177,12 @@ parse-path: function [text] [path value] [
             either value [
                 path: insert path value
             ] [
-                error "Syntax" "Parse error" to-js-string text
+                error make-struct [
+                    category: "Syntax"
+                    id: "load-error"
+                    message: "Parse error"
+                    stack: text
+                ]
             ]
         ]
         reduce [head path text]

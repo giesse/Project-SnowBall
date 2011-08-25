@@ -46,7 +46,13 @@ set-path!: make-type "set-path!" [
         result + #":"
     ]
     do: function [path block] [value set-to] [
-        if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
+        if 2 > length-of path [
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "SET-PATH! with less than two values"
+            ]
+        ]
         value: get first path
         path: skip path 1
         while [1 < length-of path] [
@@ -54,14 +60,26 @@ set-path!: make-type "set-path!" [
             path: skip path 1
         ]
         block: skip block 1
-        if empty? block [error "Script" "set-path needs a value" mold-value skip block -1 ""]
+        if empty? block [
+            error make-struct [
+                category: "Script"
+                id: "missing-argument"
+                message: "SET-PATH! needs a value"
+            ]
+        ]
         set [set-to block] do-step first block block
         set-path value first path set-to
         reduce [set-to block]
     ]
     bind: :bind-block
     compile: function [path block] [expr set-to] [
-        if 2 > length-of path [error "Internal" "SET-PATH! with less than two values" mold-value block ""]
+        if 2 > length-of path [
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-path"
+                message: "SET-PATH! with less than two values"
+            ]
+        ]
         expr: ast-get first path
         path: skip path 1
         while [1 < length-of path] [
@@ -69,7 +87,13 @@ set-path!: make-type "set-path!" [
             path: skip path 1
         ]
         block: skip block 1
-        if empty? block [error "Compile" "set-path needs a value" mold-value skip block -1 ""]
+        if empty? block [
+            error make-struct [
+                category: "Compilation"
+                id: "missing-argument"
+                message: "SET-PATH! needs a value"
+            ]
+        ]
         set [set-to block] compile-step block
         reduce [ast-set-path expr first path set-to block]
     ]
@@ -96,7 +120,12 @@ parse-set-path: function [text] [path value] [
             either value [
                 path: insert path value
             ] [
-                error "Syntax" "Parse error" to-js-string text
+                error make-struct [
+                    category: "Syntax"
+                    id: "load-error"
+                    message: "Parse error"
+                    stack: text
+                ]
             ]
         ]
         if all [not empty? text  #":" = first text] [

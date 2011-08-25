@@ -106,10 +106,12 @@ ast-value: function [value] [] [
                     ]
                 ]
             ] [
-                error
-                    "JS emitter"
-                    rejoin ["Cannot represent " node/value/type/name " values in JS"]
-                    mold-value node/value ""
+                error make-struct [
+                    category: "JS emitter"
+                    id: "invalid-value"
+                    message: "Cannot represent values of this type in JS"
+                    args: node/value/type
+                ]
             ]
             either context = "return" [
                 rejoin ["return " res ";"]
@@ -222,7 +224,11 @@ ast-set: function [word set-to] [] [
         to-js: function [node context] [res words name i] [
             either node/word/type/name = "block!" [
                 if context <> "statement" [
-                    error "Compile" "SET with multiple words can only be a statement" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "SET with multiple words can only be a statement"
+                    ]
                 ]
                 words: node/word
                 res: rejoin [
@@ -302,13 +308,21 @@ ast-expressions: function [list] [] [
                 ]
                 "expression" [
                     if 1 < length-of-array node/list [
-                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                        error make-struct [
+                            category: "JS emitter"
+                            id: "multiple-expressions"
+                            message: "Multiple expressions in expression context (eg. paren! with more than one expression)"
+                        ]
                     ]
                     res: to-js pick-array node/list 0 "expression"
                 ]
                 "paren" [
                     if 1 < length-of-array node/list [
-                        error "Compile" "Multiple expressions in expression context (eg. paren! with more than one expression)" ""
+                        error make-struct [
+                            category: "JS emitter"
+                            id: "multiple-expressions"
+                            message: "Multiple expressions in expression context (eg. paren! with more than one expression)"
+                        ]
                     ]
                     res: to-js pick-array node/list 0 "paren"
                 ]
@@ -353,7 +367,11 @@ ast-function-definition: function [spec locals body] [] [
                     rejoin ["(" res ")"]
                 ]
                 "statement" [
-                    error "Compile" "Function definition cannot be used as a statement" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "no-statement"
+                        message: "Function definition cannot be used as a statement"
+                    ]
                 ]
             ] []
         ]
@@ -367,13 +385,21 @@ ast-throw: function [expr] [] [
             res: rejoin ["throw " to-js node/expr "expression" ";"]
             switch context [
                 "expression" [
-                    error "Compile" "THROW cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "THROW cannot be used as an expression"
+                    ]
                 ]
                 "statement" [
                     res
                 ]
                 "paren" [
-                    error "Compile" "THROW cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "THROW cannot be used as an expression"
+                    ]
                 ]
                 "return" [
                     res
@@ -470,7 +496,11 @@ ast-while: function [condition body] [] [
                     "}"
                 ]
             ] [
-                error "Compile" "WHILE can only be used as a statement" ""
+                error make-struct [
+                    category: "JS emitter"
+                    id: "statement-only"
+                    message: "WHILE can only be used as a statement"
+                ]
             ]
         ]
     ]
@@ -527,7 +557,11 @@ ast-all: function [exprs] [] [
             ]
             switch context [
                 "statement" [
-                    error "Compile" "ALL cannot be used as a statement" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "no-statement"
+                        message: "ALL cannot be used as a statement"
+                    ]
                 ]
                 "expression" [
                     res
@@ -555,7 +589,11 @@ ast-any: function [exprs] [] [
             ]
             switch context [
                 "statement" [
-                    error "Compile" "ANY cannot be used as a statement" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "no-statement"
+                        message: "ANY cannot be used as a statement"
+                    ]
                 ]
                 "expression" [
                     res
@@ -609,10 +647,18 @@ ast-switch: function [value cases def] [] [
                     ]
                 ]
                 "expression" [
-                    error "Compile" "SWITCH cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "SWITCH cannot be used as an expression"
+                    ]
                 ]
                 "paren" [
-                    error "Compile" "SWITCH cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "SWITCH cannot be used as an expression"
+                    ]
                 ]
                 "return" [
                     res: rejoin ["switch(" to-js node/value "expression" "){"]
@@ -660,10 +706,18 @@ ast-try: function [code word def] [] [
                     try-to-js node/code node/word/word node/def "statement"
                 ]
                 "expression" [
-                    error "Compile" "TRY cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "TRY cannot be used as an expression"
+                    ]
                 ]
                 "paren" [
-                    error "Compile" "TRY cannot be used as an expression" ""
+                    error make-struct [
+                        category: "JS emitter"
+                        id: "statement-only"
+                        message: "TRY cannot be used as an expression"
+                    ]
                 ]
                 "return" [
                     try-to-js node/code node/word/word node/def "return"
@@ -682,7 +736,7 @@ ast-op: function [op val1 val2] [] [
             res: rejoin [to-js node/val1 "paren" " " node/op " " to-js node/val2 "paren"]
             switch context [
                 "statement" [
-                    error "Compile" "Cannot use operator as a statement" ""
+                    res
                 ]
                 "expression" [
                     res
@@ -706,11 +760,22 @@ parse-struct-spec: function [block] [result name expr] [
     while [not empty? block] [
         name: first block
         if name/type/name <> "set-word!" [
-            error "Compile" "Invalid struct spec, expected set-word!, not " + name/type/name mold-value block ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-spec"
+                message: "Invalid struct spec, expected set-word!, not"
+                args: name/type
+                stack: block
+            ]
         ]
         block: skip block 1
         if empty? block [
-            error "Compile" "Struct field is missing its value" mold-value skip block -1 ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-spec"
+                message: "Struct field is missing its value"
+                stack: skip block -1
+            ]
         ]
         set [expr block] compile-step block
         append-array result name/word
@@ -735,7 +800,12 @@ compile-cases: function [cases] [cond orig-cases] [
         orig-cases: cases
         set [cond cases] compile-step cases
         if empty? cases [
-            error "Compile" "Missing case block after condition" mold-value orig-cases ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-spec"
+                message: "Missing case block after condition"
+                stack: orig-cases
+            ]
         ]
         either cond/node-type = "value/word!" [
             compile first cases
@@ -794,11 +864,20 @@ native-compilers: make-struct [
     while: function [condblock body] [condition] [
         condblock: condblock/value
         if empty? condblock [
-            error "Compile" "WHILE's condition block cannot be empty" ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-argument"
+                message: "WHILE's condition block cannot be empty"
+            ]
         ]
         set [condition condblock] compile-step condblock
         if not empty? condblock [
-            error "Compile" "WHILE's condition block can only have one expression" mold-value head condblock ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-argument"
+                message: "WHILE's condition block can only have one expression"
+                stack: head condblock
+            ]
         ]
         ast-while condition compile body/value
     ]
@@ -824,7 +903,11 @@ native-compilers: make-struct [
     ]
     case: function [cases] [expr] [
         if empty? cases/value [
-            error "Compile" "CASE needs at least one case" ""
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-spec"
+                message: "CASE needs at least one case"
+            ]
         ]
         compile-cases cases/value
     ]
@@ -853,4 +936,7 @@ native-compilers: make-struct [
     js-error?: function [value] [] [
         ast-op "instanceof" value ast-literal "Error"
     ]
+    cause: function [error] [] []
+    catch: function [code] [] []
+    form-error: function [error] [] []
 ]

@@ -27,11 +27,16 @@ get-word!: make-type "get-word!" [
     make: function [arguments] [] [make-word get-word! arguments none]
     topaz-make: function [value] [] [topaz-make-word get-word! value]
     mold: function [word indent] [] [":" + word/word]
-    do: function [word block] [] [
-        if not word: get word [
-            error "Script" "Word has no value" mold-value block ""
+    do: function [word block] [value] [
+        if not value: get word [
+            error make-struct [
+                category: "Script"
+                id: "no-value"
+                message: "Word has no value"
+                args: word
+            ]
         ]
-        reduce [word skip block 1]
+        reduce [value skip block 1]
     ]
     bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [] [

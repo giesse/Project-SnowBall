@@ -59,15 +59,27 @@ second: function [series] [] [
 next: function [series] [] [
     skip series 1
 ]
-do-step: function [value block] [result arg2 op] [
+do-step: function [value block] [result arg2 op err] [
     try [
         set [result block] apply 'value/type/do [value block]
     ] 'e [
-        throw rejoin [e "^/*** Where: " mold-value block ""]
+        e: handle-js-error e
+        if e/type/name = "error!" [
+            append e/stack block
+        ]
+        throw e
     ]
     while [op: operator? block] [
         block: skip block 1
-        if empty? block [error "Script" "Operator missing its second argument" mold-value skip block -2 ""]
+        if empty? block [
+            err: make error! make-struct [
+                category: "Script"
+                id: "missing-argument"
+                message: "Operator missing its second argument"
+            ]
+            append err/stack skip block -2
+            throw err
+        ]
         arg2: first block
         set [arg2 block] apply 'arg2/type/do [arg2 block]
         result: do-op op result arg2
@@ -76,7 +88,12 @@ do-step: function [value block] [result arg2 op] [
 ]
 get: function [word] [] [
     if not word/context [
-        error "Script" "Word has no context" word/word
+        error make-struct [
+            category: "Script"
+            id: "no-context"
+            message: "Word has no context"
+            args: word
+        ]
     ]
     pick-array word/context/values word/offset
 ]

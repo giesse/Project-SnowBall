@@ -77,7 +77,12 @@ parse-values: function [values text] [value newline?] [
             values: insert-nl values value newline?
             set [text newline?] skip-spaces text
         ] [
-            error "Syntax" "Parse error" to-js-string text
+            error make-struct [
+                category: "Syntax"
+                id: "load-error"
+                message: "Parse error"
+                stack: text
+            ]
         ]
     ]
     new-line values newline?
@@ -91,7 +96,12 @@ system-words: make context! none
 load-raw: function [type text] [values] [
     set [values text] parse-values make type none text
     if not empty? text [
-        error "Syntax" "Parse error" to-js-string text
+        error make-struct [
+            category: "Syntax"
+            id: "load-error"
+            message: "Parse error"
+            stack: text
+        ]
     ]
     values
 ]

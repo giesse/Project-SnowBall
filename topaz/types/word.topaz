@@ -29,17 +29,22 @@ word!: make-type "word!" [
     make: function [arguments] [] [make-word word! arguments none]
     topaz-make: function [value] [] [topaz-make-word word! value]
     mold: function [word indent] [] [word/word]
-    do: function [word block] [] [
-        word: get word
+    do: function [word block] [value] [
+        value: get word
         case [
-            not word [
-                error "Script" "Word has no value" mold-value block ""
+            not value [
+                error make-struct [
+                    category: "Script"
+                    id: "no-value"
+                    message: "Word has no value"
+                    args: word
+                ]
             ]
-            any [word/type/name = "function!" word/type/name = "native!"] [
-                apply 'word/type/do [word block]
+            any [value/type/name = "function!" value/type/name = "native!"] [
+                apply 'value/type/do [value block]
             ]
             'else [
-                reduce [word skip block 1]
+                reduce [value skip block 1]
             ]
         ]
     ]
@@ -93,7 +98,12 @@ topaz-make-word: function [type value] [] [
         "lit-word!" [convert-word value type]
         "datatype!" [make-word type value/name none]
     ] [
-        error "Script" "Invalid argument for MAKE WORD!" mold-value value ""
+        error make-struct [
+            category: "Script"
+            id: "invalid-argument"
+            message: rejoin ["Invalid argument for MAKE " apply 'type/name/to-upper-case []]
+            args: value
+        ]
     ]
 ]
 

@@ -39,10 +39,13 @@ native!: make-type "native!" [
         f: natives/(name-to-js name)
         c: native-compilers/(name-to-js name)
         if any [f/length <> length-of spec c/length <> length-of spec] [
-            error "Script" rejoin [
-                "The native code for " apply 'name/to-upper-case []
-                " does not match the number of arguments in the spec"
-            ] mold-value spec ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "The native code does not match the number of arguments in the spec for"
+                args: make word! name
+                stack: spec
+            ]
         ]
         apply 'native!/make [reduce [spec f c]]
     ]

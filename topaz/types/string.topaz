@@ -166,7 +166,12 @@ parse-string: function [text] [t] [
                 skip text length-of-array pick-array t 0
             ]
         ] [
-            error "Syntax" "Missing ^"" to-js-string text
+            error make-struct [
+                category: "Syntax"
+                id: "load-error"
+                message: "Missing ^""
+                stack: text
+            ]
         ]
     ]
 ]

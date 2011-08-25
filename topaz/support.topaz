@@ -42,10 +42,6 @@ insert-array: function [arr pos value] [] [
     apply 'arr/splice [pos 0 value]
 ]
 
-error: function [type message where] [] [
-    throw rejoin ["*** " type " error: " message "^/*** Where: " where]
-]
-
 name-to-js: function [name] [] [
     switch name [
         "arguments" ["_arguments"]
@@ -150,5 +146,20 @@ macro 'foreach [word arr body] [
     word: system/words/reduce [word/value]
     system/words/make system/words/expression! compose [
         _foreach arr function (word) [] body
+    ]
+]
+
+handle-js-error: function [value] [err] [
+    either js-error? value [
+        err: make error! make-struct [
+            category: "Internal"
+            id: "js-error"
+            message: "Javascript error"
+            args: value/message
+        ]
+        if value/stack [append err/stack make string! value/stack]
+        err
+    ] [
+        value
     ]
 ]

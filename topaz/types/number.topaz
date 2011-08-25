@@ -48,7 +48,12 @@ number!: make-type "number!" [
                 apply 'number!/make [value/value + 0]
             ]
         ] [
-            error "Script" "Invalid argument for MAKE NUMBER!" mold-value value ""
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE NUMBER!"
+                args: value
+            ]
         ]
     ]
     mold: function [number indent] [] [
