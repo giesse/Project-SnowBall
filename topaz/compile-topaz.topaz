@@ -136,7 +136,7 @@ locals: parse interpreter [
         skip
     ]
 ]
-locals: context append locals [context: func: none]
+locals: context append locals [context: func: object: none]
 bind interpreter locals
 bind interpreter compiler-keywords
 

@@ -181,7 +181,7 @@ run-test [
     e/value
 ]
 run-test [
-    obj: make object! [
+    obj: object none [
         one: 1
         two: 2
         three: 1 + 2
@@ -194,3 +194,7 @@ run-test [obj/flag]
 run-test [obj/four]
 run-test [obj/five: 5]
 run-test [obj]
+run-test [obj2: object obj [four: 4]]
+run-test [obj2/one]
+run-test [obj2/four]
+run-test [obj2/five]

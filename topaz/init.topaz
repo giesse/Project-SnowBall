@@ -118,6 +118,7 @@ append: func [series value] [
     ]
 ]
 context: func [code] [make context! code]
+object: func [parent code] [make object! reduce [parent code]]
 next: func [series] [skip series 1]
 set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]

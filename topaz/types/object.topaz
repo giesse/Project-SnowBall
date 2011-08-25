@@ -24,18 +24,30 @@
 ; ===== TYPES: OBJECT! ========================================================
 
 object!: make-type "object!" [
-    make: function [arguments] [] [
+    make: function [args] [] [
+        if not args [args: make-struct []]
         make-struct [
             type: object!
-            words: make-array
-            map: make-struct []
+            parent: args/parent
+            words: any [args/words make-array]
+            map: any [args/map make-struct []]
         ]
     ]
-    topaz-make: function [code] [obj] [
-        obj: make object! none
+    topaz-make: function [code] [obj parent] [
         switch code/type/name [
             "block!" [
-                parse-object-spec obj code
+                parent: first code
+                case [
+                    parent/type/name = "none!" [parent: none]
+                    parent/type/name <> "object!" [
+                        error "Script" "Invalid object parent" mold-value parent ""
+                    ]
+                ]
+                obj: make object! make-struct [parent: parent]
+                parse-object-spec obj second code
+            ]
+            "object!" [
+                obj: make object! make-struct [parent: code]
             ]
         ] [
             error "Script" "Invalid argument for MAKE OBJECT!" mold-value code ""
@@ -48,7 +60,7 @@ object!: make-type "object!" [
             block: insert insert-nl block make set-word! word true obj/map/:word
         ]
         new-line block true
-        rejoin ["object " mold-value head block indent]
+        rejoin ["object " either obj/parent [mold-value obj/parent indent] ["none"] " " mold-value head block indent]
     ]
     do: function [object block] [] [
         reduce [object skip block 1]
@@ -66,7 +78,7 @@ object!: make-type "object!" [
         ] [
             error "Script" "Invalid path value" mold-value selector ""
         ]
-        any [object/map/(selector/word) make none! none]
+        get-word-in-object object selector/word
     ]
     set-path: function [object selector set-to] [] [
         if all [
@@ -89,6 +101,9 @@ in-object?: function [obj word] [] [
 set-word-in-object: function [object word set-to] [] [
     if not in-object? object word [append-array object/words word]
     object/map/(word): set-to
+]
+get-word-in-object: function [object word] [] [
+    any [object/map/:word either object/parent [get-word-in-object object/parent word] [make none! none]]
 ]
 
 parse-object-spec: function [obj spec] [word value] [
