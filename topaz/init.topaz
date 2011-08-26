@@ -52,6 +52,7 @@ foreach [native spec] [
     cause             [error]
     catch             [code]
     form-error        [error]
+    in?               [container value]
     ; compiler only
     function          [spec locals body]
     make-struct       [spec]
@@ -67,7 +68,7 @@ foreach [native spec] [
 
 foreach 'word [
     datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic! context! expression! get-word! object! error!
+    none! logic! context! expression! get-word! object! error! typeset!
 ] [
     set word conjure word
 ]
@@ -91,7 +92,7 @@ system: make context! [
     words: conjure 'system-words
     datatypes: reduce [
         datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-        none! logic! context! native! expression! get-word! object! error!
+        none! logic! context! native! expression! get-word! object! error! typeset!
     ]
 ]
 
@@ -99,8 +100,14 @@ none: make none! 0
 true: on: yes: 0 = 0
 false: off: no: 0 = 1
 
+any-word!: make typeset! [word! get-word! set-word! lit-word!]
+any-path!: make typeset! [path! set-path! lit-path!]
+any-block!: make typeset! [any-path! block! paren!]
+any-function!: make typeset! [function! native!]
+
 func: make function! [[spec body] [make function! reduce [spec body]]]
 
+in: make op! func [value container] [in? container value]
 first: func [series] [pick series 0]
 second: func [series] [pick series 1]
 empty?: func [series] [0 = length-of series]
@@ -128,6 +135,10 @@ set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]
 block?: func [value] [block! = type-of :value]
 found?: func [series] [all [series not empty? series]]
+any-word?: func [value] [in? any-word! type-of :value]
+any-path?: func [value] [in? any-path! type-of :value]
+any-block?: func [value] [in? any-block! type-of :value]
+any-function?: func [value] [in? any-function! type-of :value]
 
 parse-match: func [cursor condition] [
     either all [not empty? cursor/block do condition] [

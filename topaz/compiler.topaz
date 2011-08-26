@@ -939,4 +939,5 @@ native-compilers: make-struct [
     cause: function [error] [] []
     catch: function [code] [] []
     form-error: function [error] [] []
+    in?: function [container value] [] []
 ]

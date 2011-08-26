@@ -50,16 +50,7 @@ insert-block: function [block value] [] [
 ]
 
 skip-block: function [block amount] [pos len] [
-    pos: block/pos + amount
-    case [
-        pos > len: length-of-array block/values [pos: len]
-        pos < 0 [pos: 0]
-    ]
-    make-block block/type make-struct [
-        values: block/values
-        pos: pos
-        newlines: block/newlines
-    ]
+    at-block block block/pos + amount
 ]
 
 head-block: function [block] [] [
@@ -185,6 +176,27 @@ insert-nl: function [block value newline?] [] [
 ]
 append: function [block value] [] [
     head insert tail block value
+]
+
+_foreach-blk: function [block fnc] [pos] [
+    pos: block/pos
+    while [pos < length-of-array block/values] [
+        apply 'fnc [block/values/:pos pos]
+        pos: pos + 1
+    ]
+    none
+]
+; absolute pos
+at-block: function [block pos] [len] [
+    case [
+        pos > len: length-of-array block/values [pos: len]
+        pos < 0 [pos: 0]
+    ]
+    make-block block/type make-struct [
+        values: block/values
+        pos: pos
+        newlines: block/newlines
+    ]
 ]
 
 parse-block: function [text] [values] [

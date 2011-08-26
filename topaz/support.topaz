@@ -148,6 +148,14 @@ macro 'foreach [word arr body] [
         _foreach arr function (word) [] body
     ]
 ]
+; _foreach-blk defined in types/block.topaz
+macro 'foreach-blk [word block body] [
+    word: word/value
+    if not system/words/block? word [word: system/words/reduce [word]]
+    system/words/make system/words/expression! compose [
+        _foreach-blk block function (word) [] body
+    ]
+]
 
 handle-js-error: function [value] [err] [
     either js-error? value [

@@ -146,6 +146,7 @@ values: make-struct [
     get-word!: get-word!
     object!: object!
     error!: error!
+    typeset!: typeset!
 ]
 
 ; ===== NATIVES THAT CAN BE MADE ==============================================
@@ -177,25 +178,16 @@ natives: make-struct [
         res
     ]
     set: function [word value] [] [
-        switch word/type/name [
-            "word!" [
-                set-word word value
-            ]
-            "set-word!" [
-                set-word word value
-            ]
-            "lit-word!" [
-                set-word word value
-            ]
-            "block!" [
-                set-words word value
-            ]
-        ] [
-            error make-struct [
-                category: "Script"
-                id: "invalid-argument"
-                message: "SET expected a word! or block!, not"
-                args: word/type
+        case [
+            any-word? word [set-word word value]
+            block? word [set-words word value]
+            'else [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-argument"
+                    message: "SET expected a word! or block!, not"
+                    args: word/type
+                ]
             ]
         ]
     ]
@@ -398,6 +390,7 @@ natives: make-struct [
     ]
     type-of: function [value] [] [value/type]
     copy: function [value] [] [apply 'value/type/copy [value]]
+    in?: function [container value] [] [apply 'container/type/in? [container value]]
     ; not really used in the interpreter
     function: function [spec locals body] [] []
     none: function [] [] []

@@ -80,12 +80,7 @@ object!: make-type "object!" [
         reduce [ast-value object skip block 1]
     ]
     get-path: function [object selector] [] [
-        if all [
-            selector/type/name <> "word!"
-            selector/type/name <> "lit-word!"
-            selector/type/name <> "set-word!"
-            selector/type/name <> "get-word!"
-        ] [
+        if not any-word? selector [
             error make-struct [
                 category: "Script"
                 id: "invalid-path"
@@ -96,12 +91,7 @@ object!: make-type "object!" [
         get-word-in-object object selector/word
     ]
     set-path: function [object selector set-to] [] [
-        if all [
-            selector/type/name <> "word!"
-            selector/type/name <> "lit-word!"
-            selector/type/name <> "set-word!"
-            selector/type/name <> "get-word!"
-        ] [
+        if not any-word? selector [
             error make-struct [
                 category: "Script"
                 id: "invalid-path"
@@ -112,6 +102,17 @@ object!: make-type "object!" [
         set-word-in-object object selector/word set-to
     ]
     equal?: :default-equal?
+    in?: function [object word] [] [
+        if not any-word? word [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for IN? OBJECT!"
+                args: word
+            ]
+        ]
+        make logic! either object/map/(word/word) [true] [false]
+    ]
 ]
 
 in-object?: function [obj word] [] [

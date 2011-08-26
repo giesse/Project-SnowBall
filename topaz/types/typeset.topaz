@@ -1,0 +1,111 @@
+; Topaz types: TYPESET!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: TYPESET! =======================================================
+
+typeset!: make-type "typeset!" [
+    make: function [args] [ts] [
+        if not args [args: make-struct []]
+        ts: make-struct [
+            type: typeset!
+            names: any [args/names make-array]
+            map: any [args/map make-struct []]
+        ]
+        if args/types [
+            foreach 'type args/types [
+                if not ts/map/(type/name) [
+                    append-array ts/names type/name
+                    ts/map/(type/name): true
+                ]
+            ]
+        ]
+        ts
+    ]
+    topaz-make: function [types] [tps] [
+        if not block? types [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE TYPESET! (expected BLOCK!)"
+                args: types
+            ]
+        ]
+        tps: make-array
+        foreach-blk [value pos] types [
+            if value/type/name = "word!" [
+                value: get value
+            ]
+            switch value/type/name [
+                "datatype!" [
+                    append-array tps value
+                ]
+                "typeset!" [
+                    ; hack
+                    foreach 'name value/names [
+                        append-array tps make-struct [name: name]
+                    ]
+                ]
+            ] [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-spec"
+                    message: "Invalid spec value for TYPESET!"
+                    args: value
+                    stack: at-block types pos
+                ]
+            ]
+        ]
+        apply 'typeset!/make [make-struct [types: tps]]
+    ]
+    mold: function [ts indent] [] [
+        rejoin ["make typeset! [" apply 'ts/names/join [" "] "]"]
+    ]
+    do: function [ts block] [] [
+        reduce [ts skip block 1]
+    ]
+    bind: function [ts context extend?] [] [ts]
+    compile: function [ts block] [] [
+        reduce [ast-value ts skip block 1]
+    ]
+    equal?: :default-equal?
+    copy: function [value] [] [value]
+    in?: function [ts value] [] [
+        if not datatype? value [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for IN? TYPESET! (expected DATATYPE!)"
+                args: value
+            ]
+        ]
+        make logic! ts/map/(value/name)
+    ]
+]
+typeset!/("typeset!"): make-struct [
+    equal?: function [ts1 ts2] [] [
+        ; TODO
+        false
+    ]
+]
+
+in-typeset?: function [ts name] [] [ts/map/:name]

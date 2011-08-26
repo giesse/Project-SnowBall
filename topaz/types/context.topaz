@@ -68,7 +68,7 @@ context!: make-type "context!" [
         reduce [ast-value context skip block 1]
     ]
     get-path: function [context selector] [offset] [
-        if any [selector/type/name <> "word!" 0 > offset: get-word-offset context selector/word] [
+        if any [not any-word? selector  0 > offset: get-word-offset context selector/word] [
             error make-struct [
                 category: "Script"
                 id: "invalid-path"
@@ -79,7 +79,7 @@ context!: make-type "context!" [
         pick-array context/values offset
     ]
     set-path: function [context selector set-to] [offset] [
-        if any [selector/type/name <> "word!" 0 > offset: get-word-offset context selector/word] [
+        if any [not any-word? selector  0 > offset: get-word-offset context selector/word] [
             error make-struct [
                 category: "Script"
                 id: "invalid-path"
@@ -90,6 +90,24 @@ context!: make-type "context!" [
         poke-array context/values offset set-to
     ]
     equal?: :default-equal?
+    in?: function [ctx word] [offset] [
+        if not any-word? word [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for IN? CONTEXT!"
+                args: word
+            ]
+        ]
+        either 0 > offset: get-word-offset ctx word/word [
+            make none! none
+        ] [
+            make-word word/type word/word make-struct [
+                context: ctx
+                offset: offset
+            ]
+        ]
+    ]
 ]
 
 get-word-offset: function [context word] [] [

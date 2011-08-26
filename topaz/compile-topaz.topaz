@@ -60,9 +60,11 @@ foreach 'type [
     "throw.topaz"
     "return.topaz"
     "error.topaz"
+    "typeset.topaz"
 ] [app-type type]
 
 foreach 'file [
+    "topaz/typesets.topaz"
     "topaz/load.topaz"
     "topaz/natives.topaz"
     "topaz/compiler.topaz"
