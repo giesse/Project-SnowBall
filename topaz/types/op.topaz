@@ -76,7 +76,7 @@ operator?: function [block] [value] [
         not empty? block
         value: first block
         value/type/name = "word!"
-        value: get value
+        value: get-any value
         value/type/name = "op!"
         value
     ]

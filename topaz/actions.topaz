@@ -86,17 +86,6 @@ do-step: function [value block] [result arg2 op err] [
     ]
     reduce [result block]
 ]
-get: function [word] [] [
-    if not word/context [
-        error make-struct [
-            category: "Script"
-            id: "no-context"
-            message: "Word has no context"
-            args: word
-        ]
-    ]
-    pick-array word/context/values word/offset
-]
 get-path: function [value selector] [] [
     switch selector/type/name [
         "paren!" [

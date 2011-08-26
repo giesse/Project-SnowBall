@@ -207,27 +207,16 @@ natives: make-struct [
         ]
         result
     ]
-    insert: function [series value] [] [insert series value]
-    head: function [series] [] [head series]
+    insert: :insert
+    head: :head
     pick: function [series pos] [] [pick series pos/number]
     length-of: function [series] [] [make number! length-of series]
     skip: function [series amount] [] [skip series amount/number]
-    mold: function [value indent] [] [make string! mold-value value indent/string]
-    do: function [block] [] [do block]
-    get: function [word] [value] [
-        value: get word
-        if not value [
-            error make-struct [
-                category: "Script"
-                id: "no-value"
-                message: "Word has no value"
-                args: word
-            ]
-        ]
-        value
-    ]
+    mold: function [value indent] [] [make string! mold-value value to-js-string indent]
+    do: :do
+    get: :get
     bind: function [words context] [] [bind words context false]
-    tail: function [series] [] [tail series]
+    tail: :tail
     print: function [string] [] [
         print (to-js-string string) + "^/"
         string
@@ -376,7 +365,7 @@ natives: make-struct [
             ] [do case-block]
         ]
     ]
-    find: function [series value] [] [find series value]
+    find: :find
     case: function [cases] [cond] [
         either empty? cases [
             make none! none

@@ -32,14 +32,6 @@ word!: make-type "word!" [
     do: function [word block] [value] [
         value: get word
         case [
-            not value [
-                error make-struct [
-                    category: "Script"
-                    id: "no-value"
-                    message: "Word has no value"
-                    args: word
-                ]
-            ]
             any [value/type/name = "function!" value/type/name = "native!"] [
                 apply 'value/type/do [value block]
             ]
@@ -50,7 +42,7 @@ word!: make-type "word!" [
     ]
     bind: function [word context extend?] [] [bind-word context word extend?]
     compile: function [word block] [value] [
-        value: get word
+        value: get-any word
         either all [
             value
             any [
@@ -112,6 +104,29 @@ convert-word: function [word type] [] [
         context: word/context
         offset: word/offset
     ]
+]
+
+get-any: function [word] [] [
+    if not word/context [
+        error make-struct [
+            category: "Script"
+            id: "no-context"
+            message: "Word has no context"
+            args: word
+        ]
+    ]
+    pick-array word/context/values word/offset
+]
+get: function [word] [value] [
+    if not value: get-any word [
+        error make-struct [
+            category: "Script"
+            id: "no-value"
+            message: "Word has no value"
+            args: word
+        ]
+    ]
+    value
 ]
 
 parse-word: function [text] [w] [
