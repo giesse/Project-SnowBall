@@ -155,7 +155,7 @@ handle-js-error: function [value] [err] [
             category: "Internal"
             id: "js-error"
             message: "Javascript error"
-            args: value/message
+            args: make string! value/message
         ]
         if value/stack [append err/stack make string! value/stack]
         err
