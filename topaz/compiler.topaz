@@ -733,7 +733,7 @@ ast-op: function [op val1 val2] [] [
         val1: val1
         val2: val2
         to-js: function [node context] [res] [
-            res: rejoin [to-js node/val1 "paren" " " node/op " " to-js node/val2 "paren"]
+            res: rejoin [to-js node/val1 "paren" node/op to-js node/val2 "paren"]
             switch context [
                 "statement" [
                     res
@@ -934,7 +934,7 @@ native-compilers: make-struct [
     until: function [body] [] []
     copy: function [value] [] []
     js-error?: function [value] [] [
-        ast-op "instanceof" value ast-literal "Error"
+        ast-op " instanceof " value ast-literal "Error"
     ]
     cause: function [error] [] []
     catch: function [code] [] []
