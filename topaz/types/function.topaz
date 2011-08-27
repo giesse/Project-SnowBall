@@ -23,56 +23,225 @@
 
 ; ===== TYPES: FUNCTION! ======================================================
 
-function!: make-type "function!" [
-    make: function [arguments] [spec body context word] [
-        set [spec body] arguments
-        context: make context! none
-        while [not empty? spec] [
-            word: first spec
-            if word/type/name <> "word!" [
-                error make-struct [
-                    category: "Script"
-                    id: "invalid-spec"
-                    message: "Invalid function spec value"
-                    args: word
-                    stack: spec
-                ]
-            ]
-            if 0 <= get-word-offset context word/word [
-                error make-struct [
-                    category: "Script"
-                    id: "invalid-spec"
-                    message: "Duplicate function argument name"
-                    args: word
-                    stack: spec
-                ]
-            ]
-            add-word context word none
-            spec: skip spec 1
-        ]
-        bind collect-set-words make block! none body true context true
-        make-struct [
-            type: function!
-            context: context
-            spec: head spec
-            body: bind body context false
+; There are several ways a function can be invoked in Topaz; they also depend
+; on how many arguments the function has, whether it has optional arguments,
+; and so on. For these reasons, we'll make some examples here. Consider having
+; defined the following functions:
+;
+;     ??: func [
+;         "Print a word and its value"
+;         word [any-word!]
+;     ] [
+;         print rejoin [mold word ": " mold get word]
+;     ]
+;     test-skip: func [
+;         "Return the series at a new position"
+;         series
+;         amount [number!] "Skip the specified number of values"
+;     ] [
+;         ?? 'series
+;         ?? 'amount
+;     ]
+;     test-insert: func [
+;         "Insert a value at the current position of the series"
+;         series
+;         value
+;         options:
+;             only [logic!] "Insert series as a single value"
+;     ] [
+;         ?? 'series
+;         ?? 'value
+;         ?? 'only
+;     ]
+;     test-mold: func [
+;         "Return a LOAD-able text representation of a value"
+;         value
+;         options:
+;             only [logic!] "Don't generate outer [ ] for block! values"
+;             flat [logic!] "Produce a single text line"
+;             limit [number! none!] "Don't return a string longer than LIMIT characters"
+;             indent: "" [string!] "Add this string after each new line (ignored if flat)"
+;     ] [
+;         ?? 'value
+;         ?? 'only
+;         ?? 'flat
+;         ?? 'limit
+;         ?? 'indent
+;     ]
+;     open-connection: func [
+;         "Open a connection to some server"
+;         host [string!]
+;         user [string!]
+;         pass [string!]
+;         secure [logic!]
+;         port [number!]
+;     ] [
+;         ?? 'host
+;         ?? 'user
+;         ?? 'pass
+;         ?? 'secure
+;         ?? 'port
+;     ]
+; 
+; Functions with less than four mandatory arguments can be called in any of the following
+; ways:
+; 
+; >> test-skip [1 2 3] 2
+; series: [1 2 3]
+; amount: 2
+; >> test-insert [2 3 4] 1
+; series: [2 3 4]
+; value: 1
+; only: none
+; >> test-mold 1
+; value: 1
+; only: none
+; flat: none
+; limit: none
+; indent: ""
+; >> test-insert/only [2 3 4] 1
+; series: [2 3 4]
+; value: 1
+; only: true
+; >> test-mold/only/flat 1
+; value: 1
+; only: true
+; flat: true
+; limit: none
+; indent: ""
+; >> test-skip/options [series: [1 2 3] amount: 1]
+; series: [1 2 3]
+; amount: 1
+; == "amount: 1"
+; >> test-skip/options [amount: 1 series: [1 2 3]]
+; series: [1 2 3]
+; amount: 1
+; >> test-insert/options [series: [2 3 4] value: 1 only]
+; series: [2 3 4]
+; value: 1
+; only: true
+; >> test-mold/options [value: 1]
+; value: 1
+; only: none
+; flat: none
+; limit: none
+; indent: ""
+; >> test-mold/options [value: 1 limit: 50 flat: yes]
+; value: 1
+; only: none
+; flat: true
+; limit: 50
+; indent: ""
+; 
+; Functions with more than three mandatory arguments can only be called by
+; specifying the argument names:
+; 
+; >> open-connection [host: "www.colellachiara.com" user: "user" pass: "pass" secure port: 80]
+; host: "www.colellachiara.com"
+; user: "user"
+; pass: "pass"
+; secure: true
+; port: 80
+
+function-get-path: function [func selector] [arg] [
+    if not word? selector [
+        error make-struct [
+            category: "Script"
+            id: "invalid-path"
+            message: "Invalid path value"
+            args: selector
         ]
     ]
-    topaz-make: function [block] [] [apply 'function!/make [block/values]]
+    either selector/word = "options" [
+        func: clone-object func
+        func/mode: "named"
+    ] [
+        if not arg: func/args/(selector/word) [
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Function has no such argument"
+                args: selector
+            ]
+        ]
+        if any [not arg/optional? all [arg/types not in-typeset? arg/types "logic!"]] [
+            error make-struct [
+                category: "Script"
+                id: "invalid-path"
+                message: "Argument cannot be used as a flag"
+                args: selector
+            ]
+        ]
+        func: clone-object func
+        func/flags: apply 'func/flags/concat [selector/word]
+    ]
+    func
+]
+
+function!: make-type "function!" [
+    make: function [arguments] [fnc] [
+        fnc: make-struct [
+            type: function!
+            mode: "fixed" ; default invocation syntax
+            fixed-list: make-array ; list of mandatory arguments
+            args: make-struct [] ; map of all arguments
+            flags: make-array ; active "flags"
+            context: make context! none
+            spec: arguments/0
+            body: arguments/1
+        ]
+        parse-function-spec fnc
+        if 3 < length-of-array fnc/fixed-list [fnc/mode: "named"]
+        collect-locals fnc
+        bind fnc/body fnc/context false
+        fnc
+    ]
+    topaz-make: function [block] [] [
+        if not block? block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE FUNCTION!"
+                args: block
+            ]
+        ]
+        if 2 <> length-of block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "MAKE FUNCTION! requires a spec and a body, not"
+                args: block
+            ]
+        ]
+        if not block? first block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Function spec must be a BLOCK!"
+            ]
+        ]
+        if not block? second block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Function body must be a BLOCK!"
+            ]
+        ]
+        apply 'function!/make [block/values]
+    ]
     mold: function [func indent] [] [
         rejoin ["func " mold-value func/spec indent " " mold-value func/body indent]
     ]
-    do: function [func block] [result args] [
+    do: function [func block] [result] [
         push-context func/context
-        args: clone-values func/context
-        block: collect-arguments length-of func/spec args skip block 1
-        func/context/values: args
+        block: collect-function-arguments func block
         result: do func/body
         pop-context func/context
         reduce [result block]
     ]
     bind: function [func context extend?] [] [func]
     compile: function [func block] [args expr] [
+        ; note that compile does not yet support other than very simple function specs
         push-context func/context
         args: clone-values func/context
         block: compile-arguments args length-of func/spec skip block 1 true
@@ -82,12 +251,51 @@ function!: make-type "function!" [
         reduce [expr/expr block]
     ]
     equal?: :default-equal?
+    get-path: :function-get-path
 ]
 
-collect-arguments: function [n target block] [value orig-block i] [
-    orig-block: block
-    i: 0
-    while [i < n] [
+collect-function-arguments: function [func block] [args args-block] [
+    args: clone-values func/context
+    ; set flags (assumes valid list)
+    foreach 'flag func/flags [
+        poke-array args func/args/:flag/offset make logic! true
+    ]
+    switch func/mode [
+        "fixed" [
+            block: collect-arguments func/fixed-list args skip block 1
+        ]
+        "named" [
+            if empty? next block [
+                error make-struct [
+                    category: "Script"
+                    id: "missing-argument"
+                    message: "Function is missing the argument spec"
+                ]
+            ]
+            args-block: second block
+            if not block? args-block [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-spec"
+                    message: "Function argument spec must be a literal block, not"
+                    args: args-block/type
+                ]
+            ]
+            parse-named-arguments func/args func/fixed-list args args-block
+            block: skip block 2
+        ]
+    ] [
+        error make-struct [
+            category: "Internal"
+            id: "failed-check"
+            message: "Something's wrong: function! do, mode not fixed or named"
+        ]
+    ]
+    func/context/values: args
+    block
+]
+collect-arguments: function [list target block] [value orig-block] [
+    foreach 'arg list [
         if empty? block [
             error make-struct [
                 category: "Script"
@@ -95,14 +303,82 @@ collect-arguments: function [n target block] [value orig-block i] [
                 message: "Not enough arguments for function"
             ]
         ]
-        set [value block] do-step first block block
-        poke-array target i value
-        i: i + 1
+        set [value block] do-step first block orig-block: block
+        if all [arg/types not in-typeset? arg/types value/type/name] [
+            invalid-argument-type arg value orig-block
+        ]
+        poke-array target arg/offset value
     ]
     block
 ]
-compile-arguments: function [args n block wrap?] [expr orig-block i] [
-    orig-block: block
+invalid-argument-type: function [arg value stack] [] [
+    error make-struct [
+        category: "Script"
+        id: "invalid-argument"
+        message: rejoin [
+            "Invalid type for argument " apply 'arg/word/word/to-upper-case []
+            ": " value/type/name " not in "
+            mold-value arg/types ""
+        ]
+        args: value
+        stack: stack
+    ]
+]
+invalid-argument-name: function [word stack] [] [
+    error make-struct [
+        category: "Script"
+        id: "invalid-argument"
+        message: "Function does not take an argument with this name"
+        args: word
+        stack: stack
+    ]
+]
+parse-named-arguments: function [args list target block] [word value arg orig-block] [
+    while [not empty? block] [
+        word: first block
+        switch word/type/name [
+            "word!" [
+                if not arg: args/(word/word) [
+                    invalid-argument-name word block
+                ]
+                block: next orig-block: block
+                value: make logic! true
+            ]
+            "set-word!" [
+                if not arg: args/(word/word) [
+                    invalid-argument-name word block
+                ]
+                set [value block] do-step second block orig-block: next block
+            ]
+        ] [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Invalid arguments spec value"
+                args: word
+                stack: block
+            ]
+        ]
+        if all [arg/types not in-typeset? arg/types value/type/name] [
+            invalid-argument-type arg value orig-block
+        ]
+        poke-array target arg/offset value
+    ]
+    ; check mandatory arguments
+    foreach 'arg list [
+        if not pick-array target arg/offset [
+            error make-struct [
+                category: "Script"
+                id: "missing-argument"
+                message: "Missing mandatory argument"
+                args: arg/word
+                stack: head block
+            ]
+        ]
+    ]
+    none
+]
+compile-arguments: function [args n block wrap?] [expr i] [
     i: 0
     while [i < n] [
         if empty? block [
@@ -117,4 +393,108 @@ compile-arguments: function [args n block wrap?] [expr orig-block i] [
         i: i + 1
     ]
     block
+]
+
+invalid-spec-value: function [value spec] [] [
+    error make-struct [
+        category: "Script"
+        id: "invalid-spec"
+        message: "Invalid function spec value"
+        args: value
+        stack: spec
+    ]
+]
+parse-function-spec: function [fnc] [spec] [
+    spec: fnc/spec
+    while [not empty? spec] [
+        value: first spec
+        switch value/type/name [
+            "string!" [
+                ; doc string, just ignored
+                spec: next spec
+            ]
+            "word!" [
+                spec: parse-argument-spec fnc spec false
+            ]
+            "set-word!" [
+                switch value/word [
+                    "options" [
+                        spec: parse-function-options fnc next spec
+                    ]
+                    "return" [
+                        spec: parse-function-return fnc next spec
+                    ]
+                ] [
+                    invalid-spec-value value spec
+                ]
+            ]
+        ] [
+            invalid-spec-value value spec
+        ]
+    ]
+    none
+]
+parse-argument-spec: function [fnc spec opt?] [word arg value] [
+    word: first spec
+    arg: make-struct [
+        word: word
+        optional?: opt?
+        types: none
+        offset: 0
+    ]
+    if not opt? [append-array fnc/fixed-list arg]
+    fnc/args/(word/word): arg
+    if 0 <= get-word-offset fnc/context word/word [
+        error make-struct [
+            category: "Script"
+            id: "invalid-spec"
+            message: "Duplicate function argument name"
+            args: word
+            stack: spec
+        ]
+    ]
+    either set-word? word [
+        ; optional argument with default value
+        if not opt? [
+            error make-struct [
+                category: "Internal"
+                id: "failed-check"
+                message: "Something's wrong: parse-argument-spec, set-word!, not optional"
+                args: word
+                stack: spec
+            ]
+        ]
+        set [value spec] do-step second spec next spec
+    ] [
+        spec: next spec
+        value: either opt? [make none! none] [none]
+    ]
+    arg/offset: add-word fnc/context word value
+    if not empty? spec [
+        value: first spec
+        if block? value [
+            spec: next spec
+            arg/types: apply 'typeset!/topaz-make [value]
+        ]
+    ]
+    spec
+]
+parse-function-options: function [fnc spec] [word] [
+    while [all [not empty? spec word: first spec either set-word? word [word/word <> "return"] [true]]] [
+        switch word/type/name [
+            "word!" [spec: parse-argument-spec fnc spec true]
+            "set-word!" [spec: parse-argument-spec fnc spec true]
+            "string!" [spec: next spec]
+        ] [
+            invalid-spec-value word spec
+        ]
+    ]
+    spec
+]
+parse-function-return: function [fnc spec] [] [
+    ; TODO
+    tail spec
+]
+collect-locals: function [fnc] [] [
+    bind collect-set-words make block! none fnc/body true fnc/context true
 ]

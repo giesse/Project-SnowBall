@@ -24,44 +24,77 @@
 ; ===== TYPES: NATIVE! ========================================================
 
 native!: make-type "native!" [
-    make: function [arguments] [spec f c] [
-        set [spec f c] arguments
-        make-struct [
+    make: function [arguments] [fnc] [
+        fnc: make-struct [
             type: native!
-            spec: spec
-            func: f
-            compile: c
+            mode: "fixed" ; default invocation syntax
+            fixed-list: make-array ; list of mandatory arguments
+            args: make-struct [] ; map of all arguments
+            flags: make-array ; active flags
+            context: make context! none ; simplifies code, not optimal
+            spec: arguments/0
+            func: arguments/1
+            compile: arguments/2
         ]
+        parse-function-spec fnc
+        if 3 < length-of-array fnc/fixed-list [fnc/mode: "named"]
+        fnc
     ]
-    topaz-make: function [arguments] [spec name f c] [
-        set [spec name] arguments/values
-        name: name/word
-        f: natives/(name-to-js name)
-        c: native-compilers/(name-to-js name)
-        if any [f/length <> length-of spec c/length <> length-of spec] [
+    topaz-make: function [block] [spec name f c] [
+        if not block? block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE NATIVE!"
+                args: block
+            ]
+        ]
+        if 2 <> length-of block [
             error make-struct [
                 category: "Script"
                 id: "invalid-spec"
-                message: "The native code does not match the number of arguments in the spec for"
-                args: make word! name
-                stack: spec
+                message: "MAKE NATIVE! requires a spec and a name, not"
+                args: block
             ]
         ]
+        if not block? spec: first block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Native spec must be a BLOCK!, not"
+                args: spec/type
+            ]
+        ]
+        if not word? name: second block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Native name must be a WORD!, not"
+                args: name/type
+            ]
+        ]
+        name: name/word
+        f: natives/(name-to-js name)
+        c: native-compilers/(name-to-js name)
         apply 'native!/make [reduce [spec f c]]
     ]
     mold: function [func indent] [] [
         "native " + mold-value func/spec indent
     ]
     do: function [func block] [args] [
-        args: make-array
-        block: collect-arguments length-of func/spec args skip block 1
+        push-context func/context
+        block: collect-function-arguments func block
+        args: func/context/values
+        pop-context func/context
         reduce [apply 'func/func/apply [none args] block]
     ]
     bind: function [func context extend?] [] [func]
     compile: function [func block] [args] [
+        ; note that compile does not yet support other than very simple function specs
         args: make-array
         block: compile-arguments args length-of func/spec skip block 1 false
         reduce [apply 'func/compile/apply [none args] block]
     ]
     equal?: :default-equal?
+    get-path: :function-get-path
 ]

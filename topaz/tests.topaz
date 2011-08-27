@@ -209,3 +209,109 @@ run-test [any-word!]
 run-test [any-block!]
 run-test [word! in any-word!]
 run-test [block! in any-word!]
+run-test [
+    f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b [any-word!] "A word"
+    ] [
+        print rejoin ["A: " mold a]
+        print rejoin ["B: " mold b]
+    ]
+]
+run-test [f 1 'word]
+run-test [f 'word 1]
+run-test [f 1 2]
+run-test [
+    f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b "Anything"
+        options:
+            c [word!] "A word"
+            d: 1 "Anything, default 1"
+            e: 'bla [any-word!] "Only words"
+    ] [
+        print rejoin ["A: " mold a]
+        print rejoin ["B: " mold b]
+        print rejoin ["C: " mold c]
+        print rejoin ["D: " mold d]
+        print rejoin ["E: " mold e]
+    ]
+]
+run-test [f 1 'word]
+run-test [f 'word 1]
+run-test [f 1 2]
+run-test [f/c 1 2]
+run-test [f/d 1 2]
+run-test [
+    f/options [
+        a: 1
+        b: "something"
+        c: 'bla
+    ]
+]
+run-test [
+    f/options [
+        a: 1
+        b: "something"
+        c: 1
+    ]
+]
+run-test [
+    f/options [
+        a: 1
+        b: "something"
+        d: "something else"
+        e: first [set-word:]
+    ]
+]
+run-test [
+    f/options [
+        d: "something else"
+        e: first [set-word:]
+    ]
+]
+run-test [
+    f/options [
+        b: "something"
+        d: "something else"
+        e: first [set-word:]
+        a: 1
+    ]
+]
+run-test [
+    f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b "Anything"
+        c [word!] "A word"
+        d "Anything"
+        e [any-word!] "Only words"
+    ] [
+        print rejoin ["A: " mold a]
+        print rejoin ["B: " mold b]
+        print rejoin ["C: " mold c]
+        print rejoin ["D: " mold d]
+        print rejoin ["E: " mold e]
+    ]
+]
+run-test [f 1 2 3 4 5]
+run-test [
+    f [
+        b: 1
+        a: 2
+        c: 'bla
+        d: 3
+        e: first ['bla]
+    ]
+]
+run-test [
+    f [
+        a: 1
+        b
+        c: 'bla
+        d
+        e: 'bla
+    ]
+]

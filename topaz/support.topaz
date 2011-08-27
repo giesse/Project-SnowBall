@@ -171,3 +171,8 @@ handle-js-error: function [value] [err] [
         value
     ]
 ]
+
+; cheap way to clone objects
+clone-object: function [obj] [] [
+    make-struct [__proto__: obj]
+]

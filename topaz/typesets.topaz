@@ -28,3 +28,6 @@ any-word?: function [value] [] [in-typeset? any-word! value/type/name]
 
 block?: function [value] [] [value/type/name = "block!"]
 datatype?: function [value] [] [value/type/name = "datatype!"]
+set-word?: function [value] [] [value/type/name = "set-word!"]
+string?: function [value] [] [value/type/name = "string!"]
+word?: function [value] [] [value/type/name = "word!"]
