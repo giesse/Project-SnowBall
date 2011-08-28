@@ -99,8 +99,11 @@ topaz-make-error: function [obj] [args] [
     if obj/message [
         args/message: either obj/message/type/name = "string!" [obj/message/string] [none]
     ]
-    if all [obj/args obj/args/type/name <> "none!"] [
+    if all [obj/args not none? obj/args] [
         args/args: obj/args
+    ]
+    if all [obj/stack not none? obj/stack] [
+        args/stack: obj/stack
     ]
     apply 'error!/make [args]
 ]

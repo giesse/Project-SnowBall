@@ -140,12 +140,33 @@ app [
     ]
 ]
 
+parse-function-spec: func [spec] [
+    ; does not support return: yet, nor default values
+    parse spec [
+        collect any [
+            string!
+            |
+            block!
+            |
+            'options
+            |
+            keep word!
+            |
+            spec: here skip (cause make error! [
+                category: 'Compilation
+                id: 'invalid-spec
+                message: "PARSE-FUNCTION-SPEC: Don't know how to handle this, yet"
+                stack: spec
+            ])
+        ]
+    ]
+]
 funcall-macro: func [name spec] [
     make function! reduce [
         spec
         compose [
             make expression! [
-                apply (make lit-word! name) (copy spec)
+                apply (make lit-word! name) (parse-function-spec spec)
             ]
         ]
     ]
