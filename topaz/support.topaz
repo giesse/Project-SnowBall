@@ -122,21 +122,6 @@ true?: function [value] [] [
     ]
 ]
 
-words-to-js: function [words] [res word] [
-    res: ""
-    if 0 < length-of words [
-        word: first words
-        res: name-to-js word/word
-        words: skip words 1
-        while [not empty? words] [
-            word: first words
-            res: rejoin [res "," name-to-js word/word]
-            words: skip words 1
-        ]
-    ]
-    res
-]
-
 default-equal?: function [value1 value2] [] [false]
 
 _foreach: function [arr fnc] [] [

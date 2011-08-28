@@ -79,6 +79,16 @@ try-to-js: function [code name def context] [] [
         "}"
     ]
 ]
+words-to-js: function [words] [res word] [
+    res: make-array
+    foreach-blk 'word words [
+        if word? word [
+            append-array res name-to-js word/word
+        ]
+    ]
+    apply 'res/join []
+]
+
 
 ast-value: function [value] [] [
     make-struct [
