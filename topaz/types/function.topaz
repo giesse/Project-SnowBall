@@ -240,13 +240,17 @@ function!: make-type "function!" [
         reduce [result block]
     ]
     bind: function [func context extend?] [] [func]
-    compile: function [func block] [args expr] [
-        ; note that compile does not yet support other than very simple function specs
+    compile: function [func block] [expr] [
         push-context func/context
-        args: clone-values func/context
-        block: compile-arguments args length-of func/spec skip block 1 true
-        func/context/values: args
-        expr: do func/body
+        block: compile-function-arguments func block true
+        if not expression? expr: do func/body [
+            error make-struct [
+                category: "Compilation"
+                id: "invalid-argument"
+                message: "Macro did not return EXPRESSION! value"
+                args: expr
+            ]
+        ]
         pop-context func/context
         reduce [expr/expr block]
     ]
@@ -254,20 +258,20 @@ function!: make-type "function!" [
     get-path: :function-get-path
 ]
 
-collect-function-arguments: function [func block] [args args-block] [
+collect-function-arguments-generic: function [func block category logic-true do-arg check-arg] [args args-block] [
     args: clone-values func/context
     ; set flags (assumes valid list)
     foreach 'flag func/flags [
-        poke-array args func/args/:flag/offset make logic! true
+        poke-array args func/args/:flag/offset logic-true
     ]
     switch func/mode [
         "fixed" [
-            block: collect-arguments func/fixed-list args skip block 1
+            block: collect-arguments func/fixed-list args skip block 1 category :do-arg :check-arg
         ]
         "named" [
             if empty? next block [
                 error make-struct [
-                    category: "Script"
+                    category: category
                     id: "missing-argument"
                     message: "Function is missing the argument spec"
                 ]
@@ -275,13 +279,13 @@ collect-function-arguments: function [func block] [args args-block] [
             args-block: second block
             if not block? args-block [
                 error make-struct [
-                    category: "Script"
+                    category: category
                     id: "invalid-spec"
                     message: "Function argument spec must be a literal block, not"
                     args: args-block/type
                 ]
             ]
-            parse-named-arguments func/args func/fixed-list args args-block
+            parse-named-arguments func/args func/fixed-list args args-block category logic-true :do-arg :check-arg
             block: skip block 2
         ]
     ] [
@@ -294,26 +298,47 @@ collect-function-arguments: function [func block] [args args-block] [
     func/context/values: args
     block
 ]
-collect-arguments: function [list target block] [value orig-block] [
+check-argument: function [arg value block] [] [
+    if all [arg/types not in-typeset? arg/types value/type/name] [
+        invalid-argument-type "Script" arg value block
+    ]
+]
+collect-function-arguments: function [func block] [] [
+    collect-function-arguments-generic func block "Script" make logic! true function [block] [] [do-step first block block]
+        :check-argument
+]
+compile-function-arguments: function [func block wrap?] [logic-true comp-arg] [
+    logic-true: ast-value make logic! true
+    either wrap? [
+        logic-true: make expression! logic-true
+        comp-arg: function [block] [expr] [
+            set [expr block] compile-step block
+            reduce [make expression! expr block]
+        ]
+    ] [
+        comp-arg: function [block] [] [compile-step block]
+    ]
+    collect-function-arguments-generic func block "Compilation" logic-true :comp-arg
+        function [arg value block] [] []
+]
+collect-arguments: function [list target block category do-arg check-arg] [value orig-block] [
     foreach 'arg list [
         if empty? block [
             error make-struct [
-                category: "Script"
+                category: category
                 id: "missing-argument"
                 message: "Not enough arguments for function"
             ]
         ]
-        set [value block] do-step first block orig-block: block
-        if all [arg/types not in-typeset? arg/types value/type/name] [
-            invalid-argument-type arg value orig-block
-        ]
+        set [value block] apply 'do-arg [orig-block: block]
+        apply 'check-arg [arg value orig-block]
         poke-array target arg/offset value
     ]
     block
 ]
-invalid-argument-type: function [arg value stack] [] [
+invalid-argument-type: function [category arg value stack] [] [
     error make-struct [
-        category: "Script"
+        category: category
         id: "invalid-argument"
         message: rejoin [
             "Invalid type for argument " apply 'arg/word/word/to-upper-case []
@@ -324,51 +349,49 @@ invalid-argument-type: function [arg value stack] [] [
         stack: stack
     ]
 ]
-invalid-argument-name: function [word stack] [] [
+invalid-argument-name: function [category word stack] [] [
     error make-struct [
-        category: "Script"
+        category: category
         id: "invalid-argument"
         message: "Function does not take an argument with this name"
         args: word
         stack: stack
     ]
 ]
-parse-named-arguments: function [args list target block] [word value arg orig-block] [
+parse-named-arguments: function [args list target block category logic-true do-arg check-arg] [word value arg orig-block] [
     while [not empty? block] [
         word: first block
         switch word/type/name [
             "word!" [
                 if not arg: args/(word/word) [
-                    invalid-argument-name word block
+                    invalid-argument-name category word block
                 ]
                 block: next orig-block: block
-                value: make logic! true
+                value: logic-true
             ]
             "set-word!" [
                 if not arg: args/(word/word) [
-                    invalid-argument-name word block
+                    invalid-argument-name category word block
                 ]
-                set [value block] do-step second block orig-block: next block
+                set [value block] apply 'do-arg [orig-block: next block]
             ]
         ] [
             error make-struct [
-                category: "Script"
+                category: category
                 id: "invalid-spec"
                 message: "Invalid arguments spec value"
                 args: word
                 stack: block
             ]
         ]
-        if all [arg/types not in-typeset? arg/types value/type/name] [
-            invalid-argument-type arg value orig-block
-        ]
+        apply 'check-arg [arg value orig-block]
         poke-array target arg/offset value
     ]
     ; check mandatory arguments
     foreach 'arg list [
         if not pick-array target arg/offset [
             error make-struct [
-                category: "Script"
+                category: category
                 id: "missing-argument"
                 message: "Missing mandatory argument"
                 args: arg/word
@@ -377,22 +400,6 @@ parse-named-arguments: function [args list target block] [word value arg orig-bl
         ]
     ]
     none
-]
-compile-arguments: function [args n block wrap?] [expr i] [
-    i: 0
-    while [i < n] [
-        if empty? block [
-            error make-struct [
-                category: "Compilation"
-                id: "missing-argument"
-                message: "Not enough arguments for function"
-            ]
-        ]
-        set [expr block] compile-step block
-        poke-array args i either wrap? [make expression! expr] [expr]
-        i: i + 1
-    ]
-    block
 ]
 
 invalid-spec-value: function [value spec] [] [

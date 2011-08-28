@@ -104,9 +104,10 @@ native!: make-type "native!" [
                 message: "This is a interpreter-only native"
             ]
         ]
-        ; note that compile does not yet support other than very simple function specs
-        args: make-array
-        block: compile-arguments args length-of func/spec skip block 1 false
+        push-context func/context
+        block: compile-function-arguments func block false
+        args: func/context/values
+        pop-context func/context
         reduce [apply 'func/compile/apply [none args] block]
     ]
     equal?: :default-equal?
