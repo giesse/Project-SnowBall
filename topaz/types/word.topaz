@@ -32,7 +32,7 @@ word!: make-type "word!" [
     do: function [word block] [value] [
         value: get word
         case [
-            any [value/type/name = "function!" value/type/name = "native!"] [
+            word-active? value [
                 apply 'value/type/do [value block]
             ]
             'else [
@@ -45,11 +45,7 @@ word!: make-type "word!" [
         value: get-any word
         either all [
             value
-            any [
-                value/type/name = "function!"
-                value/type/name = "native!"
-                value/type/name = "expression!"
-            ]
+            compiler-word-active? value
         ] [
             apply 'value/type/compile [value block]
         ] [

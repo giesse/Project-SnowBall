@@ -92,14 +92,14 @@ path!: make-type "path!" [
             value: get-path value first path
             path: skip path 1
         ]
-        either any [value/type/name = "function!" value/type/name = "native!"] [
+        either word-active? value [
             apply 'value/type/do [value block]
         ] [
             reduce [value skip block 1]
         ]
     ]
     bind: :bind-block
-    compile: function [path block] [expr] [
+    compile: function [path block] [value expr] [
         if empty? path [
             error make-struct [
                 category: "Compilation"
@@ -107,13 +107,23 @@ path!: make-type "path!" [
                 message: "Empty PATH! value"
             ]
         ]
-        expr: ast-get first path
-        path: skip path 1
-        while [not empty? path] [
-            expr: ast-get-path expr first path
+        value: get-any first path
+        either all [value word-active? value] [
             path: skip path 1
+            while [not empty? path] [
+                value: get-path value first path
+                path: skip path 1
+            ]
+            apply 'value/type/compile [value block]
+        ] [
+            expr: ast-get first path
+            path: skip path 1
+            while [not empty? path] [
+                expr: ast-get-path expr first path
+                path: skip path 1
+            ]
+            reduce [expr skip block 1]
         ]
-        reduce [expr skip block 1]
     ]
     equal?: :default-equal?
     copy: function [value] [] [copy-path path! value]

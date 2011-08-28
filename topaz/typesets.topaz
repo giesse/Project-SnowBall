@@ -26,6 +26,11 @@
 any-word!: make typeset! make-struct [types: reduce [word! set-word! get-word! lit-word!]]
 any-word?: function [value] [] [in-typeset? any-word! value/type/name]
 
+word-active!: make typeset! make-struct [types: reduce [function! native!]]
+word-active?: function [value] [] [in-typeset? word-active! value/type/name]
+compiler-word-active!: make typeset! make-struct [types: reduce [function! native! expression!]]
+compiler-word-active?: function [value] [] [in-typeset? compiler-word-active! value/type/name]
+
 block?: function [value] [] [value/type/name = "block!"]
 datatype?: function [value] [] [value/type/name = "datatype!"]
 set-word?: function [value] [] [value/type/name = "set-word!"]
