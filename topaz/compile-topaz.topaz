@@ -175,11 +175,7 @@ funcall-macro: func [name spec] [
 ; define function call macros, make all set-words local, mask some interpreter functions
 locals: parse interpreter [
     collect any [
-        keep name: set-word! [
-            'function keep ('funcall-macro) keep (make lit-word! name) keep block! block! block!
-            |
-            keep (none)
-        ]
+        name: set-word! 'function keep (name) keep ('funcall-macro) keep (make lit-word! name) keep block! block! block!
         |
         'macro name: lit-word! block! block! keep (make set-word! name) keep (none)
         |
