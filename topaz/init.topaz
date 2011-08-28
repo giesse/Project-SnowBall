@@ -104,6 +104,7 @@ any-word!: make typeset! [word! get-word! set-word! lit-word!]
 any-path!: make typeset! [path! set-path! lit-path!]
 any-block!: make typeset! [any-path! block! paren!]
 any-function!: make typeset! [function! native!]
+series!: make typeset! [any-block! string!]
 
 func: make function! [[spec body] [make function! reduce [spec body]]]
 
