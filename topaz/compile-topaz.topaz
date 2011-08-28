@@ -150,6 +150,8 @@ parse-function-spec: func [spec] [
             |
             'options
             |
+            name: set-word! skip keep (make word! name)
+            |
             keep word!
             |
             spec: here skip (cause make error! [

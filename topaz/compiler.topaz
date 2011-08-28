@@ -81,14 +81,24 @@ try-to-js: function [code name def context] [] [
 ]
 words-to-js: function [words] [res word] [
     res: make-array
-    foreach-blk 'word words [
-        if word? word [
-            append-array res name-to-js word/word
-        ]
+    while [not empty? words] [
+        word: first words
+        switch word/type/name [
+            "word!" [
+                append-array res name-to-js word/word
+            ]
+            "set-word!" [
+                if word/word <> "options" [
+                    append-array res name-to-js word/word
+                    ; skip default value (assumes just one value)
+                    words: next words
+                ]
+            ]
+        ] []
+        words: next words
     ]
     apply 'res/join []
 ]
-
 
 ast-value: function [value] [] [
     make-struct [

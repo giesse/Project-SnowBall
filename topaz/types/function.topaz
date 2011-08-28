@@ -307,8 +307,16 @@ collect-function-arguments: function [func block] [] [
     collect-function-arguments-generic func block "Script" make logic! true function [block] [] [do-step first block block]
         :check-argument
 ]
-compile-function-arguments: function [func block wrap?] [logic-true comp-arg] [
+compile-function-arguments: function [func block wrap?] [logic-true comp-arg args] [
     logic-true: ast-value make logic! true
+    ; prepare default arguments
+    args: func/context/values
+    foreach [arg pos] args [
+        if arg [
+            ; only immediate values supported
+            args/(pos): either wrap? [make expression! ast-value arg] [ast-value arg]
+        ]
+    ]
     either wrap? [
         logic-true: make expression! logic-true
         comp-arg: function [block] [expr] [
