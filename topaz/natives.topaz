@@ -391,18 +391,6 @@ natives: make-struct [
     type-of: function [value] [] [value/type]
     copy: function [value] [] [apply 'value/type/copy [value]]
     in?: function [container value] [] [apply 'container/type/in? [container value]]
-    ; not really used in the interpreter
-    function: function [spec locals body] [] []
-    none: function [] [] []
-    true: function [] [] []
-    false: function [] [] []
-    make-struct: function [spec] [] []
-    make-array: function [] [] []
-    poke-array: function [arr pos value] [] []
-    pick-array: function [arr pos] [] []
-    regexp: function [exp flags] [] []
-    to-char: function [number] [] []
-    js-error?: function [x] [] []
 ]
 
 ; ===== CONJURE ===============================================================

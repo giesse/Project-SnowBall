@@ -816,21 +816,6 @@ compile-cases: function [cases] [cond orig-cases] [
 ]
 
 native-compilers: make-struct [
-    foreach: function [word series body] [] []
-    insert: function [series value] [] []
-    head: function [series] [] []
-    pick: function [series pos] [] []
-    length-of: function [series] [] []
-    skip: function [series amount] [] []
-    mold: function [value indent] [] []
-    do: function [block] [] []
-    get: function [word] [] []
-    bind: function [words context] [] []
-    tail: function [series] [] []
-    print: function [value] [] []
-    prin: function [value] [] []
-    load: function [string] [] []
-    read: function [filename] [] []
     add: function [val1 val2] [] [ast-op "+" val1 val2]
     subtract: function [val1 val2] [] [ast-op "-" val1 val2]
     equal?: function [val1 val2] [] [ast-op "==" val1 val2]
@@ -839,8 +824,6 @@ native-compilers: make-struct [
     not-equal?: function [val1 val2] [] [ast-op "!=" val1 val2]
     greater-or-equal?: function [val1 val2] [] [ast-op ">=" val1 val2]
     lesser-or-equal?: function [val1 val2] [] [ast-op "<=" val1 val2]
-    compile: function [block] [] []
-    write: function [filename text] [] []
     function: function [spec locals body] [] [
         ast-function-definition spec/value locals/value compile body/value
     ]
@@ -928,16 +911,7 @@ native-compilers: make-struct [
             res
         ]
     ]
-    context-of: function [word] [] []
-    type-of: function [value] [] []
-    find: function [series value] [] []
-    until: function [body] [] []
-    copy: function [value] [] []
     js-error?: function [value] [] [
         ast-op " instanceof " value ast-literal "Error"
     ]
-    cause: function [error] [] []
-    catch: function [code] [] []
-    form-error: function [error] [] []
-    in?: function [container value] [] []
 ]

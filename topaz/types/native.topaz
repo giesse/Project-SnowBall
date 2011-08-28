@@ -82,6 +82,13 @@ native!: make-type "native!" [
         "native " + mold-value func/spec indent
     ]
     do: function [func block] [args] [
+        if not func/func [
+            error make-struct [
+                category: "Internal"
+                id: "not-implemented"
+                message: "This is a compiler-only native"
+            ]
+        ]
         push-context func/context
         block: collect-function-arguments func block
         args: func/context/values
@@ -90,6 +97,13 @@ native!: make-type "native!" [
     ]
     bind: function [func context extend?] [] [func]
     compile: function [func block] [args] [
+        if not func/compile [
+            error make-struct [
+                category: "Internal"
+                id: "not-implemented"
+                message: "This is a interpreter-only native"
+            ]
+        ]
         ; note that compile does not yet support other than very simple function specs
         args: make-array
         block: compile-arguments args length-of func/spec skip block 1 false
