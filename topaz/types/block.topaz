@@ -81,7 +81,7 @@ bind-block: function [words context extend?] [] [
     words
 ]
 
-block!: make-type "block!" [
+make-type 'block! [
     make: function [arguments] [] [make-block block! arguments]
     topaz-make: function [value] [] [topaz-make-block block! value]
     insert: :insert-block

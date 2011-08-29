@@ -23,7 +23,7 @@
 
 ; ===== TYPES: ERROR! =========================================================
 
-error!: make-type "error!" [
+make-type 'error! [
     make: function [args] [res] [
         if not args [args: make-struct []]
         res: make-struct [

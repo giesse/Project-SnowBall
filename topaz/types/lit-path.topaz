@@ -23,7 +23,7 @@
 
 ; ===== TYPES: LIT-PATH! ======================================================
 
-lit-path!: make-type "lit-path!" [
+make-type 'lit-path! [
     make: function [arguments] [] [make-path lit-path! arguments]
     topaz-make: function [value] [] [topaz-make-path lit-path! value]
     insert: :insert-path

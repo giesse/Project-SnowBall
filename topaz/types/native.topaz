@@ -23,7 +23,7 @@
 
 ; ===== TYPES: NATIVE! ========================================================
 
-native!: make-type "native!" [
+make-type 'native! [
     make: function [arguments] [fnc] [
         fnc: make-struct [
             type: native!

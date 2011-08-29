@@ -23,7 +23,7 @@
 
 ; ===== TYPES: GET-WORD! ======================================================
 
-get-word!: make-type "get-word!" [
+make-type 'get-word! [
     make: function [arguments] [] [make-word get-word! arguments none]
     topaz-make: function [value] [] [topaz-make-word get-word! value]
     mold: function [word indent] [] [":" + word/word]

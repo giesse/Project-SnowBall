@@ -23,7 +23,7 @@
 
 ; ===== TYPES: PAREN! =========================================================
 
-paren!: make-type "paren!" [
+make-type 'paren! [
     make: function [arguments] [] [make-block paren! arguments]
     topaz-make: function [value] [] [topaz-make-block paren! value]
     insert: :insert-block

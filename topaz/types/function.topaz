@@ -178,7 +178,7 @@ function-get-path: function [func selector] [arg] [
     func
 ]
 
-function!: make-type "function!" [
+make-type 'function! [
     make: function [arguments] [fnc] [
         fnc: make-struct [
             type: function!

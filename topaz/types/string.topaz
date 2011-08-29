@@ -23,7 +23,7 @@
 
 ; ===== TYPES: STRING! ========================================================
 
-string!: make-type "string!" [
+make-type 'string! [
     make: function [arguments] [] [make-string arguments 0]
     topaz-make: function [value] [] [
         switch value/type/name [

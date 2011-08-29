@@ -23,7 +23,7 @@
 
 ; ===== TYPES: NUMBER! ========================================================
 
-number!: make-type "number!" [
+make-type 'number! [
     make: function [arguments] [] [
         make-struct [
             type: number!

@@ -25,7 +25,7 @@
 
 compare-words: function [word1 word2] [] [word1/word = word2/word]
 
-word!: make-type "word!" [
+make-type 'word! [
     make: function [arguments] [] [make-word word! arguments none]
     topaz-make: function [value] [] [topaz-make-word word! value]
     mold: function [word indent] [] [word/word]
@@ -84,7 +84,7 @@ topaz-make-word: function [type value] [] [
         "set-word!" [convert-word value type]
         "get-word!" [convert-word value type]
         "lit-word!" [convert-word value type]
-        "datatype!" [make-word type value/name none]
+        "datatype!" [bind-word system-words make-word type value/name none true]
     ] [
         error make-struct [
             category: "Script"

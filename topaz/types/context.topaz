@@ -23,7 +23,7 @@
 
 ; ===== TYPES: CONTEXT! =======================================================
 
-context!: make-type "context!" [
+make-type 'context! [
     make: function [arguments] [] [
         if not arguments [arguments: make-struct []]
         make-struct [

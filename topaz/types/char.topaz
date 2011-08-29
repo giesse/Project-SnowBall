@@ -23,7 +23,7 @@
 
 ; ===== TYPES: CHAR! ==========================================================
 
-char!: make-type "char!" [
+make-type 'char! [
     make: function [arguments] [] [
         make-struct [
             type: char!

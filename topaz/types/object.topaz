@@ -23,7 +23,7 @@
 
 ; ===== TYPES: OBJECT! ========================================================
 
-object!: make-type "object!" [
+make-type 'object! [
     make: function [args] [] [
         if not args [args: make-struct []]
         make-struct [

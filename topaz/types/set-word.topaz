@@ -23,7 +23,7 @@
 
 ; ===== TYPES: SET-WORD! ======================================================
 
-set-word!: make-type "set-word!" [
+make-type 'set-word! [
     make: function [arguments] [] [make-word set-word! arguments none]
     topaz-make: function [value] [] [topaz-make-word set-word! value]
     mold: function [word indent] [] [word/word + #":"]

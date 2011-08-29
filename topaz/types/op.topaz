@@ -23,7 +23,7 @@
 
 ; ===== TYPES: OP! ============================================================
 
-op!: make-type "op!" [
+make-type 'op! [
     make: function [arguments] [] [
         if 2 <> length-of arguments/spec [
             error make-struct [

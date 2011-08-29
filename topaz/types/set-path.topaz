@@ -23,7 +23,7 @@
 
 ; ===== TYPES: SET-PATH! ======================================================
 
-set-path!: make-type "set-path!" [
+make-type 'set-path! [
     make: function [arguments] [] [make-path set-path! arguments]
     topaz-make: function [value] [] [topaz-make-path set-path! value]
     insert: :insert-path

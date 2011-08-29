@@ -23,7 +23,7 @@
 
 ; ===== TYPES: LOGIC! =========================================================
 
-logic!: make-type "logic!" [
+make-type 'logic! [
     make: function [value] [] [
         either value [true-value] [false-value]
     ]

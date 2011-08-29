@@ -23,7 +23,7 @@
 
 ; ===== TYPES: NONE! ==========================================================
 
-none!: make-type "none!" [
+make-type 'none! [
     make: function [ignored] [] [none-value]
     topaz-make: function [ignored] [] [none-value]
     mold: function [value indent] [] ["none"]

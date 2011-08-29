@@ -2,9 +2,16 @@
 
 make: conjure 'make
 native!: conjure 'native!
+word!: conjure 'word!
+datatypes: conjure 'datatypes
 
 foreach: make native! [[words series body] foreach]
 set: make native! [[word value] set]
+
+foreach 'type datatypes [
+    set make word! type type
+]
+
 reduce: make native! [[block] reduce]
 
 foreach [native spec] [
@@ -66,13 +73,6 @@ foreach [native spec] [
     set native make native! reduce [spec native]
 ]
 
-foreach 'word [
-    datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-    none! logic! context! expression! get-word! object! error! typeset!
-] [
-    set word conjure word
-]
-
 foreach [op f] [
     +  add
     -  subtract
@@ -84,16 +84,6 @@ foreach [op f] [
     <= lesser-or-equal?
 ] [
     set op make op! get f
-]
-
-system: make context! [
-    name: "Topaz"
-    version: "alpha"
-    words: conjure 'system-words
-    datatypes: reduce [
-        datatype! block! paren! path! set-path! lit-path! string! char! number! word! set-word! lit-word! function! op!
-        none! logic! context! native! expression! get-word! object! error! typeset!
-    ]
 ]
 
 none: make none! 0
@@ -140,6 +130,13 @@ any-word?: func [value] [in? any-word! type-of :value]
 any-path?: func [value] [in? any-path! type-of :value]
 any-block?: func [value] [in? any-block! type-of :value]
 any-function?: func [value] [in? any-function! type-of :value]
+
+system: object none [
+    name: "Topaz"
+    version: "alpha"
+    words: context-of 'system
+    datatypes: datatypes
+]
 
 parse-match: func [cursor condition] [
     either all [not empty? cursor/block do condition] [

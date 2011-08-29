@@ -56,7 +56,7 @@ tail-path: function [path] [] [
     ]
 ]
 
-path!: make-type "path!" [
+make-type 'path! [
     make: function [arguments] [] [make-path path! arguments]
     topaz-make: function [value] [] [topaz-make-path path! value]
     insert: :insert-path
@@ -163,17 +163,18 @@ copy-path: function [type value] [] [
     ]
 ]
 
-path-to-block: function [type value] [values newlines i] [
-    values: apply 'value/values/slice [value/pos]
+make-newlines: function [values] [newlines] [
     newlines: make-array
-    i: 0
-    while [i <= length-of-array values] [
+    foreach 'item values [
         append-array newlines false
-        i: i + 1
     ]
+    newlines
+]
+path-to-block: function [type value] [values] [
+    values: apply 'value/values/slice [value/pos]
     make-block type make-struct [
         values: values
-        newlines: newlines
+        newlines: make-newlines values
     ]
 ]
 

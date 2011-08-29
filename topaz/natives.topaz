@@ -114,44 +114,12 @@ find: function [series value] [] [
     series
 ]
 
-; ===== VALUES THAT CAN BE CONJURED ===========================================
-
-values: make-struct [
-    native!: native!
-    make: make native! reduce [
-        load make string! "type arguments" true
-        function [type arguments] [] [
-            apply 'type/topaz-make [arguments]
-        ]
-    ]
-    datatype!: datatype!
-    block!: block!
-    paren!: paren!
-    path!: path!
-    set-path!: set-path!
-    lit-path!: lit-path!
-    string!: string!
-    char!: char!
-    number!: number!
-    word!: word!
-    set-word!: set-word!
-    lit-word!: lit-word!
-    function!: function!
-    op!: op!
-    none!: none!
-    logic!: logic!
-    context!: context!
-    system-words: system-words
-    expression!: expression!
-    get-word!: get-word!
-    object!: object!
-    error!: error!
-    typeset!: typeset!
-]
-
 ; ===== NATIVES THAT CAN BE MADE ==============================================
 
 natives: make-struct [
+    make: function [type arguments] [] [
+        apply 'type/topaz-make [arguments]
+    ]
     foreach: function [words series body] [ctx res] [
         ctx: make context! none
         switch words/type/name [
@@ -391,13 +359,26 @@ natives: make-struct [
     type-of: function [value] [] [value/type]
     copy: function [value] [] [apply 'value/type/copy [value]]
     in?: function [container value] [] [apply 'container/type/in? [container value]]
+    conjure: function [name] [] [
+        values/(name-to-js name/word)
+    ]
 ]
 
 ; ===== CONJURE ===============================================================
 
-set-word load make string! "conjure" false make native! reduce [
+set-word bind-word system-words make word! "conjure" true make native! reduce [
     load make string! "name" true
-    function [name] [] [
-        values/(name-to-js name/word)
+    natives/conjure
+]
+
+; ===== VALUES THAT CAN BE CONJURED ===========================================
+
+values: make-struct [
+    make: make native! reduce [
+        load make string! "type arguments" true
+        natives/make
     ]
+    native!: native!
+    word!: word!
+    datatypes: make block! make-struct [values: datatypes newlines: make-newlines datatypes]
 ]

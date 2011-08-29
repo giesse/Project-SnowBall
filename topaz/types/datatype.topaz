@@ -1,4 +1,4 @@
-; Topaz types: MAKE-TYPE and DATATYPE!
+; Topaz types: DATATYPE!
 ;
 ; Copyright 2011 Gabriele Santilli
 ;
@@ -26,9 +26,11 @@
 ; datatype! has a circular reference
 datatype!: none
 
+datatypes: make-array
+
 ; make-type is defined as a macro in compile-topaz.topaz
 
-datatype!: make-type "datatype!" [
+make-type 'datatype! [
     mold: function [type indent] [] [
         type/name
     ]

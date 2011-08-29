@@ -15,15 +15,21 @@ app-file: func [file] [app load* file]
 app-file "topaz/actions.topaz"
 
 ; MAKE-TYPE macro
-make-type: func [name actions] [
+make-internal-type: func [name actions] [
     struct: compose [
         type: datatype!
-        name: (name)
+        name: (make string! name/value)
     ]
     ; actions is an expression! here, hopefully ast-value containing a block!
     append struct actions/value
     make expression! compose [
-        make-struct (struct)
+        (make set-word! name/value) make-struct (struct)
+    ]
+]
+make-type: func [name actions] [
+    make expression! compose [
+        make-internal-type name actions
+        apply 'datatypes/push [(name/value)]
     ]
 ]
 macro: func [name spec body] [

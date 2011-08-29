@@ -23,7 +23,7 @@
 
 ; ===== TYPES: TYPESET! =======================================================
 
-typeset!: make-type "typeset!" [
+make-type 'typeset! [
     make: function [args] [ts] [
         if not args [args: make-struct []]
         ts: make-struct [

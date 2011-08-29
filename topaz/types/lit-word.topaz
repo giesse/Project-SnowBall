@@ -23,7 +23,7 @@
 
 ; ===== TYPES: LIT-WORD! ======================================================
 
-lit-word!: make-type "lit-word!" [
+make-type 'lit-word! [
     make: function [arguments] [] [make-word lit-word! arguments none]
     topaz-make: function [value] [] [topaz-make-word lit-word! value]
     mold: function [word indent] [] ["'" + word/word]
