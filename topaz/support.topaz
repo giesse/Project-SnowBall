@@ -57,6 +57,7 @@ name-to-js: function [name] [] [
         "true"      ["_true"]
         "false"     ["_false"]
         "catch"     ["_catch"]
+        "new"       ["_new"]
     ] [
         name: apply 'name/replace [
             regexp "-(.)" "g"
