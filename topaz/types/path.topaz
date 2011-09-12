@@ -23,11 +23,26 @@
 
 ; ===== TYPES: PATH! ==========================================================
 
-insert-path: function [path value] [] [
-    insert-array path/values path/pos value
-    make-path path/type make-struct [
-        values: path/values
-        pos: path/pos + 1
+insert-path: function [
+    "Insert a value at the current position of the series"
+    path [any-path!]
+    value
+    options:
+        only: no [logic!] "Insert series as a single value"
+        new-line: no [logic!] "Temporary - add new line before value on MOLD"
+] [tmp] [
+    either all [not only any-block? value] [
+        insert-array2 path/values path/pos tmp: copy-array value/values value/pos
+        make-path path/type make-struct [
+            values: path/values
+            pos: path/pos + length-of-array tmp
+        ]
+    ] [
+        insert-array path/values path/pos value
+        make-path path/type make-struct [
+            values: path/values
+            pos: path/pos + 1
+        ]
     ]
 ]
 
@@ -65,18 +80,28 @@ make-type 'path! [
     skip: :skip-path
     pick: :pick-block
     length-of: :length-of-block
-    mold: function [block indent] [result pos] [
-        result: ""
-        pos: block/pos
-        if pos < length-of-array block/values [
-            result: mold-step1 result block/values pos indent ""
-            pos: pos + 1
-            while [pos < length-of-array block/values] [
-                result: mold-step1 result block/values pos indent #"/"
-                pos: pos + 1
-            ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        block
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-values [
+            open: ""
+            close: ""
+            sep: "/"
+            flat: true
+            nlsep: "/"
+            indent: ""
+            limit: limit
+            only: false
+            values: block/values
+            newlines: make-array
+            pos: block/pos
         ]
-        result
     ]
     do: function [path block] [value] [
         if empty? path [
@@ -93,7 +118,7 @@ make-type 'path! [
             path: skip path 1
         ]
         either word-active? value [
-            apply 'value/type/do [value block]
+            apply value/type/do [value block]
         ] [
             reduce [value skip block 1]
         ]
@@ -114,7 +139,7 @@ make-type 'path! [
                 value: get-path value first path
                 path: skip path 1
             ]
-            apply 'value/type/compile [value block]
+            apply value/type/compile [value block]
         ] [
             expr: ast-get first path
             path: skip path 1
@@ -148,7 +173,7 @@ make-path: function [type args] [] [
 ]
 
 topaz-make-path: function [type value] [] [
-    switch value/type/name [
+    switch-default value/type/name [
         "block!"    [copy-path type value]
         "paren!"    [copy-path type value]
         "path!"     [copy-path type value]
@@ -159,7 +184,7 @@ topaz-make-path: function [type value] [] [
 
 copy-path: function [type value] [] [
     make-path type make-struct [
-        values: apply 'value/values/slice [value/pos]
+        values: apply value/values/slice [value/pos]
     ]
 ]
 
@@ -171,7 +196,7 @@ make-newlines: function [values] [newlines] [
     newlines
 ]
 path-to-block: function [type value] [values] [
-    values: apply 'value/values/slice [value/pos]
+    values: apply value/values/slice [value/pos]
     make-block type make-struct [
         values: values
         newlines: make-newlines values
@@ -186,7 +211,7 @@ parse-path: function [text] [path value] [
         while [all [not empty? text  #"/" = first text]] [
             set [value text] parse-path-element skip text 1
             either value [
-                path: insert path value
+                path: insert/only path value
             ] [
                 error make-struct [
                     category: "Syntax"

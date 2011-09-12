@@ -1,4 +1,27 @@
-; Topaz Interpreter Initialization
+; Topaz initialization
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== BOOTSTRAP =============================================================
 
 make: conjure 'make
 native!: conjure 'native!
@@ -7,59 +30,386 @@ datatypes: conjure 'datatypes
 
 foreach: make native! [[words series body] foreach]
 set: make native! [[word value] set]
+reduce: make native! [[block] reduce]
+
+; ===== DATATYPES =============================================================
 
 foreach 'type datatypes [
     set make word! type type
 ]
 
-reduce: make native! [[block] reduce]
+none: make none! 0
+true: on: yes: make logic! 1
+false: off: no: make logic! none
+
+any-word!: make typeset! [word! get-word! set-word! lit-word!]
+any-path!: make typeset! [path! set-path! lit-path!]
+any-block!: make typeset! [any-path! block! paren!]
+any-function!: make typeset! [function! native! return!]
+series!: make typeset! [any-block! string!]
+
+; ===== NATIVES ===============================================================
 
 foreach [native spec] [
-    insert            [series value]
-    head              [series]
-    pick              [series pos]
-    length-of         [series]
-    skip              [series amount]
-    mold              [value indent]
-    do                [block]
-    get               [word]
-    bind              [words context]
-    tail              [series]
-    print             [string]
-    prin              [string]
-    load              [string]
-    read              [filename]
-    try               [code word default]
-    add               [val1 val2]
-    subtract          [val1 val2]
-    equal?            [val1 val2]
-    greater?          [val1 val2]
-    lesser?           [val1 val2]
-    not-equal?        [val1 val2]
-    greater-or-equal? [val1 val2]
-    lesser-or-equal?  [val1 val2]
-    compile           [block]
-    write             [filename text]
-    throw             [string]
-    if                [condition body]
-    either            [condition true-body false-body]
-    not               [value]
-    apply             [func args]
-    while             [condblock body]
-    all               [block]
-    any               [block]
-    switch            [value cases default]
-    case              [cases]
-    context-of        [word]
-    rejoin            [block]
-    type-of           [value]
-    find              [series value]
-    until             [body]
-    copy              [series]
-    cause             [error]
-    catch             [code]
-    form-error        [error]
-    in?               [container value]
+    conjure [
+        "Conjure a value"
+        name [word!]
+
+        return: value
+    ]
+    make [
+        "Make a Topaz type according to spec"
+        type [datatype!]
+        spec
+
+        return: value "A value of the specified type"
+    ]
+    foreach [
+        "Repeat the body over all values in the series"
+        words [word! block!] "Word or words to set to each value"
+        series [series!]
+        body [block!]
+
+        return: result "The result of evaluating the body, or NONE if it is never evaluated"
+    ]
+    set [
+        "Set a word to a value or a list of words to a list of values"
+        word [any-word! block! object! context!]
+        value
+
+        return: value
+    ]
+    reduce [
+        "Evaluate and collect all values in the block"
+        block [block!]
+
+        return: reduced-block [block!]
+    ]
+    insert [
+        "Insert a value at the current position of the series"
+        series [series!]
+        value
+        options:
+            only: no [logic!] "Insert series as a single value"
+            new-line: no [logic!] "Temporary - add new line before value on MOLD"
+
+        return: series
+    ]
+    head [
+        "Return the series at the head position"
+        series [series!]
+
+        return: series
+    ]
+    pick [
+        "Pick value in a series"
+        series [series!]
+        index [number!]
+
+        return: value
+    ]
+    length-of [
+        "Return the length of a series"
+        series [series!]
+
+        return: length [number!]
+    ]
+    skip [
+        "Return the series at a new position"
+        series [series!]
+        amount [number!] "Skip the specified number of values"
+
+        return: series
+    ]
+    mold [
+        "Return a LOAD-able text representation of a value"
+        value
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+
+        return: molded-value [string!]
+    ]
+    do [
+        "Evaluate a block"
+        block [block! paren!]
+
+        return: result
+    ]
+    get [
+        "Return the value of a word in its context"
+        word [any-word!]
+        options:
+            any: no [logic!] "If value is not set, return NONE instead of causing an error"
+
+        return: value
+    ]
+    bind [
+        "Bind words to a specified context"
+        words
+        context [context!]
+        options:
+            copy: no [logic!] "Bind a (deep) copy of WORDS"
+            new: no [logic!] "Add all words to CONTEXT"
+
+        return: words
+    ]
+    tail [
+        "Return the series at the tail position"
+        series [series!]
+
+        return: series
+    ]
+    print [
+        "Write the string to standard output"
+        string [string!]
+
+        return: string [string!]
+    ]
+    prin [
+        "Write the string to standard output (do not add a new line)"
+        string [string!]
+
+        return: string [string!]
+    ]
+    load [
+        "Load the string into a Topaz value"
+        string [string!] "Text representation of a Topaz value"
+        options:
+            all: no [logic!] "Always return a BLOCK! value"
+
+        return: value
+    ]
+    read [
+        "Read a file into a string"
+        file-name [string!]
+
+        return: file-contents [string!]
+    ]
+    try [
+        "Try to evaluate CODE; if it causes an error, evaluate DEFAULT with WORD set to the ERROR! value"
+        code [block!]
+        word [any-word!] "Local to the DEFAULT block"
+        default [block!]
+
+        return: result "Either the result of evaluating CODE or that of evaluating DEFAULT"
+    ]
+    add [
+        "Add val1 to val2"
+        val1 [number!]
+        val2 [number!]
+
+        return: sum [number!]
+    ]
+    subtract [
+        "Subtract val2 from val1"
+        val1 [number!]
+        val2 [number!]
+
+        return: difference [number!]
+    ]
+    equal? [
+        "Return TRUE if the two values are equal"
+        val1
+        val2
+
+        return: val1-eq-val2 [logic!]
+    ]
+    greater? [
+        "Return TRUE if val1 is greater than val2"
+        val1 [number!]
+        val2 [number!]
+
+        return: val1-gt-val2 [logic!]
+    ]
+    lesser? [
+        "Return TRUE if val1 is lesser than val2"
+        val1 [number!]
+        val2 [number!]
+
+        return: val1-lt-val2 [logic!]
+    ]
+    not-equal? [
+        "Return TRUE if the two values are NOT equal"
+        val1
+        val2
+
+        return: val1-neq-val2 [logic!]
+    ]
+    greater-or-equal? [
+        "Return TRUE if val1 is greater or equal to val2"
+        val1 [number!]
+        val2 [number!]
+
+        return: val1-geq-val2 [logic!]
+    ]
+    lesser-or-equal? [
+        "Return TRUE if val1 is lesser or equal to val2"
+        val1 [number!]
+        val2 [number!]
+
+        return: val1-leq-val2 [logic!]
+    ]
+    compile [
+        "Compile BLOCK to Javascript"
+        block [block!]
+
+        return: javascript [string!]
+    ]
+    write [
+        "Write a string into a file"
+        file-name [string!]
+        text [string!]
+
+        return: text [string!]
+    ]
+    throw [
+        "Throw a value to be catched by an enclosing CATCH"
+        value
+    ]
+    if [
+        "Evaluate BODY if CONDITION is not NONE or FALSE"
+        condition
+        body [block!]
+
+        return: result "Result of BODY, or NONE if it is not evaluated"
+    ]
+    either [
+        "Evaluate TRUE-BODY if CONDITION is not NONE or FALSE, otherwise evaluate FALSE-BODY"
+        condition
+        true-body [block!]
+        false-body [block!]
+
+        return: result "Result of either TRUE-BODY or FALSE-BODY depending on CONDITION"
+    ]
+    not [
+        "Return TRUE if VALUE is NONE or FALSE; otherwise return FALSE"
+        value
+
+        return: not-value [logic!]
+    ]
+    apply [
+        "Apply a function to the specified arguments"
+        func [any-function!]
+        args [object! context! block!] "Object or block in the format [arg-name: value ...]"
+        options:
+            only: no [logic!] "(ARGS must be BLOCK!) Apply the contents of args as-is as the list of arguments"
+
+        return: result "Result of evaluating FUNC"
+    ]
+    while [
+        "Evaluate BODY repeatedly as long as CONDITION is not FALSE or NONE"
+        condition [block!] "Evaluated using ALL"
+        body [block!]
+        options:
+            any: no [logic!] "Evaluate CONDITION using ANY instead of ALL"
+
+        return: result "Result of BODY, or NONE if BODY is never evaluated"
+    ]
+    all [
+        "Evaluate BLOCK and return the first FALSE or NONE (shortcut AND)"
+        block [block!]
+
+        return: result "If all expressions are true, the last value is returned"
+    ]
+    any [
+        "Evaluate BLOCK and return the first value that is not FALSE or NONE (shortcut OR)"
+        block [block!]
+
+        return: result "If all expressions are false, NONE is returned"
+    ]
+    switch-default [
+        "If VALUE is found in CASES, the block that follows it is evaluated"
+        value
+        cases [block!] "Eg. [a b [...] c [...] ...]"
+        default [block!] "Block to evaluate if VALUE is not found"
+        options:
+            all: no [logic!] "Evaluate all matches, not just the first one"
+
+        return: result "Result of evaluating the selected case block, or DEFAULT"
+    ]
+    case [
+        "Evaluate the block that follows the first true (not NONE or FALSE) condition"
+        cases [block!] "Eg. [a = b [...] c = d [...] ...]"
+        options:
+            all: no [logic!] "Do not stop at the first true condition"
+
+        return: result "Result of evaluating the selected block, or NONE"
+    ]
+    context-of [
+        "Return the context of a word"
+        word [any-word!]
+
+        return: context [context!]
+    ]
+    rejoin [
+        "Reduce and join all the strings in the block"
+        block [block!]
+
+        return: joined-strings [string!]
+    ]
+    type-of [
+        "Return the type of a value"
+        value
+
+        return: type [datatype!]
+    ]
+    find [
+        "Find VALUE in SERIES"
+        series [series!]
+        value
+
+        return: series "SERIES at the position of VALUE, or at its tail position if it's not found"
+    ]
+    until [
+        "Evaluate BODY repeatedly while it returns NONE or FALSE"
+        body [block!]
+
+        return: result "Result of evaluating BODY"
+    ]
+    copy [
+        "Make a copy of a value"
+        value
+
+        return: value "Copy of VALUE"
+    ]
+    cause [
+        "Cause an error"
+        error [error!]
+    ]
+    catch [
+        "Evaluate CODE and catch any value that is THROWn"
+        code [block!]
+
+        return: result "A value passed to THROW, or the result of CODE"
+    ]
+    form-error [
+        "Format the error into a human readable string"
+        error [error!]
+
+        return: string [string!]
+    ]
+    in? [
+        "Check if VALUE is in CONTAINER"
+        container "Eg. object, context, typeset..."
+        value
+
+        return: found "LOGIC! for OBJECT! and TYPESET!, WORD! or NONE! for CONTEXT!, etc."
+    ]
+    quit [
+        "Quit the Topaz interpreter"
+        exit-code [number!] "Code to return to calling environment"
+    ]
+    slice [
+        "Copy part of a series"
+        start [series!]
+        end-or-length [series! number!] "If series, needs to be same as START in a different position"
+
+        return: new-series [series!] "Same type as START"
+    ]
+
     ; compiler only
     function          [spec locals body]
     make-struct       [spec]
@@ -72,6 +422,22 @@ foreach [native spec] [
 ] [
     set native make native! reduce [spec native]
 ]
+
+; ===== FUNC ==================================================================
+
+func: make function! [
+    [
+        "Make a function"
+        spec [block!] "Function arguments specification"
+        body [block!]
+
+        return: function [function!]
+    ] [
+        make function! reduce [spec body]
+    ]
+]
+
+; ===== OPERATORS =============================================================
 
 foreach [op f] [
     +  add
@@ -86,160 +452,403 @@ foreach [op f] [
     set op make op! get f
 ]
 
-none: make none! 0
-true: on: yes: 0 = 0
-false: off: no: 0 = 1
-
-any-word!: make typeset! [word! get-word! set-word! lit-word!]
-any-path!: make typeset! [path! set-path! lit-path!]
-any-block!: make typeset! [any-path! block! paren!]
-any-function!: make typeset! [function! native!]
-series!: make typeset! [any-block! string!]
-
-func: make function! [[spec body] [make function! reduce [spec body]]]
-
 in: make op! func [value container] [in? container value]
-first: func [series] [pick series 0]
-second: func [series] [pick series 1]
-empty?: func [series] [0 = length-of series]
-mold*: :mold
-mold: func [value] [mold* :value ""]
-probe: func [value] [
-    print mold :value
-    :value
-]
-append: func [series value] [
-    head either block? :value [
-        series: tail series
-        foreach 'val value [
-            series: insert series :val
-        ]
-        series
-    ] [
-        insert tail series :value
+
+; ===== MEZZANINE FUNCTIONS ===================================================
+
+switch: func [
+    "If VALUE is found in CASES, the block that follows it is evaluated"
+    value
+    cases [block!] "Eg. [a b [...] c [...] ...]"
+    options:
+        all: no [logic!] "Evaluate all matches, not just the first one"
+
+    return: result "Result of evaluating the selected case block, or NONE"
+] [
+    switch-default/options [
+        value: value
+        cases: cases
+        default: []
+        all: all
     ]
 ]
-context: func [code] [make context! code]
-object: func [parent code] [make object! reduce [parent code]]
+
+first: func [series] [pick series 0]
+second: func [series] [pick series 1]
+tail?: empty?: func [series] [0 = length-of series]
 next: func [series] [skip series 1]
+
+q: func [] [quit 0]
+
+probe: func [
+    "Print a text representation of a value; return the value"
+    value
+    options:
+        limit [number! none!] "Limit the length of the printed text"
+        indent: "" [string!] "Add this string after each new line"
+] [
+    print mold/options [
+        value: :value
+        limit: limit
+        indent: indent
+    ]
+    :value
+]
+
+append: func [
+    "Append a value at the tail of the series"
+    series [series!]
+    value
+    options:
+        only: no [logic!] "Append series as a single value"
+
+    return: series "SERIES at its head position"
+] [
+    head insert/options [
+        series: tail series
+        value: :value
+        only: only
+    ]
+]
+
+context: func [
+    "Make a CONTEXT! value"
+    code [block!]
+
+    return: context [context!]
+] [
+    make context! code
+]
+
+object: func [
+    "Make an OBJECT! value"
+    parent [object! none!] "Inherit from this object"
+    code [block!] "Eg. [a: ... b: ...]"
+
+    return: object [object!]
+] [
+    make object! reduce [parent code]
+]
+
+found?: func [
+    "Return TRUE if FIND found the value in the series"
+    series [series!]
+
+    return: found [logic!]
+] [
+    not tail? series
+]
+
+compose: func [
+    "Create a new block replacing all parens with their value"
+    block [block!] "Block to copy from"
+    options:
+        deep: no [logic!] "Recurse into sub-blocks"
+        only: no [logic!] "Insert series as a single value"
+
+    return: copy-of-block [block!]
+] [
+    parse block rule: [
+        collect any [
+            code: paren! either (only) [keep/only (do code)] [keep (do code)]
+            |
+            if (deep) [keep/only into rule]
+            |
+            keep/only *
+        ]
+    ]
+]
+
 set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]
 block?: func [value] [block! = type-of :value]
-found?: func [series] [all [series not empty? series]]
+object?: func [value] [object! = type-of :value]
 any-word?: func [value] [in? any-word! type-of :value]
 any-path?: func [value] [in? any-path! type-of :value]
 any-block?: func [value] [in? any-block! type-of :value]
 any-function?: func [value] [in? any-function! type-of :value]
 
+; ===== THE SYSTEM OBJECT =====================================================
+
 system: object none [
     name: "Topaz"
     version: "alpha"
-    words: context-of 'system
+    words: this-context
     datatypes: datatypes
 ]
 
-parse-match: func [cursor condition] [
-    either all [not empty? cursor/block do condition] [
-        context [
-            block: next cursor/block
-            rules: next cursor/rules
-            match?: yes
-            result: first cursor/block
-        ]
+; ===== PARSE =================================================================
+
+parse: func [
+    "Parse BLOCK according to RULES"
+    block [block!]
+    rules [block!]
+
+    return: result "Last result from RULES if it matches, NONE otherwise"
+] [
+    set [match?: result:] parse* block rules none
+    if match? [result]
+]
+
+parse*: func [
+    "Parse BLOCK according to RULES (low level)"
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    match?: no
+    result: none
+    orig-block: block
+    while [
+        not empty? rules
+        '| <> first rules
     ] [
-        context [
-            block: cursor/block
-            rules: next cursor/rules
-            match?: no
-            result: none
+        rule: first rules
+        set this-context apply :parse-step this-context
+        if not match? [
+            block: orig-block
+            rules: next find rules '|
         ]
     ]
+    apply :return this-context
 ]
-parse-any: func [rule cursor] [
-    res-value: none
-    until [
-        res: parse-element rule cursor
-        if res/match? [res-value: res/result]
-        cursor/block: res/block
-        not res/match?
-    ]
-    context [
-        block: res/block
-        rules: res/rules
-        match?: yes
-        result: res-value
-    ]
-]
-parse-element: func [rule cursor] [
-    switch make word! type-of rule [
+
+parse-step: func [
+    "Try to match a rule value"
+    rule
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    switch-default make word! type-of rule [
         word! [
-            switch rule [
-                any [
-                    parse-any second cursor/rules context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        collect: cursor/collect
+            switch-default rule [
+                collect [
+                    rules: next rules
+                    rule: first rules
+                    collection: make block! none
+                    set this-context apply :parse-element this-context
+                    result: collection
+                    apply :return this-context
+                ]
+                ;collect-all []
+                copy [
+                    orig-block: block
+                    set this-context parse-element [
+                        rule: second rules
+                        block: block
+                        rules: next rules
+                        collection: none
+                    ]
+                    result: slice orig-block block
+                    apply :return this-context
+                ]
+                keep [
+                    only: no
+                    apply :parse-keep this-context
+                ]
+                object [
+                    rules: next rules
+                    rule: first rules
+                    collection: object none []
+                    set this-context apply :parse-element this-context
+                    result: collection
+                    apply :return this-context
+                ]
+                if [
+                    rules: next rules
+                    rule: first rules
+                    set this-context apply :parse-element this-context
+                    either :result [
+                        rule: first rules
+                        apply :parse-step this-context
+                    ] [
+                        match?: no
+                        result: none
+                        apply :return this-context
                     ]
                 ]
-                some [
-                    result: parse-element second cursor/rules context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        collect: cursor/collect
-                    ]
-                    if result/match? [
-                        result: parse-any second cursor/rules context [
-                            block: result/block
-                            rules: next cursor/rules
-                            collect: cursor/collect
+                either [
+                    rules: next orig-rules: rules
+                    rule: first rules
+                    set this-context apply :parse-element this-context
+                    if not all [
+                        block? true-rule: first rules
+                        block? false-rule: second rules
+                    ] [
+                        cause make error! [
+                            category: 'Parse
+                            id: 'invalid-rule
+                            message: "EITHER must be followed by a condition and two blocks"
+                            stack: orig-rules
                         ]
                     ]
-                    result
+                    set [block match?: result:] parse* block either :result [true-rule] [false-rule] collection
+                    rules: skip rules 2
+                    apply :return this-context
+                ]
+            ] [
+                apply :parse-element this-context
+            ]
+        ]
+        set-word! [
+            word: rule
+            rules: next rules
+            rule: first rules
+            match?: no
+            set this-context apply :parse-step this-context
+            if match? [
+                either object? collection [
+                    collection/(word): result
+                ] [
+                    set word result
+                ]
+            ]
+            apply :return this-context
+        ]
+        path! [
+            either rule = 'keep/only [
+                only: yes
+                apply :parse-keep this-context
+            ] [
+                apply :parse-element this-context
+            ]
+        ]
+    ] [
+        apply :parse-element this-context
+    ]
+]
+
+parse-keep: func [
+    "Handle KEEP and KEEP/ONLY"
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+    only [logic!] "If true, keep a series as a single value"
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    match?: no
+    result: none
+    if not block? collection [
+        cause make error! [
+            category: 'Parse
+            id: 'keep-outside-collect
+            message: "KEEP used outside the scope of a COLLECT"
+            stack: rules
+        ]
+    ]
+    set this-context parse-step [
+        rule: second rules
+        block: block
+        rules: next rules
+        collection: none
+    ]
+    if match? [
+        insert/options [
+            series: tail collection
+            value: result
+            only: only
+        ]
+    ]
+    apply :return this-context
+]
+
+parse-element: func [
+    "Try to match a rule element value"
+    rule
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    switch-default make word! type-of rule [
+        word! [
+            switch-default rule [
+                any [
+                    rules: next rules
+                    rule: first rules
+                    apply :parse-any this-context
+                ]
+                some [
+                    match?: no
+                    rules: any-rules: next rules
+                    rule: first rules
+                    set this-context apply :parse-element this-context
+                    if match? [
+                        rules: any-rules
+                        set this-context apply :parse-any this-context
+                    ]
+                    apply :return this-context
                 ]
                 skip * [
-                    context [
-                        block: next cursor/block
-                        rules: next cursor/rules
-                        match?: not empty? cursor/block
-                        result: if match? [first cursor/block]
-                    ]
+                    match?: not empty? block
+                    result: if match? [first block]
+                    block: next block
+                    rules: next rules
+                    apply :return this-context
                 ]
                 end [
-                    context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        match?: empty? cursor/block
+                    return [
+                        block: block
+                        rules: next rules
+                        match?: empty? block
                         result: none
                     ]
                 ]
                 here [
-                    context [
-                        block: cursor/block
-                        rules: next cursor/rules
+                    return [
+                        block: block
+                        rules: next rules
                         match?: yes
-                        result: cursor/block
+                        result: block
                     ]
                 ]
                 into [
-                    rule: second cursor/rules
+                    rule: second rules
                     if word? rule [rule: get rule]
-                    if not block? rule [throw "Invalid argument for INTO"]
-                    either all [not empty? cursor/block block? first cursor/block] [
-                        res: parse* context [
-                            block: first cursor/block
-                            rules: rule
-                            collect: cursor/collect
+                    if not block? rule [
+                        cause make error! [
+                            category: 'Parse
+                            id: 'invalid-rule
+                            message: "Invalid argument to INTO (must be BLOCK!)"
+                            args: rule
+                            stack: rules
                         ]
-                        context [
-                            block: either res/match? [next cursor/block] [cursor/block]
-                            rules: skip cursor/rules 2
-                            match?: res/match?
-                            result: res/result
+                    ]
+                    either all [not empty? block block? first block] [
+                        result: parse* first block rule collection
+                        return [
+                            block: either result/match? [next block] [block]
+                            rules: skip rules 2
+                            match?: result/match?
+                            result: result/result
                         ]
                     ] [
-                        context [
-                            block: cursor/block
-                            rules: skip cursor/rules 2
+                        return [
+                            block: block
+                            rules: skip rules 2
                             match?: no
                             result: none
                         ]
@@ -247,149 +856,100 @@ parse-element: func [rule cursor] [
                 ]
             ] [
                 ; problem: will always recurse on word! - desirable?
-                parse-element get rule cursor
+                rule: get rule
+                apply :parse-element this-context
             ]
         ]
-        lit-word! [
-            parse-match cursor [rule = first cursor/block]
-        ]
+        ;lit-word! [
+        ;    condition: [rule = first block]
+        ;    apply :parse-match this-context
+        ;]
         paren! [
-            context [
-                block: cursor/block
-                rules: next cursor/rules
+            return [
+                block: block
+                rules: next rules
                 match?: yes
                 result: do rule
             ]
         ]
         block! [
-            parse* context [
-                block: cursor/block
-                rules: rule
-                collect: cursor/collect
-            ]
+            set [block match?: result:] parse* block rule collection
+            rules: next rules
+            apply :return this-context
         ]
         datatype! [
-            parse-match cursor [rule = type-of first cursor/block]
+            condition: [rule = type-of first block]
+            apply :parse-match this-context
         ]
     ] [
-        parse-match cursor [rule = first cursor/block]
+        condition: [rule = first block]
+        apply :parse-match this-context
     ]
-]
-parse-step: func [rule cursor] [
-    switch make word! type-of rule [
-        word! [
-            switch rule [
-                collect [
-                    res: parse-element second cursor/rules cur: context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        collect: make block! none
-                    ]
-                    context [
-                        block: res/block
-                        rules: res/rules
-                        match?: res/match?
-                        result: cur/collect
-                    ]
-                ]
-                ;collect-all [
-                ;    handle-collect cursor cursor/keep-all? parse-element second cursor/rules context [
-                ;        block: cursor/block
-                ;        rules: next cursor/rules
-                ;        collect: make block! none
-                ;        keep-all?: yes
-                ;    ]
-                ;]
-                copy [
-                    res: parse-element second cursor/rules context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        collect: none
-                    ]
-                    context [
-                        block: res/block
-                        rules: res/rules
-                        match?: res/match?
-                        result: copy-part cursor/block res/block
-                    ]
-                ]
-                keep [
-                    result: parse-step second cursor/rules context [
-                        block: cursor/block
-                        rules: next cursor/rules
-                        collect: none
-                    ]
-                    if all [result/match? cursor/collect] [insert tail cursor/collect result/result]
-                    result
-                ]
-                ;object [parse-object block next rules]
-            ] [
-                parse-element rule cursor
-            ]
-        ]
-        set-word! [
-            result: parse-step second cursor/rules context [
-                block: cursor/block
-                rules: next cursor/rules
-                collect: cursor/collect
-            ]
-            if result/match? [set rule result/result]
-            result
-        ]
-    ] [
-        parse-element rule cursor
-    ]
-]
-check-alternative: func [cursor result] [
-    ; WARNING: cursor/collect is not restored
-    if not result/match? [
-        result/block: cursor/block
-        result/rules: next find result/rules '|
-    ]
-    result
-]
-; parse block according to rule, keep last result
-parse*: func [cursor] [
-    result: context [
-        block: cursor/block
-        rules: cursor/rules
-        match?: no
-        result: none
-    ]
-    while [all [not empty? result/rules '| <> first result/rules]] [
-        result: check-alternative cursor parse-step first result/rules context [
-            block: result/block
-            rules: result/rules
-            collect: cursor/collect
-        ]
-    ]
-    result
-]
-; parse block according to rule, return last result
-parse: func [block' rules'] [
-    cursor: parse* context [
-        block: block'
-        rules: rules'
-        collect: none
-    ]
-    if cursor/match? [cursor/result]
 ]
 
-; always deep
-compose: func [block] [
-    parse block rule: [
-        collect any [
-            code: paren! keep (do code)
-            |
-            keep into rule
-            |
-            keep *
+parse-any: func [
+    "Try to match a rule value repeatedly (as long as it still matches)"
+    rule
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    result: none
+    until [
+        element: apply :parse-element this-context
+        block: element/block
+        either element/match? [result: element/result false] [true]
+    ]
+    return [
+        block: block
+        rules: element/rules
+        match?: yes
+        result: result
+    ]
+]
+
+parse-match: func [
+    "Match a condition"
+    rule
+    block [block!]
+    rules [block!]
+    collection [block! object! none!] "Collect results here (eg. KEEP)"
+    condition [block!]
+
+    return:
+        block [block!] "New block position"
+        rules [block!] "New rules position"
+        match? [logic!] "Did the rules match?"
+        result "Parsing result (valid if MATCH? is TRUE)"
+] [
+    either all [not empty? block do condition] [
+        return [
+            block: next block
+            rules: next rules
+            match?: yes
+            result: first block
+        ]
+    ] [
+        return [
+            block: block
+            rules: next rules
+            match?: no
+            result: none
         ]
     ]
 ]
+
+; ===== COMPILER KEYWORDS =====================================================
 
 compiler-keywords: context [
     none: make native! [[] none]
     true: make native! [[] true]
     false: make native! [[] false]
+    switch: make native! [[value cases options: all: no [logic!]] switch]
 ]

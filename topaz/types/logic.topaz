@@ -28,24 +28,28 @@ make-type 'logic! [
         either value [true-value] [false-value]
     ]
     topaz-make: function [value] [] [
-        switch value/type/name [
+        switch-default value/type/name [
             "none!" [false-value]
             "logic!" [value]
         ] [
             true-value
         ]
     ]
-    mold: function [value indent] [] [
-        either value/value [
-            "true"
-        ] [
-            "false"
-        ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        value
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string either value/value ["true"] ["false"] limit
     ]
     do: function [value block] [] [
         reduce [value skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [value block] [] [
         reduce [ast-value value skip block 1]
     ]

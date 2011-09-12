@@ -55,7 +55,7 @@ make-type 'typeset! [
             if value/type/name = "word!" [
                 value: get value
             ]
-            switch value/type/name [
+            switch-default value/type/name [
                 "datatype!" [
                     append-array tps value
                 ]
@@ -75,15 +75,23 @@ make-type 'typeset! [
                 ]
             ]
         ]
-        apply 'typeset!/make [make-struct [types: tps]]
+        apply typeset!/make [make-struct [types: tps]]
     ]
-    mold: function [ts indent] [] [
-        rejoin ["make typeset! [" apply 'ts/names/join [" "] "]"]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        ts
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["make typeset! [" apply ts/names/join [" "] "]"] limit
     ]
     do: function [ts block] [] [
         reduce [ts skip block 1]
     ]
-    bind: function [ts context extend?] [] [ts]
+    bind: :default-bind
     compile: function [ts block] [] [
         reduce [ast-value ts skip block 1]
     ]

@@ -24,10 +24,10 @@
 ; ===== COMPILER ABSTRACT SYNTAX TREE =========================================
 
 to-js: function [node context] [] [
-    apply 'node/to-js [node context]
+    apply node/to-js [node context]
 ]
 to-js-common: function [js-text context] [] [
-    switch context [
+    switch-default context [
         "return" [
             rejoin ["return " js-text ";"]
         ]
@@ -94,10 +94,10 @@ words-to-js: function [words] [res word] [
                     words: next words
                 ]
             ]
-        ] []
+        ]
         words: next words
     ]
-    apply 'res/join []
+    apply res/join []
 ]
 
 ast-value: function [value] [] [
@@ -105,15 +105,15 @@ ast-value: function [value] [] [
         node-type: "value/" + value/type/name
         value: value
         to-js: function [node context] [res] [
-            switch node/value/type/name [
+            switch-default node/value/type/name [
                 "string!" [
-                    res: apply 'JSON/stringify [node/value/string]
+                    res: apply JSON/stringify [node/value/string]
                 ]
                 "char!" [
-                    res: apply 'JSON/stringify [node/value/string]
+                    res: apply JSON/stringify [node/value/string]
                 ]
                 "number!" [
-                    res: apply 'node/value/number/to-string []
+                    res: apply node/value/number/to-string []
                 ]
                 "none!" [
                     res: "null"
@@ -169,7 +169,7 @@ ast-get: function [word] [] [
     ]
 ]
 ast-get-path: function [expr selector] [] [
-    switch selector/type/name [
+    switch-default selector/type/name [
         "paren!" [
             selector: compile selector
         ]
@@ -194,7 +194,7 @@ ast-get-path: function [expr selector] [] [
     ]
 ]
 ast-set-path: function [expr selector set-to] [] [
-    switch selector/type/name [
+    switch-default selector/type/name [
         "paren!" [
             selector: compile selector
         ]
@@ -232,7 +232,7 @@ ast-set-path: function [expr selector set-to] [] [
                 "paren" [
                     rejoin ["(" res ")"]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -282,33 +282,22 @@ ast-set: function [word set-to] [] [
                     "paren" [
                         rejoin ["(" res ")"]
                     ]
-                ] []
+                ]
             ]
         ]
     ]
 ]
-ast-function-call: function [name args] [] [
+ast-function-call: function [func args] [] [
     make-struct [
         node-type: "function-call"
-        name: name
+        func: func
         args: args
-        to-js: function [node context] [res i] [
-            either node/name/type/name = "path!" [
-                res: pick-array apply 'path!/compile [node/name make block! none] 0
-                res: to-js res "expression"
-            ] [
-                res: name-to-js node/name/word
+        to-js: function [node context] [res] [
+            res: make-array
+            foreach 'arg node/args [
+                append-array res to-js arg "expression"
             ]
-            res: res + "("
-            if 0 < length-of-array node/args [
-                res: res + to-js pick-array node/args 0 "expression"
-                i: 1
-                while [i < length-of-array node/args] [
-                    res: rejoin [res "," to-js pick-array node/args i "expression"]
-                    i: i + 1
-                ]
-            ]
-            to-js-common res + ")" context
+            to-js-common rejoin [to-js node/func "expression" "(" apply res/join [] ")"] context
         ]
     ]
 ]
@@ -357,7 +346,7 @@ ast-expressions: function [list] [] [
                         res: "return null;"
                     ]
                 ]
-            ] []
+            ]
             res
         ]
     ]
@@ -393,7 +382,7 @@ ast-function-definition: function [spec locals body] [] [
                         message: "Function definition cannot be used as a statement"
                     ]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -424,7 +413,7 @@ ast-throw: function [expr] [] [
                 "return" [
                     res
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -448,7 +437,7 @@ ast-either: function [condition true-body false-body] [] [
                 "return" [
                     either-stmt-to-js node "return"
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -550,7 +539,7 @@ ast-poke: function [arr pos value] [] [
                 "paren" [
                     rejoin ["(" res ")"]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -592,7 +581,7 @@ ast-all: function [exprs] [] [
                 "return" [
                     rejoin ["return " res ";"]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -624,7 +613,7 @@ ast-any: function [exprs] [] [
                 "return" [
                     rejoin ["return " res ";"]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -659,11 +648,15 @@ ast-switch: function [value cases def] [] [
                         ]
                         i: i + 1
                     ]
-                    rejoin [
-                        res
-                        "default:"
-                        to-js node/def "statement"
-                        "}"
+                    either node/def [
+                        rejoin [
+                            res
+                            "default:"
+                            to-js node/def "statement"
+                            "}"
+                        ]
+                    ] [
+                        res + "}"
                     ]
                 ]
                 "expression" [
@@ -692,14 +685,18 @@ ast-switch: function [value cases def] [] [
                         ]
                         i: i + 1
                     ]
-                    rejoin [
-                        res
-                        "default:"
-                        to-js node/def "return"
-                        "}"
+                    either node/def [
+                        rejoin [
+                            res
+                            "default:"
+                            to-js node/def "return"
+                            "}"
+                        ]
+                    ] [
+                        res + "}"
                     ]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -723,7 +720,12 @@ ast-try: function [code word def] [] [
         to-js: function [node context] [] [
             switch context [
                 "statement" [
-                    try-to-js node/code node/word/word node/def "statement"
+                    try-to-js [
+                        code: node/code
+                        name: node/word/word
+                        def: node/def
+                        context: "statement"
+                    ]
                 ]
                 "expression" [
                     error make-struct [
@@ -740,9 +742,14 @@ ast-try: function [code word def] [] [
                     ]
                 ]
                 "return" [
-                    try-to-js node/code node/word/word node/def "return"
+                    try-to-js [
+                        code: node/code
+                        name: node/word/word
+                        def: node/def
+                        context: "return"
+                    ]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -767,7 +774,7 @@ ast-op: function [op val1 val2] [] [
                 "return" [
                     rejoin ["return " res ";"]
                 ]
-            ] []
+            ]
         ]
     ]
 ]
@@ -835,6 +842,20 @@ compile-cases: function [cases] [cond orig-cases] [
     ]
 ]
 
+compile-switch: function [value cases def] [expr compiled-cases] [
+    cases: cases/value
+    compiled-cases: make-array
+    while [not empty? cases] [
+        set [expr cases] compile-step cases
+        append-array compiled-cases make-struct [
+            value: expr
+            expr: compile first cases
+        ]
+        cases: skip cases 1
+    ]
+    ast-switch value compiled-cases if def [compile def/value]
+]
+
 native-compilers: make-struct [
     add: function [val1 val2] [] [ast-op "+" val1 val2]
     subtract: function [val1 val2] [] [ast-op "-" val1 val2]
@@ -860,8 +881,8 @@ native-compilers: make-struct [
     ]
     not: function [value] [] [ast-not value]
     make-struct: function [spec] [] [ast-struct parse-struct-spec spec]
-    apply: function [func-name args] [] [
-        ast-function-call func-name/value compile-reduce args/value
+    apply: function [func args only] [] [
+        ast-function-call func compile-reduce args/value
     ]
     reduce: function [block] [] [ast-reduce compile-reduce block/value]
     while: function [condblock body] [condition] [
@@ -890,19 +911,11 @@ native-compilers: make-struct [
     all: function [block] [] [ast-all compile-reduce block/value]
     any: function [block] [] [ast-any compile-reduce block/value]
     regexp: function [exp flags] [] [ast-regexp exp/value flags/value]
-    switch: function [value cases def] [expr compiled-cases] [
-        cases: cases/value
-        def: def/value
-        compiled-cases: make-array
-        while [not empty? cases] [
-            set [expr cases] compile-step cases
-            append-array compiled-cases make-struct [
-                value: expr
-                expr: compile first cases
-            ]
-            cases: skip cases 1
-        ]
-        ast-switch value compiled-cases compile def
+    switch-default: function [value cases def] [] [
+        compile-switch value cases def
+    ]
+    switch: function [value cases] [] [
+        compile-switch value cases none
     ]
     case: function [cases] [expr] [
         if empty? cases/value [

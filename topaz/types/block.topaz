@@ -39,17 +39,34 @@ compare-blocks: function [block1 block2] [pos1 pos2 len] [
     ]
 ]
 
-insert-block: function [block value] [] [
-    insert-array block/values block/pos value
-    insert-array block/newlines block/pos false
-    make-block block/type make-struct [
-        values: block/values
-        pos: block/pos + 1
-        newlines: block/newlines
+insert-block: function [
+    "Insert a value at the current position of the series"
+    block [any-block!]
+    value
+    options:
+        only: no [logic!] "Insert series as a single value"
+        new-line: no [logic!] "Temporary - add new line before value on MOLD"
+] [tmp] [
+    either all [not only insert-as-block? value] [
+        insert-array2 block/values block/pos tmp: copy-array value/values value/pos
+        insert-array2 block/newlines block/pos copy-array value/newlines value/pos
+        make-block block/type make-struct [
+            values: block/values
+            pos: block/pos + length-of-array tmp
+            newlines: block/newlines
+        ]
+    ] [
+        insert-array block/values block/pos value
+        insert-array block/newlines block/pos new-line
+        make-block block/type make-struct [
+            values: block/values
+            pos: block/pos + 1
+            newlines: block/newlines
+        ]
     ]
 ]
 
-skip-block: function [block amount] [pos len] [
+skip-block: function [block amount] [] [
     at-block block block/pos + amount
 ]
 
@@ -76,8 +93,22 @@ length-of-block: function [block] [] [
     (length-of-array block/values) - block/pos
 ]
 
-bind-block: function [words context extend?] [] [
-    bind-values words/values words/pos context extend?
+bind-block: function [
+    "Bind words to a specified context"
+    words [any-block!]
+    context [context!]
+    options:
+        copy: no [logic!] "Bind a (deep) copy of WORDS"
+        new: no [logic!] "Add all words to CONTEXT"
+] [] [
+    if :copy [words: copy-block words/type words]
+    bind-values [
+        values: words/values
+        pos: words/pos
+        context: context
+        copy: :copy
+        new: new
+    ]
     words
 ]
 
@@ -90,20 +121,30 @@ make-type 'block! [
     skip: :skip-block
     pick: :pick-block
     length-of: :length-of-block
-    mold: function [block indent] [result pos ind] [
-        result: "["
-        pos: block/pos
-        ind: indent + "    "
-        if pos < length-of-array block/values [
-            result: mold-step2 result block/values block/newlines pos ind "" #"^/"
-            pos: pos + 1
-            while [pos < length-of-array block/values] [
-                result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
-                pos: pos + 1
-            ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        block
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-values [
+            open: "["
+            close: either block/newlines/(length-of-array block/values) [
+                rejoin ["^/" indent "]"]
+            ] ["]"]
+            sep: " "
+            flat: flat
+            nlsep: either flat [" "] [rejoin ["^/" indent either only [""] ["    "]]]
+            indent: either flat [""] [rejoin [indent either only [""] ["    "]]]
+            limit: limit
+            only: only
+            values: block/values
+            newlines: block/newlines
+            pos: block/pos
         ]
-        if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
-        result + #"]"
     ]
     do: function [block container] [] [
         reduce [block skip container 1]
@@ -134,13 +175,13 @@ make-block: function [type args] [] [
 
 copy-block: function [type value] [] [
     make-block type make-struct [
-        values: apply 'value/values/slice [value/pos]
-        newlines: apply 'value/newlines/slice [value/pos]
+        values: copy-array value/values value/pos
+        newlines: copy-array value/newlines value/pos
     ]
 ]
 
 topaz-make-block: function [type value] [] [
-    switch value/type/name [
+    switch-default value/type/name [
         "block!"    [copy-block type value]
         "paren!"    [copy-block type value]
         "path!"     [path-to-block type value]
@@ -150,29 +191,20 @@ topaz-make-block: function [type value] [] [
     ] [make-block type none]
 ]
 
-bind-values: function [values pos context extend?] [] [
+bind-values: function [values pos context copy new] [] [
     while [pos < length-of-array values] [
-        poke-array values pos bind pick-array values pos context extend?
+        values/(pos): bind/options [
+            words: values/:pos
+            context: context
+            copy: :copy
+            new: new
+        ]
         pos: pos + 1
     ]
     none
 ]
-mold-step1: function [result values pos indent sep] [] [
-    rejoin [result sep mold-value pick-array values pos indent]
-]
-mold-step2: function [result values newlines pos indent sep nlsep] [] [
-    if pick-array newlines pos [
-        sep: nlsep + indent
-    ]
-    mold-step1 result values pos indent sep
-]
-new-line: function [block newline?] [] [
+set-new-line: function [block newline?] [] [
     poke-array block/newlines block/pos newline?
-]
-insert-nl: function [block value newline?] [] [
-    block: insert block value
-    poke-array block/newlines block/pos - 1 newline?
-    block
 ]
 append: function [block value] [] [
     head insert tail block value
@@ -181,7 +213,7 @@ append: function [block value] [] [
 _foreach-blk: function [block fnc] [pos] [
     pos: block/pos
     while [pos < length-of-array block/values] [
-        apply 'fnc [block/values/:pos pos]
+        apply fnc [block/values/:pos pos]
         pos: pos + 1
     ]
     none
@@ -197,6 +229,76 @@ at-block: function [block pos] [len] [
         pos: pos
         newlines: block/newlines
     ]
+]
+
+mold-step: function [
+    result
+    value
+    flat
+    limit
+    indent
+    sep
+] [] [
+    rejoin [
+        result
+        sep
+        mold/options [
+            value: value
+            flat: flat
+            limit: subtract-limit result limit
+            indent: indent
+        ]
+    ]
+]
+mold-values: function [
+    "Mold an array of values"
+    open
+    close
+    sep
+    flat
+    nlsep
+    indent
+    limit
+    only
+    values
+    newlines
+    pos
+] [result value len] [
+    result: either only [""] [open]
+    if all [
+        within-limit? result limit
+        pos < length-of-array values
+    ] [
+        result: mold-step [
+            result: result
+            value: values/:pos
+            flat: flat
+            limit: limit
+            indent: indent
+            sep: either all [not only newlines/:pos] [nlsep] [""]
+        ]
+        pos: pos + 1
+        while [all [
+            within-limit? result limit
+            pos < length-of-array values
+        ]] [
+            result: mold-step [
+                result: result
+                value: values/:pos
+                flat: flat
+                limit: limit
+                indent: indent
+                sep: either newlines/:pos [nlsep] [sep]
+            ]
+            pos: pos + 1
+        ]
+    ]
+    either pos = length-of-array values [
+        result: rejoin [result either only [""] [close]]
+    ] [
+        result: rejoin [result "..."]
+    ]
+    limit-string result limit
 ]
 
 parse-block: function [text] [values] [

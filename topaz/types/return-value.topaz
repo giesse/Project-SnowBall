@@ -1,4 +1,4 @@
-; Topaz types: NONE!
+; Topaz types: RETURN!
 ;
 ; Copyright 2011 Gabriele Santilli
 ;
@@ -21,36 +21,23 @@
 ; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ; OTHER DEALINGS IN THE SOFTWARE.
 
-; ===== TYPES: NONE! ==========================================================
+; ===== TYPES: RETURN! ========================================================
 
-make-type 'none! [
-    make: function [ignored] [] [none-value]
-    topaz-make: function [ignored] [] [none-value]
-    mold: function [
-        "Return a LOAD-able text representation of a value"
-        value
-        options:
-            only: no [logic!] "Don't generate outer [ ] for block! values"
-            flat: no [logic!] "Produce a single text line"
-            limit [number! none!] "Don't return a string longer than LIMIT characters"
-            indent: "" [string!] "Add this string after each new line (ignored if flat)"
-    ] [] [
-        limit-string "none" limit
+; This is an internal datatype
+
+make-internal-type 'return-value! [
+    make: function [arguments] [] [
+        make-struct [
+            type: return-value!
+            value: arguments/value
+            func: arguments/func
+        ]
     ]
-    do: function [value block] [] [
-        reduce [value skip block 1]
-    ]
-    bind: :default-bind
-    compile: function [value block] [] [
-        reduce [ast-value value skip block 1]
-    ]
+    topaz-make: function [] [] [should-not-happen "MAKE" "RETURN!"]
+    mold: function [] [] [should-not-happen "MOLD" "RETURN!"]
+    do: function [] [] [should-not-happen "DO" "RETURN!"]
+    bind: function [] [] [should-not-happen "BIND" "RETURN!"]
+    compile: function [] [] [should-not-happen "COMPILE" "RETURN!"]
     equal?: :default-equal?
     copy: function [value] [] [value]
-]
-none!/("none!"): make-struct [
-    equal?: function [val1 val2] [] [true]
-]
-
-none-value: make-struct [
-    type: none!
 ]

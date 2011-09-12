@@ -34,7 +34,7 @@ make-type 'object! [
         ]
     ]
     topaz-make: function [code] [obj parent] [
-        switch code/type/name [
+        switch-default code/type/name [
             "block!" [
                 parent: first code
                 case [
@@ -64,18 +64,47 @@ make-type 'object! [
         ]
         obj
     ]
-    mold: function [obj indent] [block i] [
-        block: make block! none
-        foreach 'word obj/words [
-            block: insert insert-nl block make set-word! word true obj/map/:word
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        obj
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [result] [
+        result: "object "
+        if within-limit? result limit [
+            result: rejoin [
+                result
+                either obj/parent [
+                    mold/options [
+                        value: obj/parent
+                        flat: flat
+                        limit: limit - length-of-array result
+                        indent: indent
+                    ]
+                ] [
+                    "none"
+                ]
+                " ["
+            ]
         ]
-        new-line block true
-        rejoin ["object " either obj/parent [mold-value obj/parent indent] ["none"] " " mold-value head block indent]
+        mold-words-and-values [
+            open: result
+            close: either flat ["]"] [rejoin ["^/" indent "]"]]
+            limit: limit
+            words: obj/words
+            get-word-f: function [word] [] [obj/map/:word]
+            sep: either flat [" "] [rejoin ["^/" indent "    "]]
+            flat: flat
+            indent: rejoin [indent "    "]
+        ]
     ]
     do: function [object block] [] [
         reduce [object skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [object block] [] [
         reduce [ast-value object skip block 1]
     ]
@@ -116,7 +145,7 @@ make-type 'object! [
 ]
 
 in-object?: function [obj word] [] [
-    0 <= apply 'obj/words/index-of [word]
+    0 <= apply obj/words/index-of [word]
 ]
 
 set-word-in-object: function [object word set-to] [] [
@@ -130,7 +159,7 @@ get-word-in-object: function [object word] [] [
 parse-object-spec: function [obj spec] [word value] [
     while [not empty? spec] [
         word: first spec
-        switch word/type/name [
+        switch-default word/type/name [
             "set-word!" [
                 set [value spec] do-step second spec next spec
                 set-word-in-object obj word/word value
@@ -150,4 +179,12 @@ parse-object-spec: function [obj spec] [word value] [
         ]
     ]
     obj
+]
+
+export-object-to-context: function [object context] [] [
+    if object/parent [export-object-to-context object/parent context]
+    foreach 'word object/words [
+        set-in-context context make word! word object/map/:word
+    ]
+    none
 ]

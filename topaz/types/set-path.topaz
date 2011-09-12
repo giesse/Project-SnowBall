@@ -32,18 +32,28 @@ make-type 'set-path! [
     skip: :skip-path
     pick: :pick-block
     length-of: :length-of-block
-    mold: function [block indent] [result pos] [
-        result: ""
-        pos: block/pos
-        if pos < length-of-array block/values [
-            result: mold-step1 result block/values pos indent ""
-            pos: pos + 1
-            while [pos < length-of-array block/values] [
-                result: mold-step1 result block/values pos indent #"/"
-                pos: pos + 1
-            ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        block
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-values [
+            open: ""
+            close: ":"
+            sep: "/"
+            flat: true
+            nlsep: "/"
+            indent: ""
+            limit: limit
+            only: false
+            values: block/values
+            newlines: make-array
+            pos: block/pos
         ]
-        result + #":"
     ]
     do: function [path block] [value set-to] [
         if 2 > length-of path [
@@ -118,7 +128,7 @@ parse-set-path: function [text] [path value] [
         while [all [not empty? text  #"/" = first text]] [
             set [value text] parse-path-element skip text 1
             either value [
-                path: insert path value
+                path: insert/only path value
             ] [
                 error make-struct [
                     category: "Syntax"

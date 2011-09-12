@@ -173,7 +173,7 @@ function-get-path: function [func selector] [arg] [
             ]
         ]
         func: clone-object func
-        func/flags: apply 'func/flags/concat [selector/word]
+        func/flags: apply func/flags/concat [selector/word]
     ]
     func
 ]
@@ -183,7 +183,8 @@ make-type 'function! [
         fnc: make-struct [
             type: function!
             mode: "fixed" ; default invocation syntax
-            fixed-list: make-array ; list of mandatory arguments
+            args-list: make-array ; list of all arguments
+            mandatory: 0 ; number of mandatory arguments
             args: make-struct [] ; map of all arguments
             flags: make-array ; active "flags"
             context: make context! none
@@ -191,9 +192,9 @@ make-type 'function! [
             body: arguments/1
         ]
         parse-function-spec fnc
-        if 3 < length-of-array fnc/fixed-list [fnc/mode: "named"]
+        if 3 < fnc/mandatory [fnc/mode: "named"]
         collect-locals fnc
-        bind fnc/body fnc/context false
+        bind fnc/body fnc/context
         fnc
     ]
     topaz-make: function [block] [] [
@@ -227,23 +228,55 @@ make-type 'function! [
                 message: "Function body must be a BLOCK!"
             ]
         ]
-        apply 'function!/make [block/values]
+        apply function!/make [block/values]
     ]
-    mold: function [func indent] [] [
-        rejoin ["func " mold-value func/spec indent " " mold-value func/body indent]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        func
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [result] [
+        result: "func "
+        if within-limit? result limit [
+            result: rejoin [
+                result
+                mold/options [
+                    value: func/spec
+                    flat: flat
+                    limit: subtract-limit result limit
+                    indent: indent
+                ]
+                " "
+            ]
+        ]
+        if within-limit? result limit [
+            result: rejoin [
+                result
+                mold/options [
+                    value: func/body
+                    flat: flat
+                    limit: subtract-limit result limit
+                    indent: indent
+                ]
+            ]
+        ]
+        limit-string result limit
     ]
     do: function [func block] [result] [
         push-context func/context
         block: collect-function-arguments func block
-        result: do func/body
+        result: call-function func
         pop-context func/context
         reduce [result block]
     ]
-    bind: function [func context extend?] [] [func]
+    bind: :default-bind
     compile: function [func block] [expr] [
         push-context func/context
         block: compile-function-arguments func block true
-        if not expression? expr: do func/body [
+        if not expression? expr: call-function func [
             error make-struct [
                 category: "Compilation"
                 id: "invalid-argument"
@@ -258,15 +291,29 @@ make-type 'function! [
     get-path: :function-get-path
 ]
 
-collect-function-arguments-generic: function [func block category logic-true do-arg check-arg] [args args-block] [
-    args: clone-values func/context
+collect-function-arguments-generic: function [
+    args
+    func
+    block
+    category
+    logic-true
+    do-arg
+    check-arg
+] [args args-block] [
     ; set flags (assumes valid list)
     foreach 'flag func/flags [
         poke-array args func/args/:flag/offset logic-true
     ]
-    switch func/mode [
+    switch-default func/mode [
         "fixed" [
-            block: collect-arguments func/fixed-list args skip block 1 category :do-arg :check-arg
+            block: collect-arguments [
+                list: slice-array func/args-list 0 func/mandatory
+                target: args
+                block: skip block 1
+                category: category
+                do-arg: :do-arg
+                check-arg: :check-arg
+            ]
         ]
         "named" [
             if empty? next block [
@@ -285,7 +332,16 @@ collect-function-arguments-generic: function [func block category logic-true do-
                     args: args-block/type
                 ]
             ]
-            parse-named-arguments func/args func/fixed-list args args-block category logic-true :do-arg :check-arg
+            parse-named-arguments [
+                args: func/args
+                list: func/args-list
+                target: args
+                block: args-block
+                category: category
+                logic-true: logic-true
+                do-arg: :do-arg
+                check-arg: :check-arg
+            ]
             block: skip block 2
         ]
     ] [
@@ -300,17 +356,29 @@ collect-function-arguments-generic: function [func block category logic-true do-
 ]
 check-argument: function [arg value block] [] [
     if all [arg/types not in-typeset? arg/types value/type/name] [
-        invalid-argument-type "Script" arg value block
+        invalid-argument-type [
+            category: "Script"
+            arg: arg
+            value: value
+            stack: block
+        ]
     ]
 ]
 collect-function-arguments: function [func block] [] [
-    collect-function-arguments-generic func block "Script" make logic! true function [block] [] [do-step first block block]
-        :check-argument
+    collect-function-arguments-generic [
+        args: clone-values func/context
+        func: func
+        block: block
+        category: "Script"
+        logic-true: make logic! true
+        do-arg: function [block] [] [do-step first block block]
+        check-arg: :check-argument
+    ]
 ]
 compile-function-arguments: function [func block wrap?] [logic-true comp-arg args] [
     logic-true: ast-value make logic! true
     ; prepare default arguments
-    args: func/context/values
+    args: clone-values func/context
     foreach [arg pos] args [
         if arg [
             ; only immediate values supported
@@ -326,10 +394,24 @@ compile-function-arguments: function [func block wrap?] [logic-true comp-arg arg
     ] [
         comp-arg: function [block] [] [compile-step block]
     ]
-    collect-function-arguments-generic func block "Compilation" logic-true :comp-arg
-        function [arg value block] [] []
+    collect-function-arguments-generic [
+        args: args
+        func: func
+        block: block
+        category: "Compilation"
+        logic-true: logic-true
+        do-arg: :comp-arg
+        check-arg: function [arg value block] [] []
+    ]
 ]
-collect-arguments: function [list target block category do-arg check-arg] [value orig-block] [
+collect-arguments: function [
+    list
+    target
+    block
+    category
+    do-arg
+    check-arg
+] [value orig-block] [
     foreach 'arg list [
         if empty? block [
             error make-struct [
@@ -338,20 +420,25 @@ collect-arguments: function [list target block category do-arg check-arg] [value
                 message: "Not enough arguments for function"
             ]
         ]
-        set [value block] apply 'do-arg [orig-block: block]
-        apply 'check-arg [arg value orig-block]
+        set [value block] apply do-arg [orig-block: block]
+        apply check-arg [arg value orig-block]
         poke-array target arg/offset value
     ]
     block
 ]
-invalid-argument-type: function [category arg value stack] [] [
+invalid-argument-type: function [
+    category
+    arg
+    value
+    stack
+] [] [
     error make-struct [
         category: category
         id: "invalid-argument"
         message: rejoin [
-            "Invalid type for argument " apply 'arg/word/word/to-upper-case []
+            "Invalid type for argument " apply arg/word/word/to-upper-case []
             ": " value/type/name " not in "
-            mold-value arg/types ""
+            mold/only arg/types
         ]
         args: value
         stack: stack
@@ -366,10 +453,19 @@ invalid-argument-name: function [category word stack] [] [
         stack: stack
     ]
 ]
-parse-named-arguments: function [args list target block category logic-true do-arg check-arg] [word value arg orig-block] [
+parse-named-arguments: function [
+    args
+    list
+    target
+    block
+    category
+    logic-true
+    do-arg
+    check-arg
+] [word value arg orig-block] [
     while [not empty? block] [
         word: first block
-        switch word/type/name [
+        switch-default word/type/name [
             "word!" [
                 if not arg: args/(word/word) [
                     invalid-argument-name category word block
@@ -381,7 +477,7 @@ parse-named-arguments: function [args list target block category logic-true do-a
                 if not arg: args/(word/word) [
                     invalid-argument-name category word block
                 ]
-                set [value block] apply 'do-arg [orig-block: next block]
+                set [value block] apply do-arg [orig-block: next block]
             ]
         ] [
             error make-struct [
@@ -392,7 +488,7 @@ parse-named-arguments: function [args list target block category logic-true do-a
                 stack: block
             ]
         ]
-        apply 'check-arg [arg value orig-block]
+        apply check-arg [arg value orig-block]
         poke-array target arg/offset value
     ]
     ; check mandatory arguments
@@ -423,7 +519,7 @@ parse-function-spec: function [fnc] [spec] [
     spec: fnc/spec
     while [not empty? spec] [
         value: first spec
-        switch value/type/name [
+        switch-default value/type/name [
             "string!" [
                 ; doc string, just ignored
                 spec: next spec
@@ -432,7 +528,7 @@ parse-function-spec: function [fnc] [spec] [
                 spec: parse-argument-spec fnc spec false
             ]
             "set-word!" [
-                switch value/word [
+                switch-default value/word [
                     "options" [
                         spec: parse-function-options fnc next spec
                     ]
@@ -457,7 +553,8 @@ parse-argument-spec: function [fnc spec opt?] [word arg value] [
         types: none
         offset: 0
     ]
-    if not opt? [append-array fnc/fixed-list arg]
+    append-array fnc/args-list arg
+    if not opt? [fnc/mandatory: fnc/mandatory + 1]
     fnc/args/(word/word): arg
     if 0 <= get-word-offset fnc/context word/word [
         error make-struct [
@@ -489,14 +586,14 @@ parse-argument-spec: function [fnc spec opt?] [word arg value] [
         value: first spec
         if block? value [
             spec: next spec
-            arg/types: apply 'typeset!/topaz-make [value]
+            arg/types: apply typeset!/topaz-make [value]
         ]
     ]
     spec
 ]
 parse-function-options: function [fnc spec] [word] [
     while [all [not empty? spec word: first spec either set-word? word [word/word <> "return"] [true]]] [
-        switch word/type/name [
+        switch-default word/type/name [
             "word!" [spec: parse-argument-spec fnc spec true]
             "set-word!" [spec: parse-argument-spec fnc spec true]
             "string!" [spec: next spec]
@@ -506,10 +603,147 @@ parse-function-options: function [fnc spec] [word] [
     ]
     spec
 ]
-parse-function-return: function [fnc spec] [] [
-    ; TODO
-    tail spec
+parse-function-return: function [fnc spec] [value ret] [
+    ret: spec
+    while [not empty? spec] [
+        value: first spec
+        switch-default value/type/name [
+            "word!" [
+                spec: next spec
+                if all [not empty? spec block? first spec] [
+                    spec: next spec
+                ]
+            ]
+            "string!" [
+                spec: next spec
+            ]
+        ] [
+            invalid-spec-value value spec
+        ]
+    ]
+    set-in-context fnc/context make word! "return" make return! make-struct [
+        spec: ret
+        func: fnc
+    ]
+    spec
 ]
 collect-locals: function [fnc] [] [
-    bind collect-set-words make block! none fnc/body true fnc/context true
+    bind/new collect-set-words/deep make block! none fnc/body fnc/context
+]
+
+call-function: function [func] [res] [
+    try [
+        res: do func/body
+    ] 'e [
+        e: handle-js-error e
+        either all [e/type/name = "return-value!" e/func = func] [
+            res: e/value
+        ] [
+            throw e
+        ]
+    ]
+    res
+]
+call-any-function: function [func] [] [
+    switch func/type/name [
+        "function!" [
+            call-function func
+        ]
+        "native!" [
+            call-native func
+        ]
+        "return!" [
+            call-return func
+        ]
+    ]
+]
+apply-only: function [func args [block!]] [value target] [
+    push-context func/context
+    target: clone-values func/context
+    foreach 'arg func/args-list [
+        either value: args/values/(arg/offset) [
+            check-argument arg value none
+            target/(arg/offset): value
+        ] [
+            if not arg/optional? [
+                error make-struct [
+                    category: "Script"
+                    id: "missing-argument"
+                    message: "Not enough arguments in the argument list during APPLY/ONLY"
+                ]
+            ]
+        ]
+    ]
+    func/context/values: target
+    value: call-any-function func
+    pop-context func/context
+    value
+]
+apply-object: function [func obj] [value target] [
+    push-context func/context
+    target: clone-values func/context
+    foreach 'arg func/args-list [
+        either value: obj/map/(arg/word/word) [
+            check-argument arg value none
+            target/(arg/offset): value
+        ] [
+            if not arg/optional? [
+                error make-struct [
+                    category: "Script"
+                    id: "missing-argument"
+                    message: "Missing mandatory argument"
+                    args: arg/word
+                ]
+            ]
+        ]
+    ]
+    func/context/values: target
+    value: call-any-function func
+    pop-context func/context
+    value
+]
+apply-context: function [func ctx] [target value] [
+    ; we could optimize the case where func/context and ctx are the same context
+    push-context func/context
+    target: clone-values func/context
+    foreach 'arg func/args-list [
+        either all [
+            0 <= value: get-word-offset ctx arg/word/word
+            value: ctx/values/:value
+        ] [
+            check-argument arg value none
+            target/(arg/offset): value
+        ] [
+            if not arg/optional? [
+                error make-struct [
+                    category: "Script"
+                    id: "missing-argument"
+                    message: "Missing mandatory argument"
+                    args: arg/word
+                ]
+            ]
+        ]
+    ]
+    func/context/values: target
+    value: call-any-function func
+    pop-context func/context
+    value
+]
+apply-block: function [func block] [target] [
+    push-context func/context
+    target: clone-values func/context
+    parse-named-arguments [
+        args: func/args
+        list: func/args-list
+        target: target
+        block: block
+        category: "Script"
+        logic-true: make logic! true
+        do-arg: function [block] [] [do-step first block block]
+        check-arg: :check-argument
+    ]
+    func/context/values: target
+    value: call-any-function func
+    pop-context func/context
+    value
 ]

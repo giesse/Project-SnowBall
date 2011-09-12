@@ -28,7 +28,8 @@ make-type 'native! [
         fnc: make-struct [
             type: native!
             mode: "fixed" ; default invocation syntax
-            fixed-list: make-array ; list of mandatory arguments
+            args-list: make-array ; list of all arguments
+            mandatory: 0 ; number of mandatory arguments
             args: make-struct [] ; map of all arguments
             flags: make-array ; active flags
             context: make context! none ; simplifies code, not optimal
@@ -37,7 +38,7 @@ make-type 'native! [
             compile: arguments/2
         ]
         parse-function-spec fnc
-        if 3 < length-of-array fnc/fixed-list [fnc/mode: "named"]
+        if 3 < fnc/mandatory [fnc/mode: "named"]
         fnc
     ]
     topaz-make: function [block] [spec name f c] [
@@ -76,26 +77,27 @@ make-type 'native! [
         name: name/word
         f: natives/(name-to-js name)
         c: native-compilers/(name-to-js name)
-        apply 'native!/make [reduce [spec f c]]
+        apply native!/make [reduce [spec f c]]
     ]
-    mold: function [func indent] [] [
-        "native " + mold-value func/spec indent
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        func
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["native " mold/options [value: func/spec flat: flat limit: limit indent: indent]] limit
     ]
-    do: function [func block] [args] [
-        if not func/func [
-            error make-struct [
-                category: "Internal"
-                id: "not-implemented"
-                message: "This is a compiler-only native"
-            ]
-        ]
+    do: function [func block] [res] [
         push-context func/context
         block: collect-function-arguments func block
-        args: func/context/values
+        res: call-native func
         pop-context func/context
-        reduce [apply 'func/func/apply [none args] block]
+        reduce [res block]
     ]
-    bind: function [func context extend?] [] [func]
+    bind: :default-bind
     compile: function [func block] [args] [
         if not func/compile [
             error make-struct [
@@ -106,10 +108,23 @@ make-type 'native! [
         ]
         push-context func/context
         block: compile-function-arguments func block false
-        args: func/context/values
+        ; need to skip this-context
+        args: copy-array func/context/values 1
         pop-context func/context
-        reduce [apply 'func/compile/apply [none args] block]
+        reduce [apply func/compile/apply [none args] block]
     ]
     equal?: :default-equal?
     get-path: :function-get-path
+]
+
+call-native: function [func] [] [
+    if not func/func [
+        error make-struct [
+            category: "Internal"
+            id: "not-implemented"
+            message: "This is a compiler-only native"
+        ]
+    ]
+    ; need to skip this-context
+    apply func/func/apply [none copy-array func/context/values 1]
 ]

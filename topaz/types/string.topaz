@@ -26,11 +26,11 @@
 make-type 'string! [
     make: function [arguments] [] [make-string arguments 0]
     topaz-make: function [value] [] [
-        switch value/type/name [
+        switch-default value/type/name [
             "none!" [make-string "" 0]
             "string!" [make-string to-js-string value 0]
         ] [
-            make-string mold-value value "" 0
+            make-string mold value 0
         ]
     ]
     length-of: function [string] [] [
@@ -42,13 +42,21 @@ make-type 'string! [
     skip: function [string amount] [] [
         make-string string/string string/pos + amount
     ]
-    mold: function [string indent] [] [
-        rejoin ["^"" escape string/string #"^""]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        string
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["^"" escape limit-string string/string limit #"^""] limit
     ]
     do: function [string block] [] [
         reduce [string skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [string block] [] [
         reduce [ast-value string skip block 1]
     ]
@@ -67,9 +75,9 @@ escape: function [str] [re result match i] [
     re: regexp "[\x00-\x19^^^"]" "mg"
     result: ""
     i: 0
-    while [match: apply 're/exec [str]] [
-        result: result + apply 'str/substr [i match/index - i]
-        switch pick-array str match/index [
+    while [match: apply re/exec [str]] [
+        result: result + apply str/substr [i match/index - i]
+        switch-default pick-array str match/index [
             #"^^" [
                 result: result + "^^^^"
             ]
@@ -86,23 +94,23 @@ escape: function [str] [re result match i] [
                 result: result + "^^!"
             ]
         ] [
-            result: rejoin [result #"^^" to-char (apply 'str/char-code-at [match/index]) + 64]
+            result: rejoin [result #"^^" to-char (apply str/char-code-at [match/index]) + 64]
         ]
         i: match/index + 1
     ]
     either i = 0 [
         str
     ] [
-        result + apply 'str/substr [i]
+        result + apply str/substr [i]
     ]
 ]
 unescape: function [str] [result i j ch p] [
     result: ""
     i: 0
-    while [0 <= j: apply 'str/index-of [#"^^" i]] [
-        result: result + apply 'str/substr [i j - i]
+    while [0 <= j: apply str/index-of [#"^^" i]] [
+        result: result + apply str/substr [i j - i]
         ch: pick-array str j + 1
-        switch ch [
+        switch-default ch [
             #"/" [
                 result: result + #"^/"
                 i: j + 2
@@ -122,14 +130,14 @@ unescape: function [str] [result i j ch p] [
         ] [
             case [
                 all [ch >= #"@"  ch <= #"_"] [
-                    result: result + to-char (apply 'ch/char-code-at [0]) - 64
+                    result: result + to-char (apply ch/char-code-at [0]) - 64
                     i: j + 2
                 ]
                 all [
                     ch = #"("
-                    p: exec-re apply 'str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
+                    p: exec-re apply str/substr [j + 1] regexp "^^\(([0-9A-Fa-f]+)\)" ""
                 ] [
-                    result: result + to-char apply 'parse-int [pick-array p 1 16]
+                    result: result + to-char apply parse-int [pick-array p 1 16]
                     i: j + 1 + length-of-array pick-array p 0
                 ]
                 'else [
@@ -142,11 +150,11 @@ unescape: function [str] [result i j ch p] [
     either i = 0 [
         str
     ] [
-        result + apply 'str/substr [i]
+        result + apply str/substr [i]
     ]
 ]
 to-js-string: function [string] [] [
-    apply 'string/string/substr [string/pos]
+    apply string/string/substr [string/pos]
 ]
 
 make-string: function [string pos] [] [

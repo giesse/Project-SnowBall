@@ -26,11 +26,26 @@
 make-type 'lit-word! [
     make: function [arguments] [] [make-word lit-word! arguments none]
     topaz-make: function [value] [] [topaz-make-word lit-word! value]
-    mold: function [word indent] [] ["'" + word/word]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        word
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [limit-string "'" + word/word limit]
     do: function [word block] [] [
         reduce [convert-word word word! skip block 1]
     ]
-    bind: function [word context extend?] [] [bind-word context word extend?]
+    bind: function [
+        "Bind words to a specified context"
+        word
+        context [context!]
+        options:
+            copy: no [logic!] "Bind a (deep) copy of WORDS"
+            new: no [logic!] "Add all words to CONTEXT"
+    ] [] [bind-word context word new]
     compile: function [word block] [] [
         reduce [
             ast-value convert-word word word!

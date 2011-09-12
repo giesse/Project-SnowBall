@@ -31,21 +31,21 @@ make-type 'number! [
         ]
     ]
     topaz-make: function [value] [] [
-        switch value/type/name [
+        switch-default value/type/name [
             "none!" [
-                apply 'number!/make [0]
+                apply number!/make [0]
             ]
             "number!" [
                 value
             ]
             "string!" [
-                apply 'number!/make [apply 'parse-float [value/string]]
+                apply number!/make [apply parse-float [value/string]]
             ]
             "char!" [
-                apply 'number!/make [apply 'value/string/char-code-at [0]]
+                apply number!/make [apply value/string/char-code-at [0]]
             ]
             "logic!" [
-                apply 'number!/make [value/value + 0]
+                apply number!/make [value/value + 0]
             ]
         ] [
             error make-struct [
@@ -56,13 +56,21 @@ make-type 'number! [
             ]
         ]
     ]
-    mold: function [number indent] [] [
-        apply 'number/number/to-string []
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        number
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string apply number/number/to-string [] limit
     ]
     do: function [number block] [] [
         reduce [number skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [number block] [] [
         reduce [ast-value number skip block 1]
     ]
@@ -76,7 +84,7 @@ parse-number: function [text] [t] [
     t: exec-re to-js-string text regexp "^^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]{1,3})?" ""
     if all [t  0 < length-of-array t: pick-array t 0] [
         reduce [
-            make number! apply 'parse-float [t]
+            make number! apply parse-float [t]
             skip text length-of-array t
         ]
     ]

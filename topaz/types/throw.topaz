@@ -32,11 +32,11 @@ make-internal-type 'throw! [
             value: arguments
         ]
     ]
-    topaz-make: function [value] [] [should-not-happen "MAKE" "THROW!"]
-    mold: function [value indent] [] [should-not-happen "MOLD" "THROW!"]
-    do: function [value block] [] [should-not-happen "DO" "THROW!"]
-    bind: function [value context extend?] [] [should-not-happen "BIND" "THROW!"]
-    compile: function [value block] [] [should-not-happen "COMPILE" "THROW!"]
+    topaz-make: function [] [] [should-not-happen "MAKE" "THROW!"]
+    mold: function [] [] [should-not-happen "MOLD" "THROW!"]
+    do: function [] [] [should-not-happen "DO" "THROW!"]
+    bind: function [] [] [should-not-happen "BIND" "THROW!"]
+    compile: function [] [] [should-not-happen "COMPILE" "THROW!"]
     equal?: :default-equal?
     copy: function [value] [] [value]
 ]

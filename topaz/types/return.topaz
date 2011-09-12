@@ -23,20 +23,75 @@
 
 ; ===== TYPES: RETURN! ========================================================
 
-; This is an internal datatype
+; RETURN! values are special native functions which throw a RETURN-VALUE!
 
-make-internal-type 'return! [
-    make: function [arguments] [] [
-        make-struct [
+make-type 'return! [
+    make: function [arguments] [fnc] [
+        fnc: make-struct [
             type: return!
-            value: arguments
+            mode: "fixed" ; default invocation syntax
+            args-list: make-array ; list of all arguments
+            mandatory: 0 ; number of mandatory arguments
+            args: make-struct [] ; map of all arguments
+            flags: make-array ; active flags
+            context: make context! none ; simplifies code, not optimal
+            spec: arguments/spec
+            func: arguments/func
+        ]
+        parse-function-spec fnc
+        if 3 < fnc/mandatory [fnc/mode: "named"]
+        fnc
+    ]
+    topaz-make: function [ignored] [] [
+        error make-struct [
+            category: "Script"
+            id: "invalid-argument"
+            message: "Cannot MAKE RETURN!"
         ]
     ]
-    topaz-make: function [value] [] [should-not-happen "MAKE" "RETURN!"]
-    mold: function [value indent] [] [should-not-happen "MOLD" "RETURN!"]
-    do: function [value block] [] [should-not-happen "DO" "RETURN!"]
-    bind: function [value context extend?] [] [should-not-happen "BIND" "RETURN!"]
-    compile: function [value block] [] [should-not-happen "COMPILE" "RETURN!"]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        func
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin [
+            "#[return " mold/options [value: func/spec flat: flat limit: limit indent: indent] "]"
+        ] limit
+    ]
+    do: function [func block] [value] [
+        push-context func/context
+        block: collect-function-arguments func block
+        call-return func
+    ]
+    bind: :default-bind
+    compile: function [func block] [args] [
+        error make-struct [
+            category: "Internal"
+            id: "not-implemented"
+            message: "Cannot compile RETURN! values"
+        ]
+    ]
     equal?: :default-equal?
-    copy: function [value] [] [value]
+    get-path: :function-get-path
+]
+
+call-return: function [func] [] [
+    case [
+        func/mandatory = 0 [
+            value: make none! none
+        ]
+        func/mandatory = 1 [
+            value: func/context/values/1
+        ]
+        'else [
+            value: context-to-object func/context
+        ]
+    ]
+    ; it's ok because of the THROW
+    pop-context func/context
+    throw make return-value! make-struct [value: value func: func/func]
 ]

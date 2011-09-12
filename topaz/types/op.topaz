@@ -25,7 +25,7 @@
 
 make-type 'op! [
     make: function [arguments] [] [
-        if 2 <> length-of arguments/spec [
+        if 2 <> arguments/mandatory [
             error make-struct [
                 category: "Script"
                 id: "invalid-argument"
@@ -38,9 +38,9 @@ make-type 'op! [
         ]
     ]
     topaz-make: function [func] [] [
-        switch func/type/name [
-            "function!" [apply 'op!/make [func]]
-            "native!" [apply 'op!/make [func]]
+        switch-default func/type/name [
+            "function!" [apply op!/make [func]]
+            "native!" [apply op!/make [func]]
         ] [
             error make-struct [
                 category: "Script"
@@ -50,8 +50,16 @@ make-type 'op! [
             ]
         ]
     ]
-    mold: function [op indent] [] [
-        "make op! " + mold-value op/func indent
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        op
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["make op! " mold/options [value: op/func flat: flat limit: limit indent: indent]] limit
     ]
     do: function [op block] [] [
         error make-struct [
@@ -60,7 +68,7 @@ make-type 'op! [
             message: "Infix use of OP!s is not supported"
         ]
     ]
-    bind: function [op context extend?] [] [op]
+    bind: :default-bind
     compile: function [op block] [] [
         error make-struct [
             category: "Compilation"
@@ -74,10 +82,9 @@ make-type 'op! [
 operator?: function [block] [value] [
     all [
         not empty? block
-        value: first block
-        value/type/name = "word!"
+        word? value: first block
         value: get-any value
-        value/type/name = "op!"
+        op? value
         value
     ]
 ]
@@ -86,14 +93,15 @@ do-op: function [op arg1 arg2] [result] [
         "function!" [
             push-context op/func/context
             op/func/context/values: clone-values op/func/context
-            poke-array op/func/context/values 0 arg1
-            poke-array op/func/context/values 1 arg2
+            ; remember 0 is this-context
+            poke-array op/func/context/values 1 arg1
+            poke-array op/func/context/values 2 arg2
             result: do op/func/body
             pop-context op/func/context
             result
         ]
         "native!" [
-            apply 'op/func/func [arg1 arg2]
+            apply op/func/func [arg1 arg2]
         ]
-    ] []
+    ]
 ]

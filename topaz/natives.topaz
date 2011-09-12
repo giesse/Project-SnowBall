@@ -23,7 +23,10 @@
 
 ; ===== NATIVES ===============================================================
 
-do: function [block] [result] [
+do: function [
+    "Evaluate a block"
+    block [block!]
+] [result] [
     result: make none! none
     while [not empty? block] [
         set [result block] do-step first block block
@@ -31,25 +34,42 @@ do: function [block] [result] [
     result
 ]
 
-read: function [filename] [stat dir-contents i result] [
-    stat: apply 'fs/stat-sync [filename]
-    either apply 'stat/directory? [] [
-        dir-contents: apply 'fs/readdir-sync [filename]
+read: function [
+    "Read a file into a string"
+    filename [string!]
+] [stat dir-contents result] [
+    try [
+        stat: apply fs/stat-sync [filename]
+    ] 'e [
+        either js-error? e [
+            error make-struct [
+                category: "Access"
+                id: "cannot-stat"
+                message: "Cannot stat file"
+                args: make string! e/message
+            ]
+        ] [
+            throw e
+        ]
+    ]
+    either apply stat/directory? [] [
+        dir-contents: apply fs/readdir-sync [filename]
         result: make block! none
-        i: 0
-        while [i < length-of-array dir-contents] [
-            result: insert result make string! pick-array dir-contents i
-            i: i + 1
+        foreach 'item dir-contents [
+            result: insert result make string! item
         ]
         head result
     ] [
-        make string! apply 'fs/read-file-sync [filename "utf8"]
+        make string! apply fs/read-file-sync [filename "utf8"]
     ]
 ]
 
-write: function [filename text] [] [
-    apply 'fs/write-file-sync [filename text "utf8"]
-    make none! none
+write: function [
+    "Write a string into a file"
+    filename [string!]
+    text [string!]
+] [] [
+    apply fs/write-file-sync [filename text "utf8"]
 ]
 
 compile-op: function [op expr1 expr2] [] [
@@ -58,19 +78,19 @@ compile-op: function [op expr1 expr2] [] [
             ast-function-call op/func/name reduce [expr1 expr2]
         ]
         "native!" [
-            apply 'op/func/compile [expr1 expr2]
+            apply op/func/compile [expr1 expr2]
          ]
-    ] []
+    ]
 ]
 
 compile-step: function [block] [value expr op expr2] [
     value: first block
     try [
-        set [expr block] apply 'value/type/compile [value block]
+        set [expr block] apply value/type/compile [value block]
     ] 'e [
         e: handle-js-error e
         if e/type/name = "error!" [
-            append e/stack block
+            insert/only tail e/stack block
         ]
         throw e
     ]
@@ -85,7 +105,7 @@ compile-step: function [block] [value expr op expr2] [
             ]
         ]
         value: first block
-        set [expr2 block] apply 'value/type/compile [value block]
+        set [expr2 block] apply value/type/compile [value block]
         expr: compile-op op expr expr2
     ]
     reduce [expr block]
@@ -100,16 +120,33 @@ compile: function [block] [result expr] [
     ast-expressions result
 ]
 
-set-words: function [words values] [i] [
+invalid-set-argument: function [type stack] [] [
+    error make-struct [
+        category: "Script"
+        id: "invalid-argument"
+        message: "Invalid argument for SET, expected ANY-WORD!, not"
+        args: type
+        stack: stack
+    ]
+]
+
+set-words: function [words values] [i w] [
     i: 0
     while [i < length-of words] [
-        set-word pick words i pick values i
+        if not any-word? w: pick words i [
+            invalid-set-argument w/type at-block words i
+        ]
+        set-word w pick values i
         i: i + 1
     ]
     values
 ]
 
-find: function [series value] [] [
+find: function [
+    "Find VALUE in SERIES"
+    series [series!]
+    value
+] [] [
     while [all [not empty? series not equal? value first series]] [series: skip series 1]
     series
 ]
@@ -117,12 +154,21 @@ find: function [series value] [] [
 ; ===== NATIVES THAT CAN BE MADE ==============================================
 
 natives: make-struct [
-    make: function [type arguments] [] [
-        apply 'type/topaz-make [arguments]
+    make: function [
+        "Make a Topaz type according to spec"
+        type [datatype!]
+        spec
+    ] [] [
+        apply type/topaz-make [spec]
     ]
-    foreach: function [words series body] [ctx res] [
+    foreach: function [
+        "Repeat the body over all values in the series"
+        words [word! block!] "Word or words to set to each value"
+        series [series!]
+        body [block!]
+    ] [ctx res] [
         ctx: make context! none
-        switch words/type/name [
+        switch-default words/type/name [
             "word!" [
                 words: append make block! none words
             ]
@@ -135,8 +181,8 @@ natives: make-struct [
                 args: words/type
             ]
         ]
-        bind words ctx true
-        bind body ctx false
+        bind/new words ctx
+        bind body ctx
         res: make none! none
         while [not empty? series] [
             set-words words series
@@ -145,65 +191,163 @@ natives: make-struct [
         ]
         res
     ]
-    set: function [word value] [] [
+    set: function [
+        "Set a word to a value or a list of words to a list of values"
+        word [any-word! block! object! context!]
+        value
+    ] [offset] [
         case [
             any-word? word [set-word word value]
-            block? word [set-words word value]
+            all [block? word block? value] [set-words word value]
+            all [block? word object? value] [
+                foreach-blk [wrd pos] word [
+                    if not any-word? wrd [
+                        invalid-set-argument wrd/type at-block word pos
+                    ]
+                    set-word wrd get-word-in-object value wrd/word
+                ]
+                value
+            ]
+            all [block? word context? value] [
+                foreach-blk [wrd pos] word [
+                    if not any-word? wrd [
+                        invalid-set-argument wrd/type at-block word pos
+                    ]
+                    if 0 > offset: get-word-offset value wrd/word [
+                        error make-struct [
+                            category: "Script"
+                            id: "invalid-argument"
+                            message: "The provided context does not have such word"
+                            args: wrd
+                        ]
+                    ]
+                    set-word wrd pick-array value/values offset
+                ]
+                value
+            ]
+            all [context? word object? value] [
+                ; import words from object to context (which is extended if necessary)
+                export-object-to-context value word
+                value
+            ]
             'else [
                 error make-struct [
                     category: "Script"
                     id: "invalid-argument"
-                    message: "SET expected a word! or block!, not"
-                    args: word/type
+                    message: "Invalid combination of arguments for SET"
                 ]
             ]
         ]
     ]
-    reduce: function [block] [result value] [
+    reduce: function [
+        "Evaluate and collect all values in the block"
+        block [block!]
+    ] [result value] [
         result: make block! none
         while [not empty? block] [
             set [value block] do-step first block block
-            append result value
+            insert/only tail result value
         ]
         result
     ]
-    insert: :insert
+    insert: function [
+        "Insert a value at the current position of the series"
+        series [series!]
+        value
+        options:
+            only: no [logic!] "Insert series as a single value"
+            new-line: no [logic!] "Temporary - add new line before value on MOLD"
+    ] [] [
+        apply series/type/insert [series value only/value new-line/value]
+    ]
     head: :head
-    pick: function [series pos] [] [pick series pos/number]
-    length-of: function [series] [] [make number! length-of series]
-    skip: function [series amount] [] [skip series amount/number]
-    mold: function [value indent] [] [make string! mold-value value to-js-string indent]
+    pick: function [
+        "Pick value in a series"
+        series [series!]
+        index [number!]
+    ] [] [pick series index/number]
+    length-of: function [
+        "Return the length of a series"
+        series [series!]
+    ] [] [make number! length-of series]
+    skip: function [
+        "Return the series at a new position"
+        series [series!]
+        amount [number!] "Skip the specified number of values"
+    ] [] [skip series amount/number]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        value
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        make string! apply value/type/mold [
+            value
+            only/value
+            flat/value
+            either none? limit [none] [limit/number]
+            to-js-string indent
+        ]
+    ]
     do: :do
     get: :get
-    bind: function [words context] [] [bind words context false]
-    tail: :tail
-    print: function [string] [] [
-        print (to-js-string string) + "^/"
-        string
+    bind: function [
+        "Bind words to a specified context"
+        words
+        context [context!]
+        options:
+            cpy: no [logic!] "Bind a (deep) copy of WORDS"
+            new: no [logic!] "Add all words to CONTEXT"
+    ] [] [
+        apply words/type/bind [words context cpy/value new/value]
     ]
-    prin: function [string] [] [
+    tail: :tail
+    print: function [
+        "Write the string to standard output"
+        string [string!]
+    ] [] [
         print to-js-string string
         string
     ]
-    load: function [string] [] [load string false]
-    read: function [filename] [] [read to-js-string filename]
-    try: function [code word def] [res ctx] [
+    prin: function [
+        "Write the string to standard output (do not add a new line)"
+        string [string!]
+    ] [] [
+        prin to-js-string string
+        string
+    ]
+    load: :load
+    read: function [
+        "Read a file into a string"
+        file-name [string!]
+    ] [] [read to-js-string file-name]
+    try: function [
+        "Try to evaluate CODE; if it causes an error, evaluate DEFAULT with WORD set to the ERROR! value"
+        code [block!]
+        word [any-word!] "Local to the DEFAULT block"
+        def [block!]
+    ] [res ctx] [
         try [
             res: do code
         ] 'e [
             e: handle-js-error e
-            either e/type/name = "error!" [
+            either error? e [
                 ctx: make context! none
-                word: bind-word ctx word true
-                set-word word e
-                res: do bind def ctx false
+                set-in-context ctx word e
+                res: do bind def ctx
             ] [
                 throw e
             ]
         ]
         res
     ]
-    catch: function [code] [res] [
+    catch: function [
+        "Evaluate CODE and catch any value that is THROWn"
+        code [block!]
+    ] [res] [
         try [
             res: do code
         ] 'e [
@@ -216,74 +360,150 @@ natives: make-struct [
         ]
         res
     ]
-    form-error: function [err] [] [
-        if err/type/name <> "error!" [
-            error make-struct [
-                category: "Script"
-                id: "invalid-argument"
-                message: "Invalid argument for FORM-ERROR"
-                args: err
-            ]
-        ]
+    form-error: function [
+        "Format the error into a human readable string"
+        err [error!]
+    ] [] [
         make string! form-error err
     ]
-    add: function [val1 val2] [] [make number! val1/number + val2/number]
-    subtract: function [val1 val2] [] [make number! val1/number - val2/number]
-    equal?: function [val1 val2] [] [make logic! equal? val1 val2]
-    greater?: function [val1 val2] [] [make logic! val1/number > val2/number]
-    lesser?: function [val1 val2] [] [make logic! val1/number < val2/number]
-    not-equal?: function [val1 val2] [] [make logic! not equal? val1 val2]
-    greater-or-equal?: function [val1 val2] [] [make logic! val1/number >= val2/number]
-    lesser-or-equal?: function [val1 val2] [] [make logic! val1/number <= val2/number]
-    compile: function [block] [] [
+    add: function [
+        "Add val1 to val2"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make number! val1/number + val2/number]
+    subtract: function [
+        "Subtract val2 from val1"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make number! val1/number - val2/number]
+    equal?: function [
+        "Return TRUE if the two values are equal"
+        val1
+        val2
+    ] [] [make logic! equal? val1 val2]
+    greater?: function [
+        "Return TRUE if val1 is greater than val2"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make logic! val1/number > val2/number]
+    lesser?: function [
+        "Return TRUE if val1 is lesser than val2"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make logic! val1/number < val2/number]
+    not-equal?: function [
+        "Return TRUE if the two values are NOT equal"
+        val1
+        val2
+    ] [] [make logic! not equal? val1 val2]
+    greater-or-equal?: function [
+        "Return TRUE if val1 is greater or equal to val2"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make logic! val1/number >= val2/number]
+    lesser-or-equal?: function [
+        "Return TRUE if val1 is lesser or equal to val2"
+        val1 [number!]
+        val2 [number!]
+    ] [] [make logic! val1/number <= val2/number]
+    compile: function [
+        "Compile BLOCK to Javascript"
+        block [block!]
+    ] [] [
         make string! to-js compile block "statement"
     ]
-    write: function [filename text] [] [
-        write to-js-string filename to-js-string text
+    write: function [
+        "Write a string into a file"
+        file-name [string!]
+        text [string!]
+    ] [] [
+        write to-js-string file-name to-js-string text
+        text
     ]
-    throw: function [value] [] [
+    throw: function [
+        "Throw a value to be catched by an enclosing CATCH"
+        value
+    ] [] [
         throw make throw! value
     ]
-    cause: function [err] [] [
-        if err/type/name <> "error!" [
-            error make-struct [
-                category: "Script"
-                id: "invalid-argument"
-                message: "Invalid argument for CAUSE, expected ERROR!, not"
-                args: err/type
-            ]
-        ]
+    cause: function [
+        "Cause an error"
+        err [error!]
+    ] [] [
         throw err
     ]
-    if: function [condition body] [] [
+    if: function [
+        "Evaluate BODY if CONDITION is not NONE or FALSE"
+        condition
+        body [block!]
+    ] [] [
         either true? condition [
             do body
         ] [
             make none! none
         ]
     ]
-    either: function [condition true-body false-body] [] [
+    either: function [
+        "Evaluate TRUE-BODY if CONDITION is not NONE or FALSE, otherwise evaluate FALSE-BODY"
+        condition
+        true-body [block!]
+        false-body [block!]
+    ] [] [
         do either true? condition [true-body] [false-body]
     ]
-    not: function [value] [] [make logic! not true? value]
-    apply: function [func args] [] [
-        error make-struct [
-            category: "Internal"
-            id: "not-implemented"
-            message: "APPLY is not yet implemented"
+    not: function [
+        "Return TRUE if VALUE is NONE or FALSE; otherwise return FALSE"
+        value
+    ] [] [make logic! not true? value]
+    apply: function [
+        "Apply a function to the specified arguments"
+        func [any-function!]
+        args [object! context! block!] "Object or block in the format [arg-name: value ...]"
+        options:
+            only: no [logic!] "(ARGS must be BLOCK!) Apply the contents of args as-is as the list of arguments"
+    ] [] [
+        either only/value [
+            if not block? args [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-argument"
+                    message: "Invalid ARGS argument for APPLY/ONLY, expected BLOCK!, not"
+                    args: args/type
+                ]
+            ]
+            apply-only func args
+        ] [
+            switch args/type/name [
+                "object!" [apply-object func args]
+                "context!" [apply-context func args]
+                "block!" [apply-block func args]
+            ]
         ]
     ]
-    while: function [condblock body] [res] [
+    while: function [
+        "Evaluate BODY repeatedly as long as CONDITION is not FALSE or NONE"
+        condition [block!] "Evaluated using ALL"
+        body [block!]
+        options:
+            use-any: no [logic!] "Evaluate CONDITION using ANY instead of ALL"
+    ] [res f] [
         res: make none! none
-        while [true? do condblock] [res: do body]
+        f: either use-any/value [natives/any] [natives/all]
+        while [true? apply f [condition]] [res: do body]
         res
     ]
-    until: function [body] [res] [
+    until: function [
+        "Evaluate BODY repeatedly while it returns NONE or FALSE"
+        body [block!]
+    ] [res] [
         res: do body
         while [not true? res] [res: do body]
         res
     ]
-    all: function [block] [res] [
+    all: function [
+        "Evaluate BLOCK and return the first FALSE or NONE (shortcut AND)"
+        block [block!]
+    ] [res] [
         either empty? block [
             make logic! true
         ] [
@@ -294,7 +514,10 @@ natives: make-struct [
             res
         ]
     ]
-    any: function [block] [res] [
+    any: function [
+        "Evaluate BLOCK and return the first value that is not FALSE or NONE (shortcut OR)"
+        block [block!]
+    ] [res] [
         either empty? block [
             make none! none
         ] [
@@ -305,7 +528,14 @@ natives: make-struct [
             res
         ]
     ]
-    switch: function [value cases def] [case-block orig-cases] [
+    switch-default: function [
+        "If VALUE is found in CASES, the block that follows it is evaluated"
+        value
+        cases [block!] "Eg. [a b [...] c [...] ...]"
+        def [block!] "Block to evaluate if VALUE is not found"
+        options:
+            all: no [logic!] "Evaluate all matches, not just the first one"
+    ] [case-block orig-cases res] [
         either empty? cases: find cases value [
             do def
         ] [
@@ -313,7 +543,7 @@ natives: make-struct [
             while [all [
                 not empty? cases
                 case-block: first cases
-                case-block/type/name <> "block!"
+                not block? case-block
             ]] [cases: skip cases 1]
             either empty? cases [
                 error make-struct [
@@ -322,52 +552,107 @@ natives: make-struct [
                     message: "SWITCH is missing the case block after the matched value"
                     stack: orig-cases
                 ]
-            ] [do case-block]
+            ] [res: do case-block]
+            either true? :all [apply natives/switch-default [value next cases def :all]] [res]
         ]
     ]
     find: :find
-    case: function [cases] [cond] [
+    case: function [
+        "Evaluate the block that follows the first true (not NONE or FALSE) condition"
+        cases [block!] "Eg. [a = b [...] c = d [...] ...]"
+        options:
+            all: no [logic!] "Do not stop at the first true condition"
+    ] [cond res orig-cases block] [
         either empty? cases [
             make none! none
         ] [
-            set [cond cases] do-step first cases cases
-            while [not true? cond] [
-                cases: skip cases 1
+            cond: make none! none
+            while [all [not empty? cases not true? cond]] [
+                orig-cases: cases
                 set [cond cases] do-step first cases cases
+                if not block? block: first cases [
+                    error make-struct [
+                        category: "Script"
+                        id: "invalid-spec"
+                        message: "CASE expected a BLOCK! after the condition, not"
+                        args: block/type
+                        stack: orig-cases
+                    ]
+                ]
+                cases: skip cases 1
             ]
-            either empty? cases [
-                make none! none
+            either true? cond [
+                res: do block
+                either all [:all not empty? cases] [
+                    apply natives/case [cases :all]
+                ] [
+                    res
+                ]
             ] [
-                do first cases
+                make none! none
             ]
         ]
     ]
-    context-of: function [word] [] [word/context]
-    rejoin: function [block] [result value] [
+    context-of: function [
+        "Return the context of a word"
+        word [any-word!]
+    ] [] [word/context]
+    rejoin: function [
+        "Reduce and join all the strings in the block"
+        block [block!]
+    ] [result value] [
         result: ""
         while [not empty? block] [
             set [value block] do-step first block block
-            value: either value/type/name = "string!" [
+            value: either string? value [
                 value/string
             ] [
-                mold-value value ""
+                mold value
             ]
             result: rejoin [result value]
         ]
         make string! result
     ]
-    type-of: function [value] [] [value/type]
-    copy: function [value] [] [apply 'value/type/copy [value]]
-    in?: function [container value] [] [apply 'container/type/in? [container value]]
-    conjure: function [name] [] [
+    type-of: function [
+        "Return the type of a value"
+        value
+    ] [] [value/type]
+    copy: function [
+        "Make a copy of a value"
+        value
+    ] [] [apply value/type/copy [value]]
+    in?: function [
+        "Check if VALUE is in CONTAINER"
+        container "Eg. object, context, typeset..."
+        value
+    ] [] [apply container/type/in? [container value]]
+    conjure: function [
+        "Conjure a value"
+        name [word!]
+    ] [] [
         values/(name-to-js name/word)
+    ]
+    quit: function [
+        "Quit the Topaz interpreter"
+        exit-code [number!] "Code to return to calling environment"
+    ] [] [apply process/exit [exit-code/number]]
+    slice: function [
+        "Copy part of a series"
+        start [series!]
+        end-or-length [series! number!] "If series, needs to be same as START in a different position"
+    ] [] [
+        error make-struct [
+            category: "Internal"
+            id: "not-implemented"
+            message: "SLICE is not implemented yet"
+        ]
     ]
 ]
 
 ; ===== CONJURE ===============================================================
 
-set-word bind-word system-words make word! "conjure" true make native! reduce [
-    load make string! "name" true
+set-word topaz-value 'conjure make native! reduce [
+    topaz-value [name]
     natives/conjure
 ]
 
@@ -375,7 +660,7 @@ set-word bind-word system-words make word! "conjure" true make native! reduce [
 
 values: make-struct [
     make: make native! reduce [
-        load make string! "type arguments" true
+        topaz-value [type arguments]
         natives/make
     ]
     native!: native!

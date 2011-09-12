@@ -34,23 +34,23 @@ make-type 'error! [
             args: args/args
             stack: make block! none
         ]
-        if args/stack [append res/stack args/stack]
+        if args/stack [insert/only res/stack args/stack]
         res
     ]
     topaz-make: function [value] [blk] [
-        switch value/type/name [
+        switch-default value/type/name [
             "block!" [
                 blk: make block! none
                 append blk make none! none
-                append blk value
-                topaz-make-error apply 'object!/topaz-make [blk]
+                insert/only tail blk value
+                topaz-make-error apply object!/topaz-make [blk]
             ]
             "object!" [
                 topaz-make-error value
             ]
             "error!" [value]
         ] [
-            apply 'error!/make [make-struct [
+            apply error!/make [make-struct [
                 category: "Script"
                 id: "invalid-argument"
                 message: "Invalid argument for MAKE ERROR!"
@@ -58,20 +58,46 @@ make-type 'error! [
             ]]
         ]
     ]
-    mold: function [err indent] [] [
-        rejoin [
-            "make error! [^/"
-            indent "    category: '" err/category "^/"
-            indent "    id: '" err/id "^/"
-            indent "    message: ^"" escape err/message "^"^/"
-            either err/args [rejoin [indent "    args: " mold-value err/args indent + "    " "^/"]] [""]
-            indent "]"
-        ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        err
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [result] [
+        limit-string either flat [
+            rejoin [
+                "make error! [category: '" err/category " id: '" err/id " "
+                "message: ^"" escape err/message "^" "
+                either err/args [
+                    rejoin [
+                        "args: " mold/options [value: err/args flat limit: limit] " "
+                    ]
+                ] [""]
+                "stack: " mold/options [value: err/stack flat limit: limit] "]"
+            ]
+        ] [
+            rejoin [
+                "make error! [^/"
+                indent "    category: '" err/category "^/"
+                indent "    id: '" err/id "^/"
+                indent "    message: ^"" escape err/message "^"^/"
+                either err/args [
+                    rejoin [
+                        indent "    args: " mold/options [value: err/args indent: indent + "    " limit: limit] "^/"
+                    ]
+                ] [""]
+                indent "    stack: " mold/options [value: err/stack limit: limit indent: indent + "    "] "^/"
+                indent "]"
+            ]
+        ] limit
     ]
     do: function [err block] [] [
         reduce [err skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [err block] [] [
         reduce [ast-value err skip block 1]
     ]
@@ -105,19 +131,31 @@ topaz-make-error: function [obj] [args] [
     if all [obj/stack not none? obj/stack] [
         args/stack: obj/stack
     ]
-    apply 'error!/make [args]
+    apply error!/make [args]
 ]
 
 error: function [args] [] [
-    throw apply 'error!/make [args]
+    throw apply error!/make [args]
 ]
 form-error: function [err] [res] [
     res: rejoin [
         "*** " err/category " error: " err/message
-        either err/args [rejoin [": " mold-value err/args ""]] [""]
+        either err/args [
+            either all [err/category = "Internal" string? err/args] [
+                ; JS error
+                rejoin [": " err/args/string]
+            ] [
+                rejoin [": " mold/options [value: err/args flat limit: 80]]
+            ]
+        ] [""]
     ]
     foreach 'item err/stack/values [
-        res: rejoin [res "^/*** Stack: " mold-value item "         : "]
+        either all [err/category = "Internal" string? item] [
+            ; JS error
+            res: rejoin [res "^/*** JS Stack:^/" item/string "^/"]
+        ] [
+            res: rejoin [res "^/*** Stack: " mold/options [value: item only limit: 160 indent: "         : "]]
+        ]
     ]
     res
 ]

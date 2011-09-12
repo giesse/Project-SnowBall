@@ -5,9 +5,7 @@ load*: func [file] [load read file]
 interpreter: load* "topaz/support.topaz"
 
 app: func [code] [
-    foreach 'value code [
-        insert tail interpreter value
-    ]
+    append interpreter code
 ]
 
 app-file: func [file] [app load* file]
@@ -22,14 +20,14 @@ make-internal-type: func [name actions] [
     ]
     ; actions is an expression! here, hopefully ast-value containing a block!
     append struct actions/value
-    make expression! compose [
+    make expression! compose/only [
         (make set-word! name/value) make-struct (struct)
     ]
 ]
 make-type: func [name actions] [
-    make expression! compose [
+    make expression! compose/deep [
         make-internal-type name actions
-        apply 'datatypes/push [(name/value)]
+        apply datatypes/push [(name/value)]
     ]
 ]
 macro: func [name spec body] [
@@ -55,6 +53,7 @@ foreach 'type [
     "context.topaz"
     "function.topaz"
     "native.topaz"
+    "return.topaz"
     "op.topaz"
     "string.topaz"
     "char.topaz"
@@ -64,7 +63,7 @@ foreach 'type [
     "expression.topaz"
     "object.topaz"
     "throw.topaz"
-    "return.topaz"
+    "return-value.topaz"
     "error.topaz"
     "typeset.topaz"
 ] [app-type type]
@@ -76,18 +75,13 @@ foreach 'file [
     "topaz/compiler.topaz"
 ] [app-file file]
 
-app [
-    sys: apply 'require ["sys"]
-    fs: apply 'require ["fs"]
-]
-app reduce [
-    make set-word! "init-code" read "topaz/init.topaz"
-]
-app [
+app compose/deep [
+    sys: apply require ["sys"]
+    fs: apply require ["fs"]
     try [
-        do load make string! init-code true
+        do load/all make string! (mold/only load* "topaz/init.topaz")
     ] 'e [
-        print "FATAL: error during initialization^/"
+        print "FATAL: error during initialization"
         e: handle-js-error e
         if e/type/name <> "error!" [
             e: make error! make-struct [
@@ -98,10 +92,11 @@ app [
             ]
         ]
         print form-error e
-        print "^/"
-        apply 'process/exit [1]
+        apply process/exit [1]
     ]
+]
 
+app [
     handle-top-level-error: function [e] [] [
         e: handle-js-error e
         if e/type/name <> "error!" [
@@ -113,36 +108,31 @@ app [
             ]
         ]
         print form-error e
-        print "^/"
     ]
     either 2 < length-of-array process/argv [
         try [
-            do load read pick-array process/argv 2 true
+            do load/all read process/argv/2
         ] 'e [
             handle-top-level-error e
         ]
     ] [
-        print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License^/"
-        stdin: apply 'process/open-stdin []
-        apply 'stdin/set-encoding ["utf8"]
-        apply 'stdin/add-listener [
+        print "Topaz Interpreter - (C) 2011 Gabriele Santilli - MIT License"
+        stdin: apply process/open-stdin []
+        apply stdin/set-encoding ["utf8"]
+        apply stdin/add-listener [
             "data"
             function [chunk] [res] [
-                either chunk = "quit^/" [
-                    apply 'stdin/destroy []
-                ] [
-                    try [
-                        chunk: do load make string! chunk true
-                        print "== " print mold-value chunk "== "
-                        print "^/>> "
-                    ] 'e [
-                        handle-top-level-error e
-                        print ">> "
-                    ]
+                try [
+                    chunk: do load/all make string! chunk
+                    prin "== " print mold/options [value: chunk indent: "== " limit: 100]
+                    prin ">> "
+                ] 'e [
+                    handle-top-level-error e
+                    prin ">> "
                 ]
             ]
         ]
-        print ">> "
+        prin ">> "
     ]
 ]
 
@@ -172,9 +162,9 @@ parse-function-spec: func [spec] [
 funcall-macro: func [name spec] [
     make function! reduce [
         spec
-        compose [
+        compose/only/deep [
             make expression! [
-                apply (make lit-word! name) (parse-function-spec spec)
+                apply (make get-word! name) (parse-function-spec spec)
             ]
         ]
     ]
@@ -183,7 +173,9 @@ funcall-macro: func [name spec] [
 ; define function call macros, make all set-words local, mask some interpreter functions
 locals: parse interpreter [
     collect any [
-        name: set-word! 'function keep (name) keep ('funcall-macro) keep (make lit-word! name) keep block! block! block!
+        name: set-word! 'function
+        keep (name) keep ('funcall-macro) keep (make lit-word! name)
+        keep/only block! block! block!
         |
         'macro name: lit-word! block! block! keep (make set-word! name) keep (none)
         |

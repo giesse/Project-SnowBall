@@ -24,21 +24,23 @@
 ; ===== TYPES: CONTEXT! =======================================================
 
 make-type 'context! [
-    make: function [arguments] [] [
+    make: function [arguments] [ctx] [
         if not arguments [arguments: make-struct []]
-        make-struct [
+        ctx: make-struct [
             type: context!
             words: any [arguments/words make-array]
             values: any [arguments/values make-array]
             stack: any [arguments/stack make-array]
         ]
+        set-in-context ctx make word! "this-context" ctx
+        ctx
     ]
     topaz-make: function [code] [ctx] [
-        switch code/type/name [
+        switch-default code/type/name [
             "block!" [
                 ctx: make context! none
-                bind collect-set-words make block! none code false ctx true
-                do bind code ctx false
+                bind/new collect-set-words make block! none code ctx
+                do bind code ctx
                 ctx
             ]
         ] [
@@ -50,20 +52,30 @@ make-type 'context! [
             ]
         ]
     ]
-    mold: function [context indent] [block i] [
-        block: make block! none
-        i: 0
-        while [i < length-of-array context/words] [
-            block: insert insert-nl block make set-word! pick-array context/words i true pick-array context/values i
-            i: i + 1
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        context
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-words-and-values [
+            open: "context ["
+            close: either flat ["]"] [rejoin ["^/" indent "]"]]
+            limit: limit
+            words: copy-array context/words 1
+            get-word-f: function [word] [] [context/values/(get-word-offset context word)]
+            sep: either flat [" "] [rejoin ["^/" indent "    "]]
+            flat: flat
+            indent: rejoin [indent "    "]
         ]
-        new-line block true
-        rejoin ["context " mold-value head block indent]
     ]
     do: function [context block] [] [
         reduce [context skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [context block] [] [
         reduce [ast-value context skip block 1]
     ]
@@ -111,7 +123,7 @@ make-type 'context! [
 ]
 
 get-word-offset: function [context word] [] [
-    apply 'context/words/index-of [word]
+    apply context/words/index-of [word]
 ]
 clone-values: function [context] [] [
     clone-array pick-array context/stack 0
@@ -142,5 +154,63 @@ bind-word: function [context word add?] [offset] [
         ]
     ] [
         word
+    ]
+]
+
+set-in-context: function [context word set-to] [offset] [
+    either 0 > offset: get-word-offset context word/word [
+        add-word context word set-to
+    ] [
+        poke-array context/values offset set-to
+    ]
+]
+
+mold-words-and-values: function [
+    open
+    close
+    limit
+    words
+    get-word-f
+    sep
+    flat
+    indent
+] [result i] [
+    result: open
+    i: 0
+    while [all [
+        within-limit? result limit
+        i < length-of-array words
+    ]] [
+        result: rejoin [
+            result sep
+            words/:i ": "
+        ]
+        if within-limit? result limit [
+            result: rejoin [
+                result
+                mold/options [
+                    value: apply get-word-f [words/:i]
+                    flat: flat
+                    limit: subtract-limit result limit
+                    indent: indent
+                ]
+            ]
+        ]
+        i: i + 1
+    ]
+    if within-limit? result limit [
+        result: rejoin [result close]
+    ]
+    limit-string result limit
+]
+
+context-to-object: function [context] [words map] [
+    map: make-struct []
+    foreach [word pos] words: copy-array context/words 1 [
+        map/(word): context/values/(pos + 1)
+    ]
+    make object! make-struct [
+        words: words
+        map: map
     ]
 ]

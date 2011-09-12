@@ -36,7 +36,7 @@ make-type 'expression! [
         either code/type/name = "block!" [
             code: compile code
             if 1 = length-of-array code/list [code: pick-array code/list 0]
-            apply 'expression!/make [code]
+            apply expression!/make [code]
         ] [
             error make-struct [
                 category: "Script"
@@ -46,14 +46,22 @@ make-type 'expression! [
             ]
         ]
     ]
-    mold: function [expr indent] [js] [
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        expr
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [js] [
         try [js: to-js expr/expr "statement"] 'e [js: "TO-JS error"]
-        rejoin ["#[expr " expr/expr/node-type " {" js "}]"]
+        limit-string rejoin ["#[expr " expr/expr/node-type " {" js "}]"] limit
     ]
     do: function [expr block] [] [
         reduce [expr skip block 1]
     ]
-    bind: function [expr context extend?] [] [expr]
+    bind: :default-bind
     compile: function [expr block] [] [
         reduce [expr/expr skip block 1]
     ]

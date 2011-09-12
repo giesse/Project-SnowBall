@@ -28,26 +28,41 @@ compare-words: function [word1 word2] [] [word1/word = word2/word]
 make-type 'word! [
     make: function [arguments] [] [make-word word! arguments none]
     topaz-make: function [value] [] [topaz-make-word word! value]
-    mold: function [word indent] [] [word/word]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        word
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [limit-string word/word limit]
     do: function [word block] [value] [
         value: get word
         case [
             word-active? value [
-                apply 'value/type/do [value block]
+                apply value/type/do [value block]
             ]
             'else [
                 reduce [value skip block 1]
             ]
         ]
     ]
-    bind: function [word context extend?] [] [bind-word context word extend?]
+    bind: function [
+        "Bind words to a specified context"
+        word
+        context [context!]
+        options:
+            copy: no [logic!] "Bind a (deep) copy of WORDS"
+            new: no [logic!] "Add all words to CONTEXT"
+    ] [] [bind-word context word new]
     compile: function [word block] [value] [
         value: get-any word
         either all [
             value
             compiler-word-active? value
         ] [
-            apply 'value/type/compile [value block]
+            apply value/type/compile [value block]
         ] [
             reduce [ast-get word skip block 1]
         ]
@@ -78,7 +93,7 @@ make-word: function [type word args] [] [
 ]
 
 topaz-make-word: function [type value] [] [
-    switch value/type/name [
+    switch-default value/type/name [
         "string!" [make-word type to-js-string value none]
         "word!" [convert-word value type]
         "set-word!" [convert-word value type]
@@ -89,7 +104,7 @@ topaz-make-word: function [type value] [] [
         error make-struct [
             category: "Script"
             id: "invalid-argument"
-            message: rejoin ["Invalid argument for MAKE " apply 'type/name/to-upper-case []]
+            message: rejoin ["Invalid argument for MAKE " apply type/name/to-upper-case []]
             args: value
         ]
     ]

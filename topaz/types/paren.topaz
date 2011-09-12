@@ -32,20 +32,28 @@ make-type 'paren! [
     skip: :skip-block
     pick: :pick-block
     length-of: :length-of-block
-    mold: function [block indent] [result pos ind] [
-        result: "("
-        pos: block/pos
-        ind: indent + "    "
-        if pos < length-of-array block/values [
-            result: mold-step2 result block/values block/newlines pos ind "" #"^/"
-            pos: pos + 1
-            while [pos < length-of-array block/values] [
-                result: mold-step2 result block/values block/newlines pos ind #" " #"^/"
-                pos: pos + 1
-            ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        block
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-values [
+            open: "("
+            close: either block/newlines/(length-of-array block/values) [rejoin ["^/" indent ")"]] [")"]
+            sep: " "
+            flat: flat
+            nlsep: either flat [" "] [rejoin ["^/" indent "    "]]
+            indent: either flat [""] [rejoin [indent "    "]]
+            limit: limit
+            only: false
+            values: block/values
+            newlines: block/newlines
+            pos: block/pos
         ]
-        if pick-array block/newlines pos [result: rejoin [result #"^/" indent]]
-        result + #")"
     ]
     do: function [paren block] [] [
         reduce [do paren skip block 1]

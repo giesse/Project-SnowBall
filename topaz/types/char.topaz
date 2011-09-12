@@ -31,15 +31,15 @@ make-type 'char! [
         ]
     ]
     topaz-make: function [value] [] [
-        switch value/type/name [
+        switch-default value/type/name [
             "number!" [
-                apply 'char!/make [to-char value/number]
+                apply char!/make [to-char value/number]
             ]
             "char!" [
-                apply 'char!/make [value/string]
+                apply char!/make [value/string]
             ]
             "none!" [
-                apply 'char!/make [to-char 0]
+                apply char!/make [to-char 0]
             ]
         ] [
             error make-struct [
@@ -50,13 +50,21 @@ make-type 'char! [
             ]
         ]
     ]
-    mold: function [char indent] [] [
-        rejoin ["#^"" escape char/string "^""]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        char
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["#^"" escape char/string "^""] limit
     ]
     do: function [char block] [] [
         reduce [char skip block 1]
     ]
-    bind: function [value context extend?] [] [value]
+    bind: :default-bind
     compile: function [char block] [] [
         reduce [ast-value char skip block 1]
     ]

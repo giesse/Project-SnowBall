@@ -23,33 +23,81 @@
 
 ; ===== ACTION HELPERS ========================================================
 
-make: function [type arguments] [] [
-    apply 'type/make [arguments]
+make: function [
+    "Make a Topaz type according to spec"
+    type [datatype!]
+    spec
+] [] [
+    apply type/make [spec]
 ]
-insert: function [series value] [] [
-    apply 'series/type/insert [series value]
+
+insert: function [
+    "Insert a value at the current position of the series"
+    series [series!]
+    value
+    options:
+        only: no [logic!] "Insert series as a single value"
+        new-line: no [logic!] "Temporary - add new line before value on MOLD"
+] [] [
+    apply series/type/insert [series value only new-line]
 ]
-head: function [series] [] [
-    apply 'series/type/head [series]
+
+head: function [
+    "Return the series at the head position"
+    series [series!]
+] [] [
+    apply series/type/head [series]
 ]
-pick: function [series pos] [] [
-    apply 'series/type/pick [series pos]
+
+tail: function [
+    "Return the series at the tail position"
+    series [series!]
+] [] [
+    apply series/type/tail [series]
 ]
-length-of: function [series] [] [
-    apply 'series/type/length-of [series]
+
+pick: function [
+    "Pick value in a series"
+    series [series!]
+    index [number!]
+] [] [
+    apply series/type/pick [series index]
 ]
-empty?: function [series] [] [
+
+length-of: function [
+    "Return the length of a series"
+    series [series!]
+] [] [
+    apply series/type/length-of [series]
+]
+
+empty?: function [
+    "True if the series is empty"
+    series [series!]
+] [] [
     0 = length-of series
 ]
-skip: function [series amount] [] [
-    apply 'series/type/skip [series amount]
+
+skip: function [
+    "Return the series at a new position"
+    series [series!]
+    amount [number!] "Skip the specified number of values"
+] [] [
+    apply series/type/skip [series amount]
 ]
-mold-value: function [value indent] [] [
-    apply 'value/type/mold [value indent]
+
+mold: function [
+    "Return a LOAD-able text representation of a value"
+    value
+    options:
+        only: no [logic!] "Don't generate outer [ ] for block! values"
+        flat: no [logic!] "Produce a single text line"
+        limit [number! none!] "Don't return a string longer than LIMIT characters"
+        indent: "" [string!] "Add this string after each new line (ignored if flat)"
+] [] [
+    apply value/type/mold [value only flat limit indent]
 ]
-mold: function [value] [] [
-    make string! mold-value value ""
-]
+
 first: function [series] [] [
     pick series 0
 ]
@@ -59,13 +107,18 @@ second: function [series] [] [
 next: function [series] [] [
     skip series 1
 ]
-do-step: function [value block] [result arg2 op err] [
+
+do-step: function [
+    "Evaluate one value"
+    value
+    block [block! paren!]
+] [result arg2 op err] [
     try [
-        set [result block] apply 'value/type/do [value block]
+        set [result block] apply value/type/do [value block]
     ] 'e [
         e: handle-js-error e
         if e/type/name = "error!" [
-            append e/stack block
+            insert/only tail e/stack block
         ]
         throw e
     ]
@@ -77,16 +130,21 @@ do-step: function [value block] [result arg2 op err] [
                 id: "missing-argument"
                 message: "Operator missing its second argument"
             ]
-            append err/stack skip block -2
+            insert/only tail err/stack skip block -2
             throw err
         ]
         arg2: first block
-        set [arg2 block] apply 'arg2/type/do [arg2 block]
+        set [arg2 block] apply arg2/type/do [arg2 block]
         result: do-op op result arg2
     ]
     reduce [result block]
 ]
-get-path: function [value selector] [] [
+
+get-path: function [
+    "Apply path selector to a value"
+    value
+    selector
+] [] [
     switch selector/type/name [
         "paren!" [
             selector: do selector
@@ -94,10 +152,16 @@ get-path: function [value selector] [] [
         "get-word!" [
             selector: get selector
         ]
-    ] []
-    apply 'value/type/get-path [value selector]
+    ]
+    apply value/type/get-path [value selector]
 ]
-set-path: function [value selector set-to] [] [
+
+set-path: function [
+    "Set an element of a value according to path selector"
+    value
+    selector
+    set-to
+] [] [
     switch selector/type/name [
         "paren!" [
             selector: do selector
@@ -105,24 +169,43 @@ set-path: function [value selector set-to] [] [
         "get-word!" [
             selector: get selector
         ]
-    ] []
-    apply 'value/type/set-path [value selector set-to]
+    ]
+    apply value/type/set-path [value selector set-to]
 ]
-bind: function [words context extend?] [] [
-    apply 'words/type/bind [words context extend?]
+
+bind: function [
+    "Bind words to a specified context"
+    words
+    context [context!]
+    options:
+        copy: no [logic!] "Bind a (deep) copy of WORDS"
+        new: no [logic!] "Add all words to CONTEXT"
+] [] [
+    apply words/type/bind [words context :copy new]
 ]
-tail: function [series] [] [
-    apply 'series/type/tail [series]
-]
-equal?: function [val1 val2] [obj] [
+
+equal?: function [
+    "Return TRUE if the two values are equal"
+    val1
+    val2
+] [obj] [
     either obj: val1/type/(val2/type/name) [
-        apply 'obj/equal? [val1 val2]
+        apply obj/equal? [val1 val2]
     ] [
-        apply 'val1/type/equal? [val1 val2]
+        apply val1/type/equal? [val1 val2]
     ]
 ]
 
-probe: function [value] [] [
-    print apply 'value/type/mold [value ""]
-    print "^/"
+probe: function [
+    "Print a text representation of a value; return the value"
+    value
+    options:
+        limit [number! none!] "Limit the length of the printed text"
+        indent: "" [string!] "Add this string after each new line"
+] [] [
+    print mold/options [
+        value: value
+        limit: limit
+        indent: indent
+    ]
 ]

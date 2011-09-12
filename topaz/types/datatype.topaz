@@ -31,15 +31,21 @@ datatypes: make-array
 ; make-type is defined as a macro in compile-topaz.topaz
 
 make-type 'datatype! [
-    mold: function [type indent] [] [
-        type/name
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        type
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string type/name limit
     ]
     do: function [type block] [] [
         reduce [type skip block 1]
     ]
-    bind: function [type context extend?] [] [
-        type
-    ]
+    bind: :default-bind
     topaz-make: function [ignored] [] [
         error make-struct [
             category: "Internal"

@@ -74,7 +74,12 @@ parse-values: function [values text] [value newline?] [
     while [all [not empty? text  #"]" <> first text  #")" <> first text]] [
         set [value text] parse-value text
         either value [
-            values: insert-nl values value newline?
+            values: insert/options [
+                series: values
+                value: value
+                only
+                new-line: newline?
+            ]
             set [text newline?] skip-spaces text
         ] [
             error make-struct [
@@ -85,7 +90,7 @@ parse-values: function [values text] [value newline?] [
             ]
         ]
     ]
-    new-line values newline?
+    set-new-line values newline?
     reduce [head values text]
 ]
 
@@ -105,10 +110,17 @@ load-raw: function [type text] [values] [
     ]
     values
 ]
-load: function [text all?] [values] [
+
+load: function [
+    "Load the string into a Topaz value"
+    text [string!] "Text representation of a Topaz value"
+    options:
+        all: no [logic!] "Always return a BLOCK! value"
+] [values] [
     values: load-raw block! text
-    bind values system-words true
-    either all [not all? 1 = length-of values] [
+    bind/new values system-words
+    ; the compiler does not bind (yet), so ALL vs. :ALL works
+    either all [not :all 1 = length-of values] [
         first values
     ] [
         values
