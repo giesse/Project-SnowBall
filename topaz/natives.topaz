@@ -322,7 +322,7 @@ natives: make-struct [
     load: :load
     read: function [
         "Read a file into a string"
-        file-name [string!]
+        file-name [file!]
     ] [] [read to-js-string file-name]
     try: function [
         "Try to evaluate CODE; if it causes an error, evaluate DEFAULT with WORD set to the ERROR! value"
@@ -414,7 +414,7 @@ natives: make-struct [
     ]
     write: function [
         "Write a string into a file"
-        file-name [string!]
+        file-name [file!]
         text [string!]
     ] [] [
         write to-js-string file-name to-js-string text
@@ -604,8 +604,8 @@ natives: make-struct [
         result: ""
         while [not empty? block] [
             set [value block] do-step first block block
-            value: either string? value [
-                value/string
+            value: either any-string? value [
+                to-js-string value
             ] [
                 mold value
             ]

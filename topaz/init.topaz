@@ -46,7 +46,8 @@ any-word!: make typeset! [word! get-word! set-word! lit-word!]
 any-path!: make typeset! [path! set-path! lit-path!]
 any-block!: make typeset! [any-path! block! paren!]
 any-function!: make typeset! [function! native! return!]
-series!: make typeset! [any-block! string!]
+any-string!: make typeset! [string! file!]
+series!: make typeset! [any-block! any-string!]
 
 ; ===== NATIVES ===============================================================
 
@@ -184,7 +185,7 @@ foreach [native spec] [
     ]
     read [
         "Read a file into a string"
-        file-name [string!]
+        file-name [file!]
 
         return: file-contents [string!]
     ]
@@ -260,7 +261,7 @@ foreach [native spec] [
     ]
     write [
         "Write a string into a file"
-        file-name [string!]
+        file-name [file!]
         text [string!]
 
         return: text [string!]

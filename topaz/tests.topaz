@@ -61,8 +61,8 @@ run-test [f 1 2 3]
 run-test [f 'a 'b 'c]
 run-test [f f 1 2 3 f 4 5 6 f 7 8 9]
 run-test [load "1 2 3 ; 4 5 6^/ 7 8 9"]
-run-test [read "topaz/init.topaz"]
-run-test [load read "topaz/init.topaz"]
+run-test [read %topaz/init.topaz]
+run-test [load read %topaz/init.topaz]
 run-test [1 + 1]
 run-test [1 - 1]
 run-test [g: func [a b] [probe a probe b a + b] ++: make op! :g]
@@ -86,8 +86,8 @@ run-test [
     ]
     compile-test
 ]
-run-test [write "test.txt" "This is a test"]
-run-test [read "test.txt"]
+run-test [write %test.txt "This is a test"]
+run-test [read %test.txt]
 run-test [cause make error! [category: 'Script id: 'user-error message: "An error"]]
 run-test [catch [throw "Something" none]]
 run-test [if true ["Was true"]]
@@ -102,7 +102,7 @@ run-test [all [true false print "Not here"]]
 run-test [any [false true]]
 run-test [any [none "Default"]]
 run-test [case [1 < 0 [print "Wrong"] 1 > 0 [print "Correct"]]]
-run-test [read "next/types"]
+run-test [read %next/types]
 run-test [context [a: 1 b: 2]]
 run-test [
     a: 1 b: 2
@@ -161,7 +161,7 @@ run-test [parse [1 2 3] [some number!]]
 run-test [parse [1 2 3] [any number!]]
 run-test [parse [1 2 3] [collect some [keep number!]]]
 run-test [
-    interpreter: load read "topaz/support.topaz"
+    interpreter: load read %topaz/support.topaz
     parse interpreter [
         collect any [
             keep set-word! [

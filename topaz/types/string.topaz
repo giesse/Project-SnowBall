@@ -24,13 +24,14 @@
 ; ===== TYPES: STRING! ========================================================
 
 make-type 'string! [
-    make: function [arguments] [] [make-string arguments 0]
+    make: function [arguments] [] [make-string string! arguments 0]
     topaz-make: function [value] [] [
         switch-default value/type/name [
-            "none!" [make-string "" 0]
-            "string!" [make-string to-js-string value 0]
+            "none!" [make-string string! "" 0]
+            "string!" [make-string string! to-js-string value 0]
+            "file!" [make-string string! to-js-string value 0]
         ] [
-            make-string mold value 0
+            make-string string! mold value 0
         ]
     ]
     length-of: function [string] [] [
@@ -40,7 +41,7 @@ make-type 'string! [
         pick-array string/string string/pos + pos
     ]
     skip: function [string amount] [] [
-        make-string string/string string/pos + amount
+        make-string string! string/string string/pos + amount
     ]
     mold: function [
         "Return a LOAD-able text representation of a value"
@@ -62,13 +63,17 @@ make-type 'string! [
     ]
     equal?: :default-equal?
     copy: function [string] [] [
-        make-string to-js-string string 0
+        make-string string! to-js-string string 0
     ]
 ]
+equal-string?: function [string1 string2] [] [
+    (to-js-string string1) = to-js-string string2
+]
 string!/("string!"): make-struct [
-    equal?: function [string1 string2] [] [
-        (to-js-string string1) = to-js-string string2
-    ]
+    equal?: :equal-string?
+]
+string!/("file!"): make-struct [
+    equal?: :equal-string?
 ]
 
 escape: function [str] [re result match i] [
@@ -157,9 +162,9 @@ to-js-string: function [string] [] [
     apply string/string/substr [string/pos]
 ]
 
-make-string: function [string pos] [] [
+make-string: function [type string pos] [] [
     make-struct [
-        type: string!
+        type: type
         string: string
         pos: pos
     ]

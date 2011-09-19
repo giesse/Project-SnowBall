@@ -27,6 +27,8 @@ any-word!: make typeset! make-struct [types: reduce [word! set-word! get-word! l
 any-word?: function [value] [] [in-typeset? any-word! value/type/name]
 any-block!: make typeset! make-struct [types: reduce [path! set-path! lit-path! block! paren!]]
 any-block?: function [value] [] [in-typeset? any-block! value/type/name]
+any-string!: make typeset! make-struct [types: reduce [string! file!]]
+any-string?: function [value] [] [in-typeset? any-string! value/type/name]
 
 word-active!: make typeset! make-struct [types: reduce [function! native! return!]]
 word-active?: function [value] [] [in-typeset? word-active! value/type/name]

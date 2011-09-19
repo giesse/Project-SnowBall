@@ -2,7 +2,7 @@
 
 load*: func [file] [load read file]
 
-interpreter: load* "topaz/support.topaz"
+interpreter: load* %topaz/support.topaz
 
 app: func [code] [
     append interpreter code
@@ -10,7 +10,7 @@ app: func [code] [
 
 app-file: func [file] [app load* file]
 
-app-file "topaz/actions.topaz"
+app-file %topaz/actions.topaz
 
 ; MAKE-TYPE macro
 make-internal-type: func [name actions] [
@@ -35,51 +35,52 @@ macro: func [name spec body] [
     make expression! []
 ]
 
-types-dir: "topaz/types/"
-app-type: func [file] [app-file rejoin [types-dir file]]
+types-dir: %topaz/types/
+app-type: func [file] [app-file make file! rejoin [types-dir file]]
 
 ; until dependency resolution is added...
 foreach 'type [
-    "datatype.topaz"
-    "block.topaz"
-    "paren.topaz"
-    "path.topaz"
-    "lit-path.topaz"
-    "set-path.topaz"
-    "word.topaz"
-    "get-word.topaz"
-    "lit-word.topaz"
-    "set-word.topaz"
-    "context.topaz"
-    "function.topaz"
-    "native.topaz"
-    "return.topaz"
-    "op.topaz"
-    "string.topaz"
-    "char.topaz"
-    "none.topaz"
-    "logic.topaz"
-    "number.topaz"
-    "expression.topaz"
-    "object.topaz"
-    "throw.topaz"
-    "return-value.topaz"
-    "error.topaz"
-    "typeset.topaz"
+    %datatype.topaz
+    %block.topaz
+    %paren.topaz
+    %path.topaz
+    %lit-path.topaz
+    %set-path.topaz
+    %word.topaz
+    %get-word.topaz
+    %lit-word.topaz
+    %set-word.topaz
+    %context.topaz
+    %function.topaz
+    %native.topaz
+    %return.topaz
+    %op.topaz
+    %string.topaz
+    %char.topaz
+    %file.topaz
+    %none.topaz
+    %logic.topaz
+    %number.topaz
+    %expression.topaz
+    %object.topaz
+    %throw.topaz
+    %return-value.topaz
+    %error.topaz
+    %typeset.topaz
 ] [app-type type]
 
 foreach 'file [
-    "topaz/typesets.topaz"
-    "topaz/load.topaz"
-    "topaz/natives.topaz"
-    "topaz/compiler.topaz"
+    %topaz/typesets.topaz
+    %topaz/load.topaz
+    %topaz/natives.topaz
+    %topaz/compiler.topaz
 ] [app-file file]
 
 app compose/deep [
     sys: apply require ["sys"]
     fs: apply require ["fs"]
     try [
-        do load/all make string! (mold/only load* "topaz/init.topaz")
+        do load/all make string! (mold/only load* %topaz/init.topaz)
     ] 'e [
         print "FATAL: error during initialization"
         e: handle-js-error e
@@ -186,4 +187,4 @@ locals: context append locals [context: func: object: none]
 bind interpreter locals
 bind interpreter compiler-keywords
 
-write "topaz/topaz.js" compile interpreter
+write %topaz/topaz.js compile interpreter

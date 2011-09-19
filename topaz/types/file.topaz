@@ -1,0 +1,96 @@
+; Topaz types: FILE!
+;
+; Copyright 2011 Gabriele Santilli
+;
+; Permission is hereby granted, free of charge, to any person obtaining
+; a copy of this software and associated documentation files
+; (the "Software"), to deal in the Software without restriction, including
+; without limitation the rights to use, copy, modify, merge, publish,
+; distribute, sublicense, and/or sell copies of the Software, and to
+; permit persons to whom the Software is furnished to do so, subject
+; to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included
+; in all copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+; OTHER DEALINGS IN THE SOFTWARE.
+
+; ===== TYPES: FILE! ==========================================================
+
+; This is temporarily just a string; however, I have plans to change this.
+
+make-type 'file! [
+    make: function [arguments] [] [make-string file! arguments 0]
+    topaz-make: function [value] [] [
+        switch-default value/type/name [
+            "none!" [make-string file! "" 0]
+            "string!" [make-string file! to-js-string value 0]
+            "file!" [make-string file! to-js-string value 0]
+        ] [
+            make-string file! mold value 0
+        ]
+    ]
+    length-of: function [string] [] [
+        (length-of-array string/string) - string/pos
+    ]
+    pick: function [string pos] [] [
+        pick-array string/string string/pos + pos
+    ]
+    skip: function [string amount] [] [
+        make-string file! string/string string/pos + amount
+    ]
+    mold: function [
+        "Return a LOAD-able text representation of a value"
+        string
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        ; PROBLEM: does not MOLD files with spaces correctly
+        limit-string rejoin ["%" escape limit-string string/string limit] limit
+    ]
+    do: function [string block] [] [
+        reduce [string skip block 1]
+    ]
+    bind: :default-bind
+    compile: function [string block] [] [
+        reduce [ast-value string skip block 1]
+    ]
+    equal?: :default-equal?
+    copy: function [string] [] [
+        make-string file! to-js-string string 0
+    ]
+]
+file!/("string!"): make-struct [
+    equal?: :equal-string?
+]
+file!/("file!"): make-struct [
+    equal?: :equal-string?
+]
+
+parse-file: function [text] [t] [
+    if #"%" = pick text 0 [
+        t: exec-re to-js-string text regexp "^^%(([^^^^\f\n\r \])]*|\^^\([0-9A-Fa-f]+\)|\^^[^^\f\n\r])*)" ""
+        either t [
+            reduce [
+                make file! unescape pick-array t 1
+                skip text length-of-array pick-array t 0
+            ]
+        ] [
+            error make-struct [
+                category: "Internal"
+                id: "should-not-happen"
+                message: "This should not happen (parse-file, no match)"
+                stack: text
+            ]
+        ]
+    ]
+]

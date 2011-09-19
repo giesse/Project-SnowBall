@@ -46,6 +46,7 @@ parse-path-element: function [text] [] [
         parse-get-word text
         parse-word     text
         parse-string   text
+        parse-file     text
         parse-block    text
         parse-paren    text
         parse-char     text
@@ -63,6 +64,7 @@ parse-value: function [text] [] [
         parse-lit-word text
         parse-get-word text
         parse-string   text
+        parse-file     text
         parse-block    text
         parse-paren    text
         parse-char     text
