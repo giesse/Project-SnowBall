@@ -90,7 +90,7 @@ tail-block: function [block] [] [
 ]
 
 pick-block: function [block pos] [] [
-    pick-array block/values block/pos + pos
+    any [pick-array block/values block/pos + pos make none! none]
 ]
 
 length-of-block: function [block] [] [

@@ -646,6 +646,23 @@ compose: func [
     ]
 ]
 
+map: func [
+    "Repeat the body over all values in the series replacing them with each result"
+    words [word! block!] "Word or words to set to each value"
+    series [series!]
+    body [block!] "Each result replaces each value or values"
+
+    return: series "The modified series"
+] [
+    _tmp: series
+    foreach words series compose/only [
+        _tmp/0: do (body)
+        _tmp: next _tmp
+    ]
+    ;clear _tmp
+    series
+]
+
 set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]
 block?: func [value] [block! = type-of :value]
