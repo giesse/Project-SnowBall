@@ -1,27 +1,44 @@
-; Topaz types: STRING!
-;
-; Copyright 2011 Gabriele Santilli
-;
-; Permission is hereby granted, free of charge, to any person obtaining
-; a copy of this software and associated documentation files
-; (the "Software"), to deal in the Software without restriction, including
-; without limitation the rights to use, copy, modify, merge, publish,
-; distribute, sublicense, and/or sell copies of the Software, and to
-; permit persons to whom the Software is furnished to do so, subject
-; to the following conditions:
-;
-; The above copyright notice and this permission notice shall be included
-; in all copies or substantial portions of the Software.
-;
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-; OTHER DEALINGS IN THE SOFTWARE.
+Topaz [
+    Title: "Topaz types: STRING!"
+    Author: "Gabriele Santilli"
+    Copyright: 2011
+    Type: Fake-Topaz
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
 
 ; ===== TYPES: STRING! ========================================================
+
+slice-string: function [
+    "Copy part of a string"
+    start [any-string!]
+    end-or-length [any-string! number!]
+] [end] [
+    either any-string? end-or-length [
+        end: end-or-length/pos
+    ] [
+        end: start/pos + end-or-length/number
+    ]
+    make-string start/type slice-array start/string start/pos end 0
+]
 
 make-type 'string! [
     make: function [arguments] [] [make-string string! arguments 0]
@@ -65,6 +82,7 @@ make-type 'string! [
     copy: function [string] [] [
         make-string string! to-js-string string 0
     ]
+    slice: :slice-string
 ]
 equal-string?: function [string1 string2] [] [
     (to-js-string string1) = to-js-string string2
@@ -160,6 +178,9 @@ unescape: function [str] [result i j ch p] [
 ]
 to-js-string: function [string] [] [
     apply string/string/substr [string/pos]
+]
+match-string?: function [string match] [] [
+    match = apply string/string/substr [string/pos match/length]
 ]
 
 make-string: function [type string pos] [] [

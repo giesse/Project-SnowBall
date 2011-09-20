@@ -1,25 +1,28 @@
-; Topaz initialization
-;
-; Copyright 2011 Gabriele Santilli
-;
-; Permission is hereby granted, free of charge, to any person obtaining
-; a copy of this software and associated documentation files
-; (the "Software"), to deal in the Software without restriction, including
-; without limitation the rights to use, copy, modify, merge, publish,
-; distribute, sublicense, and/or sell copies of the Software, and to
-; permit persons to whom the Software is furnished to do so, subject
-; to the following conditions:
-;
-; The above copyright notice and this permission notice shall be included
-; in all copies or substantial portions of the Software.
-;
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-; OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-; THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-; OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-; ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-; OTHER DEALINGS IN THE SOFTWARE.
+Topaz [
+    Title: "Topaz initialization"
+    Author: "Gabriele Santilli"
+    Copyright: 2011
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
 
 ; ===== BOOTSTRAP =============================================================
 
@@ -133,7 +136,7 @@ foreach [native spec] [
 
         return: molded-value [string!]
     ]
-    do [
+    do-block [
         "Evaluate a block"
         block [block! paren!]
 
@@ -175,7 +178,7 @@ foreach [native spec] [
 
         return: string [string!]
     ]
-    load [
+    load-string [
         "Load the string into a Topaz value"
         string [string!] "Text representation of a Topaz value"
         options:
@@ -457,6 +460,89 @@ in: make op! func [value container] [in? container value]
 
 ; ===== MEZZANINE FUNCTIONS ===================================================
 
+do: func [
+    "Evaluate a block or file"
+    block [block! paren! file!] "If FILE!, it must have a Topaz header"
+
+    return: result
+] [
+    if file? block [
+        block: load/all block
+    ]
+    do-block block
+]
+
+load: func [
+    "Load a file or string into a Topaz value"
+    source [file! string!] "If FILE!, it must have a Topaz header"
+    options:
+        header: no [logic!] "Also return the Topaz header (only when loading a file)"
+        all: no [logic!] "Always return a BLOCK! value"
+
+    return: value
+] [
+    switch make word! type-of source [
+        file! [
+            contents: read source
+            either any [
+                "Topaz [" = slice contents 7
+                found? contents: find contents "^/Topaz ["
+            ] [
+                header-object: object none []
+                parse contents: load-string contents [
+                    'Topaz
+                    into [
+                        any [
+                            name: set-word!
+                            value: skip
+                            (header-object/(name): :value)
+                        ]
+                        end
+                    ]
+                    |
+                    (cause-error [
+                        category: 'Script
+                        id: 'invalid-header
+                        message: "File has an invalid Topaz header"
+                        args: source
+                    ])
+                ]
+                contents/1: header-object
+                case [
+                    header [
+                        next contents
+                    ]
+                    system/words/all [not all 3 = length-of contents] [
+                        contents/2
+                    ]
+                    'else [
+                        skip contents 2
+                    ]
+                ]
+            ] [
+                cause-error [
+                    category: 'Script
+                    id: 'no-header
+                    message: "File is missing a Topaz header"
+                    args: source
+                ]
+            ]
+        ]
+        string! [load-string/options [string: source all: all]]
+    ]
+]
+
+cause-error: func [
+    "Cause an error according to the given spec"
+    spec [block! string!]
+] [
+    cause make error! either block? spec [spec] [[
+        category: 'User
+        id: 'message
+        message: spec
+    ]]
+]
+
 switch: func [
     "If VALUE is found in CASES, the block that follows it is evaluated"
     value
@@ -551,7 +637,7 @@ compose: func [
 ] [
     parse block rule: [
         collect any [
-            code: paren! either (only) [keep/only (do code)] [keep (do code)]
+            code: paren! either (only) [keep/only (do-block code)] [keep (do-block code)]
             |
             if (deep) [keep/only into rule]
             |
@@ -564,6 +650,7 @@ set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]
 block?: func [value] [block! = type-of :value]
 object?: func [value] [object! = type-of :value]
+file?: func [value] [file! = type-of :value]
 any-word?: func [value] [in? any-word! type-of :value]
 any-path?: func [value] [in? any-path! type-of :value]
 any-block?: func [value] [in? any-block! type-of :value]
@@ -689,7 +776,7 @@ parse-step: func [
                         block? true-rule: first rules
                         block? false-rule: second rules
                     ] [
-                        cause make error! [
+                        cause-error [
                             category: 'Parse
                             id: 'invalid-rule
                             message: "EITHER must be followed by a condition and two blocks"
@@ -748,7 +835,7 @@ parse-keep: func [
     match?: no
     result: none
     if not block? collection [
-        cause make error! [
+        cause-error [
             category: 'Parse
             id: 'keep-outside-collect
             message: "KEEP used outside the scope of a COLLECT"
@@ -830,7 +917,7 @@ parse-element: func [
                     rule: second rules
                     if word? rule [rule: get rule]
                     if not block? rule [
-                        cause make error! [
+                        cause-error [
                             category: 'Parse
                             id: 'invalid-rule
                             message: "Invalid argument to INTO (must be BLOCK!)"
@@ -870,7 +957,7 @@ parse-element: func [
                 block: block
                 rules: next rules
                 match?: yes
-                result: do rule
+                result: do-block rule
             ]
         ]
         block! [
@@ -929,7 +1016,7 @@ parse-match: func [
         match? [logic!] "Did the rules match?"
         result "Parsing result (valid if MATCH? is TRUE)"
 ] [
-    either all [not empty? block do condition] [
+    either all [not empty? block do-block condition] [
         return [
             block: next block
             rules: next rules

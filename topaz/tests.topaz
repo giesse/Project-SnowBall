@@ -1,4 +1,8 @@
-; Topaz Interpreter Basic Tests
+Topaz [
+    Title: "Topaz Interpreter Basic Tests"
+    Author: "Gabriele Santilli"
+    License: "MIT"
+]
 
 run-test: func [test] [
     prin ">> " print mold/options [value: test only indent: ">> "]
