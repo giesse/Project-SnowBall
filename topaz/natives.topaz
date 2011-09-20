@@ -60,7 +60,7 @@ read: function [
         dir-contents: apply fs/readdir-sync [filename]
         result: make block! none
         foreach 'item dir-contents [
-            result: insert result make string! item
+            result: insert result make file! item
         ]
         head result
     ] [
