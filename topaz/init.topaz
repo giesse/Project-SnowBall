@@ -663,6 +663,13 @@ map: func [
     series
 ]
 
+attempt: func [
+    "Attempt to evaluate CODE, return NONE in case of error"
+    code [block! paren!]
+] [
+    try code 'error [none]
+]
+
 set-word?: func [value] [set-word! = type-of :value]
 word?: func [value] [word! = type-of :value]
 block?: func [value] [block! = type-of :value]
