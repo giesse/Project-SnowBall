@@ -49,6 +49,9 @@ make-type 'file! [
     skip: function [string amount] [] [
         make-string file! string/string string/pos + amount
     ]
+    tail: function [string] [] [
+        make-string file! string/string length-of-array string/string
+    ]
     mold: function [
         "Return a LOAD-able text representation of a value"
         string

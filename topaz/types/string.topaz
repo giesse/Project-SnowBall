@@ -60,6 +60,9 @@ make-type 'string! [
     skip: function [string amount] [] [
         make-string string! string/string string/pos + amount
     ]
+    tail: function [string] [] [
+        make-string string! string/string length-of-array string/string
+    ]
     mold: function [
         "Return a LOAD-able text representation of a value"
         string
