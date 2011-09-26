@@ -3,7 +3,7 @@ NODEINT = rlwrap nodejs
 
 all: topaz/topaz.js
 
-tests: topaz/topaz.js topaz/tests.topaz
+tests: topaz/topaz.js topaz/tests/*
 	${NODE} topaz/topaz.js topaz/tests/run.topaz
 
 repl: all
