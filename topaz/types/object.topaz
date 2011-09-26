@@ -77,21 +77,25 @@ make-type 'object! [
             limit [number! none!] "Don't return a string longer than LIMIT characters"
             indent: "" [string!] "Add this string after each new line (ignored if flat)"
     ] [result] [
-        result: "object "
-        if within-limit? result limit [
-            result: rejoin [
-                result
-                either obj/parent [
-                    mold/options [
-                        value: obj/parent
-                        flat: flat
-                        limit: limit - length-of-array result
-                        indent: indent
+        either only [
+            result: "["
+        ] [
+            result: "object "
+            if within-limit? result limit [
+                result: rejoin [
+                    result
+                    either obj/parent [
+                        mold/options [
+                            value: obj/parent
+                            flat: flat
+                            limit: limit - length-of-array result
+                            indent: indent
+                        ]
+                    ] [
+                        "none"
                     ]
-                ] [
-                    "none"
+                    " ["
                 ]
-                " ["
             ]
         ]
         mold-words-and-values [

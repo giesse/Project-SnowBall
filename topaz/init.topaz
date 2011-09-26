@@ -413,6 +413,12 @@ foreach [native spec] [
 
         return: new-series [series!] "Same type as START"
     ]
+    clear [
+        "Remove all the elements from a series"
+        series [series!]
+
+        return: series
+    ]
 
     ; compiler only
     function          [spec locals body]
@@ -529,6 +535,25 @@ load: func [
             ]
         ]
         string! [load-string/options [string: source all: all]]
+    ]
+]
+
+save: func [
+    "Save a Topaz value into a file (so that it can be loaded back with LOAD)"
+    destination [file!]
+    header [object! block!]
+    value
+
+    return: value
+] [
+    if block? header [header: object none header]
+    write destination rejoin [
+        "Topaz " mold/only header
+        "^/^/"
+        mold/options [
+            value: value
+            only: all [block? value 1 < length-of value]
+        ]
     ]
 ]
 
@@ -659,7 +684,7 @@ map: func [
         _tmp/0: do (body)
         _tmp: next _tmp
     ]
-    ;clear _tmp
+    clear _tmp
     series
 ]
 

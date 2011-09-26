@@ -69,6 +69,7 @@ make-type 'paren! [
     equal?: :default-equal?
     copy: function [value] [] [copy-block paren! value]
     slice: :slice-block
+    clear: :clear-block
 ]
 paren!/("paren!"): make-struct [
     equal?: :compare-blocks

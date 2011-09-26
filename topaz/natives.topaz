@@ -665,6 +665,12 @@ natives: make-struct [
         ]
         apply start/type/slice [start end-or-length]
     ]
+    clear: function [
+        "Remove all the elements from a series"
+        series [series!]
+    ] [] [
+        apply series/type/clear [series]
+    ]
 ]
 
 ; ===== CONJURE ===============================================================

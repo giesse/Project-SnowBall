@@ -49,6 +49,10 @@ insert-array: function [arr pos value] [] [
     apply arr/splice [pos 0 value]
 ]
 
+clear-array: function [arr pos] [] [
+    apply arr/splice [pos]
+]
+
 slice-array: function [arr begin end] [] [
     apply arr/slice [begin end]
 ]

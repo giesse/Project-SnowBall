@@ -89,8 +89,9 @@ make-type 'typeset! [
             flat: no [logic!] "Produce a single text line"
             limit [number! none!] "Don't return a string longer than LIMIT characters"
             indent: "" [string!] "Add this string after each new line (ignored if flat)"
-    ] [] [
-        limit-string rejoin ["make typeset! [" apply ts/names/join [" "] "]"] limit
+    ] [list] [
+        list: apply ts/names/join [" "]
+        limit-string either only [list] [rejoin ["make typeset! [" list "]"]] limit
     ]
     do: function [ts block] [] [
         reduce [ts skip block 1]
