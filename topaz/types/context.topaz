@@ -216,6 +216,6 @@ context-to-object: function [context] [words map] [
     ]
     make object! make-struct [
         words: words
-        map: map
+        map: :map
     ]
 ]
