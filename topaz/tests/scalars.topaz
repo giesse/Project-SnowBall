@@ -1,0 +1,12 @@
+Topaz [
+    Title: "Tests for NUMBER!, CHAR! and EXPRESSION! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[make char! 64]
+[make number! 64]
+[
+    e: make expression! [1]
+    e/value
+]

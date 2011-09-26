@@ -4,7 +4,7 @@ NODEINT = rlwrap nodejs
 all: topaz/topaz.js
 
 tests: topaz/topaz.js topaz/tests.topaz
-	${NODE} topaz/topaz.js topaz/tests.topaz
+	${NODE} topaz/topaz.js topaz/tests/run.topaz
 
 repl: all
 	${NODEINT} topaz/topaz.js

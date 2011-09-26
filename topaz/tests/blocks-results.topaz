@@ -1,0 +1,98 @@
+Topaz [
+    Title: "Test results for %blocks.topaz"
+    Type: 'Test-Results
+    Passed: 18
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: []
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: []
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 2
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: []
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: []
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "()"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3 4]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+]

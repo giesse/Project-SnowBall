@@ -1,0 +1,21 @@
+Topaz [
+    Title: "Tests for CONTEXT! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[mold context [a: 1 b: 2]]
+[
+    a: 1 b: 2
+    code: [a + b]
+    res1: do code
+    ctx: context [a: 3 b: 4]
+    bind code ctx
+    res2: do code
+    mold reduce [
+        res1
+        res2
+        context-of first code
+    ]
+]
+[mold 'print in system/words]

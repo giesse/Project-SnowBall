@@ -1,0 +1,23 @@
+Topaz [
+    Title: "Test results for %strings.topaz"
+    Type: 'Test-Results
+    Passed: 3
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "0"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+]

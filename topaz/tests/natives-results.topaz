@@ -1,0 +1,322 @@
+Topaz [
+    Title: "Test results for %natives.topaz"
+    Type: 'Test-Results
+    Passed: 58
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 2
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[datatype! native [^/        ^"Make a Topaz type according to spec^"^/        type [datatype!]^/        spec^/        return: value ^"A value of the specified type^"^/    ] func [^/        ^"Make a function^"^/        spec [block!] ^"Function arguments specification^"^/        body [block!]^/        return: function [function!]^/    ] [^/        make function! reduce [spec body]^/    ] [1 2 3 4]]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3
+        7 8 9]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "This is a test"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "This is a test"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Topaz [^/]^/^/This is a test"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Topaz [^/]^/^/This is a test"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [
+        This is a test]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'User
+        id: 'message
+        message: "An error"
+        stack: [[
+                cause make error! either block? spec [spec] [[
+                        category: 'User
+                        id: 'message
+                        message: spec
+                    ]]
+            ] [cause-error "An error"]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Something"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Was true"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Was true"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Was false"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [0 1 2 3 4 5 6 7 8 9]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Default"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Correct"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [%block.topaz %value.topaz %datatype.topaz]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: datatype!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: number!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: word!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: string!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [b c]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: []
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 2
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 4
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 5
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [a b 2 d]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: make error! [
+        category: 'Internal
+        id: 'not-implemented
+        message: "Cannot make datatypes (yet)"
+        stack: [[make datatype! none]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1^/    2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1^/X    2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1^/X    2 [3 4^/X        5] 6]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "1 2 3"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "1^/2 3"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "1^/X2 3"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "1^/X2 [3 4^/X    5] 6"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 3]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[1 2 [3 4 5] 6]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3 4 5 6]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 [3 4] 5 6]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 [3 4] 5 6]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 [3 [4]] 5 6]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid argument for MAKE ERROR!"
+        args: none
+        stack: []
+    ]
+]

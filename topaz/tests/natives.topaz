@@ -1,0 +1,97 @@
+Topaz [
+    Title: "Tests for native functions"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[do [pick [1 2 3] 1]]
+[load "1 2 3"]
+[reduce [1 2 3]]
+[mold reduce [get 'datatype! :make :func append [1 2 3] 4]]
+[load "1 2 3 ; 4 5 6^/ 7 8 9"]
+[write %test.txt "This is a test"]
+[read %test.txt]
+[save %test.topaz [] [This is a test]]
+[read %test.topaz]
+[load %test.topaz]
+[cause-error "An error"]
+[catch [throw "Something" none]]
+[if true ["Was true"]]
+[if false ["Was true"]]
+[either true ["Was true"] ["Was false"]]
+[either false ["Was true"] ["Was false"]]
+[not true]
+[not none]
+[i: 0 blk: [] while [i < 10] [append blk i i: i + 1] blk]
+[all [true false none]]
+[all [true false cause-error "Not here"]]
+[any [false true]]
+[any [none "Default"]]
+[case [1 < 0 ["Wrong"] 1 > 0 ["Correct"]]]
+[read %next/types]
+[type-of word!]
+[type-of 1]
+[type-of 'word]
+[type-of "String"]
+[find [1 2 3] 2]
+[find [a b c] 'b]
+[find [a b c] 'd]
+[switch-default 'a [a [1] b [2] c d [3]] [4]]
+[switch-default 'b [a [1] b [2] c d [3]] [4]]
+[switch-default 'c [a [1] b [2] c d [3]] [4]]
+[switch-default 'd [a [1] b [2] c d [3]] [4]]
+[switch-default 'e [a [1] b [2] c d [3]] [4]]
+; bug with skip
+[empty? skip [] 1]
+[
+    a: 1
+    until [
+        a: a + 1
+        a = 5
+    ]
+    a
+]
+[compose [a b (1 + 1) d]]
+[try [make datatype! none] 'error [error]]
+
+[mold [1 2 3]]
+
+[mold [1
+2 3]]
+
+[mold/options [value: [1
+2 3] indent: "X"]]
+
+[mold/options [value: [1
+2 [3 4
+5] 6] indent: "X"]]
+
+[mold/only [1 2 3]]
+
+[mold/only [1
+2 3]]
+
+[mold/options [value: [1
+2 3] indent: "X" only]]
+
+[mold/options [value: [1
+2 [3 4
+5] 6] indent: "X" only]]
+
+[mold/flat [1 2 3]]
+
+[mold/flat [1
+2 3]]
+
+[mold/options [value: [1
+2 3] indent: "X" flat]]
+
+[mold/options [value: [1
+2 [3 4
+5] 6] indent: "X" flat]]
+
+[compose [1 2 ([3 4]) 5 6]]
+[compose/only [1 2 ([3 4]) 5 6]]
+[compose/deep [1 2 [3 (2 + 2)] 5 6]]
+[compose/deep/only [1 2 [3 ([4])] 5 6]]
+[make error! none]

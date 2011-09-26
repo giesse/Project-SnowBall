@@ -1,0 +1,9 @@
+Topaz [
+    Title: "Tests for STRING! and FILE! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[make string! 0]
+["String 1" = "String 2"]
+["String 1" <> "String 2"]

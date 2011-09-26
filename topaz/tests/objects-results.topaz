@@ -1,0 +1,78 @@
+Topaz [
+    Title: "Test results for %objects.topaz"
+    Type: 'Test-Results
+    Passed: 14
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "object none [^/    one: 1^/    two: 2^/    three: 3^/    flag: true^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 5
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "object none [^/    one: 1^/    two: 2^/    three: 3^/    flag: true^/    five: 5^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "object object none [^/    one: 1^/    two: 2^/    three: 3^/    flag: true^/    five: 5^/] [^/    four: 4^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 4
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 5
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+]

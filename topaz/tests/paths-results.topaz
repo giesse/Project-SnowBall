@@ -1,0 +1,28 @@
+Topaz [
+    Title: "Test results for %paths.topaz"
+    Type: 'Test-Results
+    Passed: 4
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "a/path"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "a/b/c"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "a/b/c:"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "'a/b/c"
+]

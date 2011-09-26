@@ -1,0 +1,133 @@
+Topaz [
+    Title: "Tests for FUNCTION!, NATIVE! and OP! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[mold make function! [[a b] [a]]]
+[mold make native! [[series value] insert]]
+[mold f: func [a b c] [reduce [a b c]]]
+[f 1 2 3]
+[f 'a 'b 'c]
+[f f 1 2 3 f 4 5 6 f 7 8 9]
+[1 + 1]
+[1 - 1]
+[g: func [a b] [mold a + b] mold ++: make op! :g]
+[1 ++ 1]
+[1 > 2]
+[1 < 2]
+[2 + 2 <= 4]
+; bug with recursive functions
+[
+    f: func [a] [if a > 1 [f a - 1]]
+    f 2
+]
+[
+    mold f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b [any-word!] "A word"
+    ] [
+        rejoin ["A: " mold a " B: " mold b]
+    ]
+]
+[f 1 'word]
+[f 'word 1]
+[f 1 2]
+[
+    mold f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b "Anything"
+        options:
+            c [word!] "A word"
+            d: 1 "Anything, default 1"
+            e: 'bla [any-word!] "Only words"
+    ] [
+        rejoin [
+            "A: " mold a "^/"
+            "B: " mold b "^/"
+            "C: " mold c "^/"
+            "D: " mold d "^/"
+            "E: " mold e
+        ]
+    ]
+]
+[f 1 'word]
+[f 'word 1]
+[f 1 2]
+[f/c 1 2]
+[f/d 1 2]
+[
+    f/options [
+        a: 1
+        b: "something"
+        c: 'bla
+    ]
+]
+[
+    f/options [
+        a: 1
+        b: "something"
+        c: 1
+    ]
+]
+[
+    f/options [
+        a: 1
+        b: "something"
+        d: "something else"
+        e: first [set-word:]
+    ]
+]
+[
+    f/options [
+        d: "something else"
+        e: first [set-word:]
+    ]
+]
+[
+    f/options [
+        b: "something"
+        d: "something else"
+        e: first [set-word:]
+        a: 1
+    ]
+]
+[
+    mold f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b "Anything"
+        c [word!] "A word"
+        d "Anything"
+        e [any-word!] "Only words"
+    ] [
+        rejoin [
+            "A: " mold a "^/"
+            "B: " mold b "^/"
+            "C: " mold c "^/"
+            "D: " mold d "^/"
+            "E: " mold e
+        ]
+    ]
+]
+[f 1 2 3 4 5]
+[
+    f [
+        b: 1
+        a: 2
+        c: 'bla
+        d: 3
+        e: first ['bla]
+    ]
+]
+[
+    f [
+        a: 1
+        b
+        c: 'bla
+        d
+        e: 'bla
+    ]
+]

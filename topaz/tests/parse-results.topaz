@@ -1,0 +1,63 @@
+Topaz [
+    Title: "Test results for %parse.topaz"
+    Type: 'Test-Results
+    Passed: 11
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 2
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 3
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [prin: funcall-macro 'prin [text] print: funcall-macro 'print [text] _foreach: funcall-macro '_foreach [arr fnc] foreach: none foreach-blk: none topaz-value: none]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "e"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "b"
+]

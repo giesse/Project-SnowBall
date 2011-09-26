@@ -77,7 +77,11 @@ make-type 'error! [
                 "message: ^"" escape err/message "^" "
                 either err/args [
                     rejoin [
-                        "args: " mold/options [value: err/args flat limit: limit] " "
+                        "args: " mold/options [
+                            value: either word? err/args [make lit-word! err/args/word] [err/args]
+                            flat
+                            limit: limit
+                        ] " "
                     ]
                 ] [""]
                 "stack: " mold/options [value: err/stack flat limit: limit] "]"
@@ -90,7 +94,11 @@ make-type 'error! [
                 indent "    message: ^"" escape err/message "^"^/"
                 either err/args [
                     rejoin [
-                        indent "    args: " mold/options [value: err/args indent: indent + "    " limit: limit] "^/"
+                        indent "    args: " mold/options [
+                            value: either word? err/args [make lit-word! err/args/word] [err/args]
+                            indent: indent + "    "
+                            limit: limit
+                        ] "^/"
                     ]
                 ] [""]
                 indent "    stack: " mold/options [value: err/stack limit: limit indent: indent + "    "] "^/"

@@ -178,7 +178,7 @@ mold-words-and-values: function [
     sep
     flat
     indent
-] [result i] [
+] [result i value] [
     result: open
     i: 0
     while [all [
@@ -190,10 +190,11 @@ mold-words-and-values: function [
             words/:i ": "
         ]
         if within-limit? result limit [
+            value: apply get-word-f [words/:i]
             result: rejoin [
                 result
                 mold/options [
-                    value: apply get-word-f [words/:i]
+                    value: either word? value [make lit-word! value/word] [value]
                     flat: flat
                     limit: subtract-limit result limit
                     indent: indent

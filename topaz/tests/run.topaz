@@ -1,0 +1,170 @@
+Topaz [
+    Title: "Run Topaz tests"
+    Author: "Gabriele Santilli"
+    Copyright: 2011
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
+
+tests-dir: %topaz/tests/
+
+tests: map 'file read tests-dir [
+    if all [
+        test: attempt [load/header make file! rejoin [tests-dir file]]
+        test/0/Type = 'Tests
+    ] [
+        test/0/File: file
+        test
+    ]
+]
+
+check-test: func [
+    "Ask the user to check the test results"
+    test [block!]
+    caused-error? [logic!]
+    result
+    options:
+        message [string! none!]
+
+    return: passed? [logic!]
+] [
+    prin "^->> " print mold/options [
+        value: test
+        only
+        indent: "^->> "
+        limit: 1024
+    ]
+    if message [
+        print rejoin ["^-" message]
+    ]
+    either caused-error? [
+        print form-error result
+    ] [
+        prin "^-== " probe/options [
+            value: :result
+            indent: "^-== "
+            limit: 1024
+        ]
+    ]
+    print ""
+    false ; "p" = ask "^-[P]assed or [F]ailed: "
+]
+
+run-tests: func [
+    "Run a set of tests"
+    header [object!]
+    tests [block!]
+
+    return:
+        passed [number!]
+        failed [number!]
+] [
+    print rejoin [header/Title " (" mold header/File ", " length-of tests " tests)"]
+    passed: 0
+    failed: 0
+    results-file: make file! rejoin [tests-dir slice header/File skip tail header/File -6 %-results.topaz]
+    ; this really begs to be a table!; the REDUCE is a temporary hack
+    results: any [attempt [reduce load results-file] copy []]
+    foreach 'test tests [
+        unhandled-throw?: yes
+        caused-error?: no
+        thrown: catch [
+            result: try test 'error [
+                caused-error?: yes
+                error
+            ]
+            unhandled-throw?: no
+        ]
+        last-result: results/0
+        case [
+            unhandled-throw? [
+                result: thrown
+                either all [
+                    last-result
+                    last-result/passed?
+                    last-result/unhandled-throw?
+                    last-result/result = result
+                ] [
+                    passed?: yes
+                ] [
+                    passed?: check-test/options [
+                        test: test
+                        caused-error?: caused-error?
+                        result: result
+                        message: "UNHANDLED THROW:"
+                    ]
+                ]
+            ]
+            caused-error? [
+                either all [
+                    last-result
+                    last-result/passed?
+                    last-result/caused-error?
+                    last-result/result = result
+                ] [
+                    passed?: yes
+                ] [
+                    passed?: check-test test true result
+                ]
+            ]
+            all [last-result last-result/result = result] [
+                passed?: last-result/passed?
+            ]
+            'else [
+                passed?: check-test test caused-error? result
+            ]
+        ]
+        either passed? [
+            passed: passed + 1
+        ] [
+            failed: failed + 1
+        ]
+        results/0: object none [
+            passed?: passed?
+            unhandled-throw?: unhandled-throw?
+            caused-error?: caused-error?
+            result: result
+        ]
+        results: next results
+    ]
+    clear results
+    save results-file [
+        Title: rejoin ["Test results for " mold header/File]
+        Type: 'Test-Results
+        Passed: passed
+        Failed: failed
+    ] head results
+    prin "^-PASSED: " print mold passed
+    prin "^-FAILED: " print mold failed
+    print ""
+    return passed failed
+]
+
+total-passed: total-failed: 0
+foreach 'test tests [
+    if block? test [
+        set [passed failed] run-tests test/0 next test
+        total-passed: total-passed + passed
+        total-failed: total-failed + failed
+    ]
+]
+prin "TOTAL PASSED: " print mold total-passed
+prin "TOTAL FAILED: " print mold total-failed

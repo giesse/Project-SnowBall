@@ -1,0 +1,124 @@
+Topaz [
+    Title: "Test results for %words.topaz"
+    Type: 'Test-Results
+    Passed: 22
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "a-word"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: datatype!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "native [^/    ^"Make a Topaz type according to spec^"^/    type [datatype!]^/    spec^/    return: value ^"A value of the specified type^"^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "native [^/    ^"Insert a value at the current position of the series^"^/    series [series!]^/    value^/    options:^/    only: no [logic!] ^"Insert series as a single value^"^/    new-line: no [logic!] ^"Temporary - add new line before value on MOLD^"^/    return: series^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: block!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [^/    ^"Make a function^"^/    spec [block!] ^"Function arguments specification^"^/    body [block!]^/    return: function [function!]^/] [^/    make function! reduce [spec body]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: datatype!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "native [^/    ^"Make a Topaz type according to spec^"^/    type [datatype!]^/    spec^/    return: value ^"A value of the specified type^"^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "native [^/    ^"Insert a value at the current position of the series^"^/    series [series!]^/    value^/    options:^/    only: no [logic!] ^"Insert series as a single value^"^/    new-line: no [logic!] ^"Temporary - add new line before value on MOLD^"^/    return: series^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: block!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [^/    ^"Make a function^"^/    spec [block!] ^"Function arguments specification^"^/    body [block!]^/    return: function [function!]^/] [^/    make function! reduce [spec body]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "bla:"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "'bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid argument for MAKE WORD!"
+        args: 1
+        stack: [[make word! 1]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 'word!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: word!
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 'name
+]

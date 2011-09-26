@@ -1,0 +1,24 @@
+Topaz [
+    Title: "Tests for BLOCK! and PAREN! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[insert [] 1]
+[head []]
+[pick [1 2 3] 1]
+[length-of [1 2 3]]
+[empty? []]
+[skip [1 2 3] 1]
+[skip [1 2 3] 2]
+[head skip [1 2 3] 2]
+[mold [1 2 3]]
+[tail [1 2 3]]
+[make block! 0]
+[first [1 2 3]]
+[mold make paren! 0]
+[append [1 2 3] 4]
+[[1 2 3] = [1 2 3]]
+[[1 2 3 4] = [1 2 3]]
+[[1 2 3 4] = [1 2 3 5]]
+[[a b "c d e"] = [a b "c d e"]]

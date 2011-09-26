@@ -1,0 +1,10 @@
+Topaz [
+    Title: "Tests for TYPESET! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[mold any-word!]
+[mold any-block!]
+[word! in any-word!]
+[block! in any-word!]

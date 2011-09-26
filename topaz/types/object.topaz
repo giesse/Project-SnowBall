@@ -88,7 +88,7 @@ make-type 'object! [
                         mold/options [
                             value: obj/parent
                             flat: flat
-                            limit: limit - length-of-array result
+                            limit: if limit [limit - length-of-array result]
                             indent: indent
                         ]
                     ] [

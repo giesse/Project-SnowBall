@@ -1,0 +1,18 @@
+Topaz [
+    Title: "Test results for %compiler.topaz"
+    Type: 'Test-Results
+    Passed: 2
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "a=1+1;"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "print=function(text){sys.print(text);return text;};print(^"one^");print(^"two^");"
+]

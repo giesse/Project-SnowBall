@@ -1,0 +1,27 @@
+Topaz [
+    Title: "Tests for OBJECT! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[
+    mold obj: object none [
+        one: 1
+        two: 2
+        three: 1 + 2
+        flag
+    ]
+]
+[obj/one]
+[obj/three]
+[obj/flag]
+[obj/four]
+[obj/five: 5]
+[mold obj]
+[mold obj2: object obj [four: 4]]
+[obj2/one]
+[obj2/four]
+[obj2/five]
+['four in obj2]
+['five in obj]
+['four in obj]

@@ -1,0 +1,23 @@
+Topaz [
+    Title: "Test results for %contexts.topaz"
+    Type: 'Test-Results
+    Passed: 3
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "context [^/    a: 1^/    b: 2^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "[3 7 context [^/        a: 3^/        b: 4^/    ]]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "print"
+]

@@ -1,0 +1,230 @@
+Topaz [
+    Title: "Test results for %functions.topaz"
+    Type: 'Test-Results
+    Passed: 33
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [a b] [a]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "native [series value]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [a b c] [reduce [a b c]]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [1 2 3]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [a b c]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [[1 2 3] [4 5 6] [7 8 9]]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 2
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 0
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "make op! func [a b] [mold a + b]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "2"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [^/    ^"This is a test function^"^/    a [number!] ^"A number^"^/    b [any-word!] ^"A word^"^/] [^/    rejoin [^"A: ^" mold a ^" B: ^" mold b]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1 B: word"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [['word 1] [f 'word 1]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument B: number! not in word! get-word! set-word! lit-word!"
+        args: 2
+        stack: [[2] [f 1 2]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [^/    ^"This is a test function^"^/    a [number!] ^"A number^"^/    b ^"Anything^"^/    options:^/    c [word!] ^"A word^"^/    d: 1 ^"Anything, default 1^"^/    e: 'bla [any-word!] ^"Only words^"^/] [^/    rejoin [^/        ^"A: ^" mold a ^"^^/^"^/        ^"B: ^" mold b ^"^^/^"^/        ^"C: ^" mold c ^"^^/^"^/        ^"D: ^" mold d ^"^^/^"^/        ^"E: ^" mold e^/    ]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: word^/C: none^/D: 1^/E: bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [['word 1] [f 'word 1]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: 2^/C: none^/D: 1^/E: bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-path
+        message: "Argument cannot be used as a flag"
+        args: 'c
+        stack: [[f/c 1 2]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: 2^/C: none^/D: true^/E: bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: ^"something^"^/C: bla^/D: 1^/E: bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument C: number! not in word!"
+        args: 1
+        stack: [[1
+            ] [
+                f/options [
+                    a: 1
+                    b: "something"
+                    c: 1
+                ]
+            ]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: ^"something^"^/C: none^/D: ^"something else^"^/E: set-word:"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'missing-argument
+        message: "Missing mandatory argument"
+        args: 'a
+        stack: [[
+                d: "something else"
+                e: first [set-word:]
+            ] [
+                f/options [
+                    d: "something else"
+                    e: first [set-word:]
+                ]
+            ]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: ^"something^"^/C: none^/D: ^"something else^"^/E: set-word:"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "func [^/    ^"This is a test function^"^/    a [number!] ^"A number^"^/    b ^"Anything^"^/    c [word!] ^"A word^"^/    d ^"Anything^"^/    e [any-word!] ^"Only words^"^/] [^/    rejoin [^/        ^"A: ^" mold a ^"^^/^"^/        ^"B: ^" mold b ^"^^/^"^/        ^"C: ^" mold c ^"^^/^"^/        ^"D: ^" mold d ^"^^/^"^/        ^"E: ^" mold e^/    ]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-spec
+        message: "Function argument spec must be a literal block, not"
+        args: number!
+        stack: [[f 1 2 3 4 5]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 2^/B: 1^/C: bla^/D: 3^/E: 'bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1^/B: true^/C: bla^/D: true^/E: bla"
+]

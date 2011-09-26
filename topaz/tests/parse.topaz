@@ -1,0 +1,64 @@
+Topaz [
+    Title: "Tests for the PARSE function"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[parse [1 2 3] [number!]]
+[parse [1 2 3] [number! number!]]
+[parse [1 2 3] [number! number! number!]]
+[parse [1 2 3] [number! number! number! number!]]
+[parse [1 2 3] [word!]]
+[parse [1 2 3] [some number!]]
+[parse [1 2 3] [any number!]]
+[parse [1 2 3] [collect some [keep number!]]]
+[
+    parse [
+        prin: function [text] [] [
+            apply sys/print [text]
+            text
+        ]
+        print: function [text] [] [
+            apply sys/print [text + "^/"]
+            text
+        ]
+
+        _foreach: function [arr fnc] [] [
+            apply arr/for-each [fnc]
+        ]
+        macro 'foreach [word arr body] [
+            word: word/value
+            if not system/words/block? word [word: system/words/reduce [word]]
+            system/words/make system/words/expression! compose/only [
+                _foreach arr function (word) [] body
+            ]
+        ]
+        ; _foreach-blk defined in types/block.topaz
+        macro 'foreach-blk [word block body] [
+            word: word/value
+            if not system/words/block? word [word: system/words/reduce [word]]
+            system/words/make system/words/expression! compose/only [
+                _foreach-blk block function (word) [] body
+            ]
+        ]
+
+        macro 'topaz-value [value] [
+            value: system/words/mold value/value
+            system/words/make system/words/expression! compose [
+                load make string! (value)
+            ]
+        ]
+    ] [
+        collect any [
+            name: set-word! 'function
+            keep (name) keep ('funcall-macro) keep (make lit-word! name)
+            keep/only block! block! block!
+            |
+            'macro name: lit-word! block! block! keep (make set-word! name) keep ('none)
+            |
+            skip
+        ]
+    ]
+]
+[mold parse [a [b c d] e] [word! into [some word!] word!]]
+[mold parse [a b c d] [word! [number!] | word! word!]]

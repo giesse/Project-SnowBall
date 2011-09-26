@@ -1,0 +1,28 @@
+Topaz [
+    Title: "Tests for WORD!, SET-WORD!, LIT-WORD! and GET-WORD! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[a: 1 a]
+[mold 'a-word]
+[get 'datatype!]
+[mold get 'make]
+[mold get 'insert]
+[get 'block!]
+[mold get 'func]
+[:datatype!]
+[mold :make]
+[mold :insert]
+[:block!]
+[mold :func]
+[mold make word! "bla"]
+[mold make set-word! "bla"]
+[mold make lit-word! "bla"]
+['word = first [word]]
+['word = first [word:]]
+['word1 = 'word2]
+[make word! 1]
+[make word! word!]
+[type-of make word! word!]
+[make lit-word! first [name:]]

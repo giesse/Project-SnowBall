@@ -1,0 +1,28 @@
+Topaz [
+    Title: "Test results for %typesets.topaz"
+    Type: 'Test-Results
+    Passed: 4
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "make typeset! [word! get-word! set-word! lit-word!]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "make typeset! [path! set-path! lit-path! block! paren!]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: true
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: false
+]

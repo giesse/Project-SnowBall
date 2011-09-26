@@ -1,0 +1,10 @@
+Topaz [
+    Title: "Tests for PATH!, SET-PATH! and LIT-PATH! values"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[mold 'a/path]
+[mold make path! [a b c]]
+[mold make set-path! [a b c]]
+[mold make lit-path! [a b c]]
