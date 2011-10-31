@@ -1,8 +1,8 @@
 Topaz [
     Title: "Test results for %functions.topaz"
     Type: 'Test-Results
-    Passed: 33
-    Failed: 0
+    Passed: 39
+    Failed: 2
 ]
 
 object none [
@@ -227,4 +227,73 @@ object none [
     unhandled-throw?: false
     caused-error?: false
     result: "A: 1^/B: true^/C: bla^/D: true^/E: bla"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1 B: word"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [['word b: 1] [apply :f [a: 'word b: 1]]]
+    ]
+] object none [
+    passed?: false
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [[apply/only :f [1 word]]]
+    ]
+] object none [
+    passed?: false
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'missing-argument
+        message: "Not enough arguments in the argument list during APPLY/ONLY"
+        stack: [[apply/only :f [word 1]]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1 B: word"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [[apply :f object none [a: 'word b: 1]]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "A: 1 B: word"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid type for argument A: word! not in number!"
+        args: 'word
+        stack: [[apply :f context [a: 'word b: 1]]]
+    ]
 ]

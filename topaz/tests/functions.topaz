@@ -131,3 +131,20 @@ Topaz [
         e: 'bla
     ]
 ]
+[
+    f: func [
+        "This is a test function"
+        a [number!] "A number"
+        b [any-word!] "A word"
+    ] [
+        rejoin ["A: " mold a " B: " mold b]
+    ]
+    apply :f [a: 1 b: 'word]
+]
+[apply :f [a: 'word b: 1]]
+[apply/only :f [1 word]]
+[apply/only :f [word 1]]
+[apply :f object none [a: 1 b: 'word]]
+[apply :f object none [a: 'word b: 1]]
+[apply :f context [a: 1 b: 'word]]
+[apply :f context [a: 'word b: 1]]
