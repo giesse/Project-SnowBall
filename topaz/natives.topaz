@@ -485,12 +485,12 @@ natives: make-struct [
                     args: args/type
                 ]
             ]
-            apply-only func args
+            apply-generic func args :apply-only
         ] [
             switch args/type/name [
-                "object!" [apply-object func args]
-                "context!" [apply-context func args]
-                "block!" [apply-block func args]
+                "object!" [apply-generic func args :apply-object]
+                "context!" [apply-generic func args :apply-context]
+                "block!" [apply-generic func args :apply-block]
             ]
         ]
     ]

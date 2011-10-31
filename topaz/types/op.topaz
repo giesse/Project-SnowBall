@@ -93,19 +93,5 @@ operator?: function [block] [value] [
     ]
 ]
 do-op: function [op arg1 arg2] [result] [
-    switch op/func/type/name [
-        "function!" [
-            push-context op/func/context
-            op/func/context/values: clone-values op/func/context
-            ; remember 0 is this-context
-            poke-array op/func/context/values 1 arg1
-            poke-array op/func/context/values 2 arg2
-            result: do op/func/body
-            pop-context op/func/context
-            result
-        ]
-        "native!" [
-            apply op/func/func [arg1 arg2]
-        ]
-    ]
+    apply op/func/type/call-two [op/func arg1 arg2]
 ]

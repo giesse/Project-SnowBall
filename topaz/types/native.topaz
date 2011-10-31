@@ -29,20 +29,11 @@ Topaz [
 
 make-type 'native! [
     make: function [arguments] [fnc] [
-        fnc: make-struct [
-            type: native!
-            mode: "fixed" ; default invocation syntax
-            args-list: make-array ; list of all arguments
-            mandatory: 0 ; number of mandatory arguments
-            args: make-struct [] ; map of all arguments
-            flags: make-array ; active flags
-            context: make context! none ; simplifies code, not optimal
-            spec: arguments/0
-            func: arguments/1
-            compile: arguments/2
-        ]
+        fnc: make-func-object native! arguments/0
+        fnc/arguments: make-array
+        fnc/func: arguments/1
+        fnc/compile: arguments/2
         parse-function-spec fnc
-        if 3 < fnc/mandatory [fnc/mode: "named"]
         fnc
     ]
     topaz-make: function [block] [spec name f c] [
@@ -94,15 +85,31 @@ make-type 'native! [
     ] [] [
         limit-string rejoin ["native " mold/options [value: func/spec flat: flat limit: limit indent: indent]] limit
     ]
-    do: function [func block] [res] [
-        push-context func/context
-        block: collect-function-arguments func block
-        res: call-native func
-        pop-context func/context
-        reduce [res block]
+    do: :function-do
+    prepare-arguments: function [func] [] [clone-array func/arguments]
+    call: function [func args] [] [
+        if not func/func [
+            error make-struct [
+                category: "Internal"
+                id: "not-implemented"
+                message: "This is a compiler-only native"
+            ]
+        ]
+        apply func/func/apply [none args]
+    ]
+    call-two: function [func arg1 arg2] [] [
+        if not func/func [
+            error make-struct [
+                category: "Internal"
+                id: "not-implemented"
+                message: "This is a compiler-only native"
+            ]
+        ]
+        apply func/func [arg1 arg2]
     ]
     bind: :default-bind
-    compile: function [func block] [args] [
+    compile: function [func block] [] [function-compile func block false]
+    call-compile: function [func args] [] [
         if not func/compile [
             error make-struct [
                 category: "Internal"
@@ -110,25 +117,27 @@ make-type 'native! [
                 message: "This is a interpreter-only native"
             ]
         ]
-        push-context func/context
-        block: compile-function-arguments func block false
-        ; need to skip this-context
-        args: copy-array func/context/values 1
-        pop-context func/context
-        reduce [apply func/compile/apply [none args] block]
+        apply func/compile/apply [none args]
     ]
     equal?: :default-equal?
     get-path: :function-get-path
-]
-
-call-native: function [func] [] [
-    if not func/func [
-        error make-struct [
-            category: "Internal"
-            id: "not-implemented"
-            message: "This is a compiler-only native"
+    set-argument: function [func args arg value] [] [
+        args/(arg/offset): value
+        args
+    ]
+    get-argument: function [func args arg] [] [args/(arg/offset)]
+    add-argument: function [func arg dflt] [] [
+        arg/offset: length-of-array func/arguments
+        apply func/arguments/push [dflt]
+    ]
+    set-return: function [func spec] [] []
+    compile-default-arguments: function [func args wrap?] [] [
+        ; prepare default arguments
+        foreach [value pos] args [
+            if value [
+                ; only immediate values supported
+                args/(pos): either wrap? [make expression! ast-value value] [ast-value value]
+            ]
         ]
     ]
-    ; need to skip this-context
-    apply func/func/apply [none copy-array func/context/values 1]
 ]

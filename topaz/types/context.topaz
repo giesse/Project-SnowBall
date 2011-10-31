@@ -34,7 +34,6 @@ make-type 'context! [
             type: context!
             words: any [arguments/words make-array]
             values: any [arguments/values make-array]
-            stack: any [arguments/stack make-array]
         ]
         set-in-context ctx make word! "this-context" ctx
         ctx
@@ -128,15 +127,6 @@ make-type 'context! [
 
 get-word-offset: function [context word] [] [
     apply context/words/index-of [word]
-]
-clone-values: function [context] [] [
-    clone-array pick-array context/stack 0
-]
-push-context: function [context] [] [
-    poke-array context/stack length-of-array context/stack context/values
-]
-pop-context: function [context] [] [
-    context/values: pop-array context/stack
 ]
 
 add-word: function [context word value] [l] [

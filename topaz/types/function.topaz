@@ -25,8 +25,6 @@ Topaz [
     ; }
 ]
 
-; ===== TYPES: FUNCTION! ======================================================
-
 ; There are several ways a function can be invoked in Topaz; they also depend
 ; on how many arguments the function has, whether it has optional arguments,
 ; and so on. For these reasons, we'll make some examples here. Consider having
@@ -147,6 +145,63 @@ Topaz [
 ; secure: true
 ; port: 80
 
+; ===== Function object =======================================================
+
+make-func-object: function [type spec] [] [
+    make-struct [
+        type: type
+        args-list: make-array ; list of all arguments
+        mandatory: 0 ; number of mandatory arguments
+        args: make-struct [] ; map of all arguments
+        mode: "fixed" ; active invocation syntax
+        flags: make-array ; active "flags"
+        spec: spec
+    ]
+]
+
+mandatory-arguments-of: function [spec-obj] [] [
+    slice-array spec-obj/args-list 0 spec-obj/mandatory
+]
+
+append-argument: function [spec-obj arg] [] [
+    append-array spec-obj/args-list arg
+    if not arg/optional? [spec-obj/mandatory: spec-obj/mandatory + 1]
+    spec-obj/args/(argument-name-of arg): arg
+]
+
+change-invocation: function [func mode] [] [
+    func: clone-object func
+    func/mode: mode
+    func
+]
+
+invocation-mode-of: function [func] [] [func/mode]
+
+insert-flag: function [func flag] [] [
+    func: clone-object func
+    func/flags: apply func/flags/concat [flag]
+    func
+]
+
+get-argument-object: function [func name] [] [func/args/:name]
+
+; TODO: foreach-flag
+
+; ===== Argument object =======================================================
+
+make-argument-object: function [word opt?] [] [
+    make-struct [
+        word: word
+        optional?: opt?
+        types: none
+        offset: 0
+    ]
+]
+
+argument-name-of: function [arg] [] [arg/word/word]
+
+; ===== TYPES: FUNCTION! ======================================================
+
 function-get-path: function [func selector] [arg] [
     if not word? selector [
         error make-struct [
@@ -157,10 +212,9 @@ function-get-path: function [func selector] [arg] [
         ]
     ]
     either selector/word = "options" [
-        func: clone-object func
-        func/mode: "named"
+        change-invocation func "named"
     ] [
-        if not arg: func/args/(selector/word) [
+        if not arg: get-argument-object func selector/word [
             error make-struct [
                 category: "Script"
                 id: "invalid-path"
@@ -176,29 +230,57 @@ function-get-path: function [func selector] [arg] [
                 args: selector
             ]
         ]
-        func: clone-object func
-        func/flags: apply func/flags/concat [selector/word]
+        insert-flag func selector/word
     ]
-    func
+]
+
+function-do: function [func block] [args] [
+    args: apply func/type/prepare-arguments [func]
+    block: collect-function-arguments [
+        func: func
+        args: args
+        block: block
+        category: "Script"
+        logic-true: make logic! true
+        do-arg: function [block] [] [do-step first block block]
+        check-arg: :check-argument
+    ]
+    reduce [apply func/type/call [func args]  block]
+]
+function-compile: function [func block wrap?] [args logic-true comp-arg] [
+    args: apply func/type/prepare-arguments [func]
+    logic-true: ast-value make logic! true
+    apply func/type/compile-default-arguments [func args wrap?]
+    either wrap? [
+        logic-true: make expression! logic-true
+        comp-arg: function [block] [expr] [
+            set [expr block] compile-step block
+            reduce [make expression! expr block]
+        ]
+    ] [
+        comp-arg: :compile-step
+    ]
+    block: collect-function-arguments [
+        func: func
+        args: args
+        block: block
+        category: "Compilation"
+        logic-true: logic-true
+        do-arg: :comp-arg
+        check-arg: function [arg value block] [] []
+    ]
+    reduce [apply func/type/call-compile [func args]  block]
 ]
 
 make-type 'function! [
     make: function [arguments] [fnc] [
-        fnc: make-struct [
-            type: function!
-            mode: "fixed" ; default invocation syntax
-            args-list: make-array ; list of all arguments
-            mandatory: 0 ; number of mandatory arguments
-            args: make-struct [] ; map of all arguments
-            flags: make-array ; active "flags"
-            context: make context! none
-            spec: arguments/0
-            body: arguments/1
-        ]
+        fnc: make-func-object function! arguments/0
+        fnc/context: make context! none
+        fnc/body: arguments/1
         parse-function-spec fnc
-        if 3 < fnc/mandatory [fnc/mode: "named"]
         collect-locals fnc
         bind fnc/body fnc/context
+        fnc/default-values: fnc/context/values
         fnc
     ]
     topaz-make: function [block] [] [
@@ -269,18 +351,32 @@ make-type 'function! [
         ]
         limit-string result limit
     ]
-    do: function [func block] [result] [
-        push-context func/context
-        block: collect-function-arguments func block
-        result: call-function func
-        pop-context func/context
-        reduce [result block]
+    do: :function-do
+    prepare-arguments: function [func] [] [clone-array func/default-values]
+    call: function [func args] [res saved] [
+        saved: func/context/values
+        func/context/values: args
+        try [
+            res: do func/body
+        ] 'e [
+            e: handle-js-error e
+            either all [e/type/name = "return-value!" e/func = func] [
+                res: e/value
+            ] [
+                throw e
+            ]
+        ]
+        func/context/values: saved
+        res
+    ]
+    ; shortcut used by OP!
+    call-two: function [func arg1 arg2] [] [
+        apply function!/call [func reduce [func/context arg1 arg2]]
     ]
     bind: :default-bind
-    compile: function [func block] [expr] [
-        push-context func/context
-        block: compile-function-arguments func block true
-        if not expression? expr: call-function func [
+    compile: function [func block] [] [function-compile func block true]
+    call-compile: function [func args] [expr] [
+        if not expression? expr: apply function!/call [func args] [
             error make-struct [
                 category: "Compilation"
                 id: "invalid-argument"
@@ -288,31 +384,63 @@ make-type 'function! [
                 args: expr
             ]
         ]
-        pop-context func/context
-        reduce [expr/expr block]
+        expr/expr
     ]
     equal?: :default-equal?
     get-path: :function-get-path
+    set-argument: function [func args arg value] [] [
+        args/(arg/offset): value
+        args
+    ]
+    get-argument: function [func args arg] [] [args/(arg/offset)]
+    add-argument: function [func arg dflt] [] [
+        if 0 <= get-word-offset func/context argument-name-of arg [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Duplicate function argument name"
+                args: arg/word
+            ]
+        ]
+        arg/offset: add-word func/context arg/word dflt
+    ]
+    set-return: function [func spec] [] [
+        set-in-context func/context make word! "return" make return! make-struct [
+            spec: spec
+            func: func
+        ]
+    ]
+    compile-default-arguments: function [func args wrap?] [] [
+        ; prepare default arguments
+        foreach [value pos] args [
+            ; need to skip this-context
+            if all [pos > 0 value] [
+                ; only immediate values supported
+                args/(pos): either wrap? [make expression! ast-value value] [ast-value value]
+            ]
+        ]
+    ]
 ]
 
-collect-function-arguments-generic: function [
-    args
+collect-function-arguments: function [
     func
+    args
     block
     category
     logic-true
     do-arg
     check-arg
-] [args args-block] [
+] [args-block] [
     ; set flags (assumes valid list)
     foreach 'flag func/flags [
-        poke-array args func/args/:flag/offset logic-true
+        args: apply func/type/set-argument [func args get-argument-object func flag logic-true]
     ]
-    switch-default func/mode [
+    switch-default invocation-mode-of func [
         "fixed" [
             block: collect-arguments [
-                list: slice-array func/args-list 0 func/mandatory
-                target: args
+                func: func
+                args: args
+                list: mandatory-arguments-of func
                 block: skip block 1
                 category: category
                 do-arg: :do-arg
@@ -337,9 +465,8 @@ collect-function-arguments-generic: function [
                 ]
             ]
             parse-named-arguments [
-                args: func/args
-                list: func/args-list
-                target: args
+                func: func
+                args: args
                 block: args-block
                 category: category
                 logic-true: logic-true
@@ -355,7 +482,6 @@ collect-function-arguments-generic: function [
             message: "Something's wrong: function! do, mode not fixed or named"
         ]
     ]
-    func/context/values: args
     block
 ]
 check-argument: function [arg value block] [] [
@@ -368,49 +494,10 @@ check-argument: function [arg value block] [] [
         ]
     ]
 ]
-collect-function-arguments: function [func block] [] [
-    collect-function-arguments-generic [
-        args: clone-values func/context
-        func: func
-        block: block
-        category: "Script"
-        logic-true: make logic! true
-        do-arg: function [block] [] [do-step first block block]
-        check-arg: :check-argument
-    ]
-]
-compile-function-arguments: function [func block wrap?] [logic-true comp-arg args] [
-    logic-true: ast-value make logic! true
-    ; prepare default arguments
-    args: clone-values func/context
-    foreach [arg pos] args [
-        if arg [
-            ; only immediate values supported
-            args/(pos): either wrap? [make expression! ast-value arg] [ast-value arg]
-        ]
-    ]
-    either wrap? [
-        logic-true: make expression! logic-true
-        comp-arg: function [block] [expr] [
-            set [expr block] compile-step block
-            reduce [make expression! expr block]
-        ]
-    ] [
-        comp-arg: function [block] [] [compile-step block]
-    ]
-    collect-function-arguments-generic [
-        args: args
-        func: func
-        block: block
-        category: "Compilation"
-        logic-true: logic-true
-        do-arg: :comp-arg
-        check-arg: function [arg value block] [] []
-    ]
-]
 collect-arguments: function [
+    func
+    args
     list
-    target
     block
     category
     do-arg
@@ -426,7 +513,7 @@ collect-arguments: function [
         ]
         set [value block] apply do-arg [orig-block: block]
         apply check-arg [arg value orig-block]
-        poke-array target arg/offset value
+        args: apply func/type/set-argument [func args arg value]
     ]
     block
 ]
@@ -435,12 +522,13 @@ invalid-argument-type: function [
     arg
     value
     stack
-] [] [
+] [name] [
+    name: argument-name-of arg
     error make-struct [
         category: category
         id: "invalid-argument"
         message: rejoin [
-            "Invalid type for argument " apply arg/word/word/to-upper-case []
+            "Invalid type for argument " apply name/to-upper-case []
             ": " value/type/name " not in "
             mold/only arg/types
         ]
@@ -458,9 +546,8 @@ invalid-argument-name: function [category word stack] [] [
     ]
 ]
 parse-named-arguments: function [
+    func
     args
-    list
-    target
     block
     category
     logic-true
@@ -471,14 +558,14 @@ parse-named-arguments: function [
         word: first block
         switch-default word/type/name [
             "word!" [
-                if not arg: args/(word/word) [
+                if not arg: get-argument-object func word/word [
                     invalid-argument-name category word block
                 ]
                 block: next orig-block: block
                 value: logic-true
             ]
             "set-word!" [
-                if not arg: args/(word/word) [
+                if not arg: get-argument-object func word/word [
                     invalid-argument-name category word block
                 ]
                 set [value block] apply do-arg [orig-block: next block]
@@ -493,17 +580,16 @@ parse-named-arguments: function [
             ]
         ]
         apply check-arg [arg value orig-block]
-        poke-array target arg/offset value
+        args: apply func/type/set-argument [func args arg value]
     ]
-    ; check mandatory arguments
-    foreach 'arg list [
-        if not pick-array target arg/offset [
+    foreach 'arg mandatory-arguments-of func [
+        if not apply func/type/get-argument [func args arg] [
             error make-struct [
                 category: category
                 id: "missing-argument"
                 message: "Missing mandatory argument"
                 args: arg/word
-                stack: head block
+                stack: block
             ]
         ]
     ]
@@ -547,28 +633,14 @@ parse-function-spec: function [fnc] [spec] [
             invalid-spec-value value spec
         ]
     ]
+    if 3 < fnc/mandatory [fnc/mode: "named"]
     none
 ]
-parse-argument-spec: function [fnc spec opt?] [word arg value] [
+parse-argument-spec: function [fnc spec opt?] [word arg value orig-spec] [
     word: first spec
-    arg: make-struct [
-        word: word
-        optional?: opt?
-        types: none
-        offset: 0
-    ]
-    append-array fnc/args-list arg
-    if not opt? [fnc/mandatory: fnc/mandatory + 1]
-    fnc/args/(word/word): arg
-    if 0 <= get-word-offset fnc/context word/word [
-        error make-struct [
-            category: "Script"
-            id: "invalid-spec"
-            message: "Duplicate function argument name"
-            args: word
-            stack: spec
-        ]
-    ]
+    arg: make-argument-object word opt?
+    append-argument fnc arg
+    orig-spec: spec
     either set-word? word [
         ; optional argument with default value
         if not opt? [
@@ -585,7 +657,12 @@ parse-argument-spec: function [fnc spec opt?] [word arg value] [
         spec: next spec
         value: either opt? [make none! none] [none]
     ]
-    arg/offset: add-word fnc/context word value
+    try [
+        apply fnc/type/add-argument [fnc arg value]
+    ] 'e [
+        insert/only tail e/stack orig-spec
+        throw e
+    ]
     if not empty? spec [
         value: first spec
         if block? value [
@@ -596,7 +673,7 @@ parse-argument-spec: function [fnc spec opt?] [word arg value] [
     spec
 ]
 parse-function-options: function [fnc spec] [word] [
-    while [all [not empty? spec word: first spec either set-word? word [word/word <> "return"] [true]]] [
+    while [all [not empty? spec word: first spec not all [set-word? word word/word = "return"]]] [
         switch-default word/type/name [
             "word!" [spec: parse-argument-spec fnc spec true]
             "set-word!" [spec: parse-argument-spec fnc spec true]
@@ -625,49 +702,25 @@ parse-function-return: function [fnc spec] [value ret] [
             invalid-spec-value value spec
         ]
     ]
-    set-in-context fnc/context make word! "return" make return! make-struct [
-        spec: ret
-        func: fnc
-    ]
+    apply fnc/type/set-return [fnc ret]
     spec
 ]
+
 collect-locals: function [fnc] [] [
     bind/new collect-set-words/deep make block! none fnc/body fnc/context
 ]
 
-call-function: function [func] [res] [
-    try [
-        res: do func/body
-    ] 'e [
-        e: handle-js-error e
-        either all [e/type/name = "return-value!" e/func = func] [
-            res: e/value
-        ] [
-            throw e
-        ]
-    ]
-    res
+apply-generic: function [func args collect-args] [func-args] [
+    func-args: apply func/type/prepare-arguments [func]
+    apply collect-args [func func-args args]
+    apply func/type/call [func func-args]
 ]
-call-any-function: function [func] [] [
-    switch func/type/name [
-        "function!" [
-            call-function func
-        ]
-        "native!" [
-            call-native func
-        ]
-        "return!" [
-            call-return func
-        ]
-    ]
-]
-apply-only: function [func args [block!]] [value target] [
-    push-context func/context
-    target: clone-values func/context
-    foreach 'arg func/args-list [
-        either value: args/values/(arg/offset) [
+
+apply-only: function [func func-args args [block!]] [value] [
+    foreach [arg pos] func/args-list [
+        either value: args/values/:pos [
             check-argument arg value none
-            target/(arg/offset): value
+            func-args: apply func/type/set-argument [func func-args arg value]
         ] [
             if not arg/optional? [
                 error make-struct [
@@ -678,18 +731,13 @@ apply-only: function [func args [block!]] [value target] [
             ]
         ]
     ]
-    func/context/values: target
-    value: call-any-function func
-    pop-context func/context
-    value
+    none
 ]
-apply-object: function [func obj] [value target] [
-    push-context func/context
-    target: clone-values func/context
+apply-object: function [func args obj] [value] [
     foreach 'arg func/args-list [
-        either value: obj/map/(arg/word/word) [
+        either value: obj/map/(argument-name-of arg) [
             check-argument arg value none
-            target/(arg/offset): value
+            args: apply func/type/set-argument [func args arg value]
         ] [
             if not arg/optional? [
                 error make-struct [
@@ -701,22 +749,17 @@ apply-object: function [func obj] [value target] [
             ]
         ]
     ]
-    func/context/values: target
-    value: call-any-function func
-    pop-context func/context
-    value
+    none
 ]
-apply-context: function [func ctx] [target value] [
+apply-context: function [func args ctx] [value] [
     ; we could optimize the case where func/context and ctx are the same context
-    push-context func/context
-    target: clone-values func/context
     foreach 'arg func/args-list [
         either all [
-            0 <= value: get-word-offset ctx arg/word/word
+            0 <= value: get-word-offset ctx argument-name-of arg
             value: ctx/values/:value
         ] [
             check-argument arg value none
-            target/(arg/offset): value
+            args: apply func/type/set-argument [func args arg value]
         ] [
             if not arg/optional? [
                 error make-struct [
@@ -728,26 +771,16 @@ apply-context: function [func ctx] [target value] [
             ]
         ]
     ]
-    func/context/values: target
-    value: call-any-function func
-    pop-context func/context
-    value
+    none
 ]
-apply-block: function [func block] [target] [
-    push-context func/context
-    target: clone-values func/context
+apply-block: function [func args block] [] [
     parse-named-arguments [
-        args: func/args
-        list: func/args-list
-        target: target
+        func: func
+        args: args
         block: block
         category: "Script"
         logic-true: make logic! true
         do-arg: function [block] [] [do-step first block block]
         check-arg: :check-argument
     ]
-    func/context/values: target
-    value: call-any-function func
-    pop-context func/context
-    value
 ]

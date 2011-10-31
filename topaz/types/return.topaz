@@ -31,19 +31,9 @@ Topaz [
 
 make-type 'return! [
     make: function [arguments] [fnc] [
-        fnc: make-struct [
-            type: return!
-            mode: "fixed" ; default invocation syntax
-            args-list: make-array ; list of all arguments
-            mandatory: 0 ; number of mandatory arguments
-            args: make-struct [] ; map of all arguments
-            flags: make-array ; active flags
-            context: make context! none ; simplifies code, not optimal
-            spec: arguments/spec
-            func: arguments/func
-        ]
+        fnc: make-func-object return! arguments/spec
+        fnc/func: arguments/func
         parse-function-spec fnc
-        if 3 < fnc/mandatory [fnc/mode: "named"]
         fnc
     ]
     topaz-make: function [ignored] [] [
@@ -66,11 +56,24 @@ make-type 'return! [
             "#[return " mold/options [value: func/spec flat: flat limit: limit indent: indent] "]"
         ] limit
     ]
-    do: function [func block] [value] [
-        push-context func/context
-        block: collect-function-arguments func block
-        call-return func
+    do: :function-do
+    prepare-arguments: function [func] [] [
+        case [
+            func/mandatory = 0 [
+                make none! none
+            ]
+            func/mandatory = 1 [
+                none
+            ]
+            'else [
+                make object! none
+            ]
+        ]
     ]
+    call: function [func args] [] [
+        throw make return-value! make-struct [value: args func: func/func]
+    ]
+    ; return can't be made into an op! so no call-two
     bind: :default-bind
     compile: function [func block] [args] [
         error make-struct [
@@ -81,21 +84,16 @@ make-type 'return! [
     ]
     equal?: :default-equal?
     get-path: :function-get-path
-]
-
-call-return: function [func] [] [
-    case [
-        func/mandatory = 0 [
-            value: make none! none
-        ]
-        func/mandatory = 1 [
-            value: func/context/values/1
-        ]
-        'else [
-            value: context-to-object func/context
+    set-argument: function [func args arg value] [] [
+        either func/mandatory = 1 [
+            value
+        ] [
+            set-word-in-object args argument-name-of arg value
+            args
         ]
     ]
-    ; it's ok because of the THROW
-    pop-context func/context
-    throw make return-value! make-struct [value: value func: func/func]
+    get-argument: function [func args arg] [] [
+        either func/mandatory = 1 [args] [args/map/(argument-name-of arg)]
+    ]
+    add-argument: function [func arg dflt] [] []
 ]
