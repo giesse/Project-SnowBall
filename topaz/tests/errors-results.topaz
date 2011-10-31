@@ -13,7 +13,6 @@ object none [
         category: 'Script
         id: 'invalid-argument
         message: "Invalid argument for MAKE ERROR!"
-        args: none
         stack: []
     ]
 ] object none [

@@ -137,11 +137,17 @@ run-tests: func [
         ] [
             failed: failed + 1
         ]
-        results/0: object none [
-            passed?: passed?
-            unhandled-throw?: unhandled-throw?
-            caused-error?: caused-error?
-            result: result
+        ; do not overwrite if it passed last time (ie. keep good result rather than forgetting it)
+        if any [
+            not last-result
+            not last-result/passed?
+        ] [
+            results/0: object none [
+                passed?: passed?
+                unhandled-throw?: unhandled-throw?
+                caused-error?: caused-error?
+                result: result
+            ]
         ]
         results: next results
     ]
