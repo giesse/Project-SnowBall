@@ -1,0 +1,16 @@
+Topaz [
+    Title: "Tests for ERROR! values and error handling"
+    Author: "Gabriele Santilli"
+    Type: Tests
+]
+
+[make error! none]
+[
+    make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid argument test error"
+        args: 1
+        stack: [[1] [2] [3]]
+    ]
+]

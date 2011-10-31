@@ -125,7 +125,7 @@ error!/("error!"): make-struct [
     ]
 ]
 
-topaz-make-error: function [obj] [args] [
+topaz-make-error: function [obj] [args err] [
     obj: obj/map
     args: make-struct []
     if obj/category [
@@ -140,10 +140,11 @@ topaz-make-error: function [obj] [args] [
     if all [obj/args not none? obj/args] [
         args/args: obj/args
     ]
-    if all [obj/stack not none? obj/stack] [
-        args/stack: obj/stack
+    err: apply error!/make [args]
+    if all [obj/stack block? obj/stack] [
+        err/stack: obj/stack
     ]
-    apply error!/make [args]
+    err
 ]
 
 error: function [args] [] [

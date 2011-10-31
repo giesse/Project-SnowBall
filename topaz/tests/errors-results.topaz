@@ -1,0 +1,30 @@
+Topaz [
+    Title: "Test results for %errors.topaz"
+    Type: 'Test-Results
+    Passed: 2
+    Failed: 0
+]
+
+object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid argument for MAKE ERROR!"
+        args: none
+        stack: []
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: make error! [
+        category: 'Script
+        id: 'invalid-argument
+        message: "Invalid argument test error"
+        args: 1
+        stack: [[1] [2] [3]]
+    ]
+]
