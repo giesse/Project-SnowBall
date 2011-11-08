@@ -163,10 +163,19 @@ mandatory-arguments-of: function [spec-obj] [] [
     slice-array spec-obj/args-list 0 spec-obj/mandatory
 ]
 
-append-argument: function [spec-obj arg] [] [
+append-argument: function [spec-obj arg spec] [name] [
     append-array spec-obj/args-list arg
     if not arg/optional? [spec-obj/mandatory: spec-obj/mandatory + 1]
-    spec-obj/args/(argument-name-of arg): arg
+    if spec-obj/args/(name: argument-name-of arg) [
+        error make-struct [
+            category: "Script"
+            id: "invalid-spec"
+            message: "Duplicate function argument name"
+            args: arg/word
+            stack: spec
+        ]
+    ]
+    spec-obj/args/(name): arg
 ]
 
 change-invocation: function [func mode] [] [
@@ -393,17 +402,7 @@ make-type 'function! [
         args
     ]
     get-argument: function [func args arg] [] [args/(arg/offset)]
-    add-argument: function [func arg dflt] [] [
-        if 0 <= get-word-offset func/context argument-name-of arg [
-            error make-struct [
-                category: "Script"
-                id: "invalid-spec"
-                message: "Duplicate function argument name"
-                args: arg/word
-            ]
-        ]
-        arg/offset: add-word func/context arg/word dflt
-    ]
+    add-argument: function [func arg dflt] [] [arg/offset: add-word func/context arg/word dflt]
     set-return: function [func spec] [] [
         set-in-context func/context make word! "return" make return! make-struct [
             spec: spec
@@ -636,11 +635,10 @@ parse-function-spec: function [fnc] [spec] [
     if 3 < fnc/mandatory [fnc/mode: "named"]
     none
 ]
-parse-argument-spec: function [fnc spec opt?] [word arg value orig-spec] [
+parse-argument-spec: function [fnc spec opt?] [word arg value] [
     word: first spec
     arg: make-argument-object word opt?
-    append-argument fnc arg
-    orig-spec: spec
+    append-argument fnc arg spec
     either set-word? word [
         ; optional argument with default value
         if not opt? [
@@ -657,12 +655,7 @@ parse-argument-spec: function [fnc spec opt?] [word arg value orig-spec] [
         spec: next spec
         value: either opt? [make none! none] [none]
     ]
-    try [
-        apply fnc/type/add-argument [fnc arg value]
-    ] 'e [
-        insert/only tail e/stack orig-spec
-        throw e
-    ]
+    apply fnc/type/add-argument [fnc arg value]
     if not empty? spec [
         value: first spec
         if block? value [
