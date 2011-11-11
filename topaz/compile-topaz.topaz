@@ -75,6 +75,7 @@ foreach 'type [
     %context.topaz
     %function.topaz
     %native.topaz
+    %action.topaz
     %return.topaz
     %op.topaz
     %string.topaz

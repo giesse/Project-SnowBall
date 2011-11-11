@@ -1,7 +1,7 @@
 Topaz [
     Title: "Test results for %functions.topaz"
     Type: 'Test-Results
-    Passed: 41
+    Passed: 49
     Failed: 0
 ]
 
@@ -291,4 +291,44 @@ object none [
         args: 'word
         stack: [[apply :f context [a: 'word b: 1]]]
     ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "action [^/    ^"Test action^"^/    a^/    b^/] [^/    number!: [^/        rejoin [^"Number A, with B of type ^" mold type-of :b]^/    ]^/    string!: action [^/        number!: [^/            rejoin [^"String A, number B^"]^/        ]^/        string!: [^/            rejoin [^"String A, string B^"]^/        ]^/    ]^/    default: [^/        rejoin [^"Unexpected type: ^" mold type-of :a]^/    ]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Number A, with B of type number!"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "String A, number B"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "String A, string B"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Number A, with B of type string!"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Unexpected type: word!"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Unexpected type: word!"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "Number A, with B of type word!"
 ]

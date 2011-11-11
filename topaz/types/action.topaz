@@ -1,0 +1,403 @@
+Topaz [
+    Title: "Topaz types: ACTION!"
+    Author: "Gabriele Santilli"
+    Copyright: 2011
+    Type: Fake-Topaz
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
+
+; ===== TYPES: MEZZ-ACTION! ===================================================
+
+make-internal-type 'mezz-action! [
+    make: function [arguments] [obj] [
+        obj: make-struct [
+            type: mezz-action!
+            body: arguments/block
+            context: arguments/context
+        ]
+        collect-locals obj
+        bind obj/body obj/context
+        obj
+    ]
+    mold: function [
+        "Return a LOAD-able text representation of an action"
+        action
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold/options [
+            value: action/body
+            only: only
+            flat: flat
+            limit: limit
+            indent: indent
+        ]
+    ]
+    call: function [action sub-action args depth] [res saved] [
+        saved: sub-action/context/values
+        sub-action/context/values: concat reduce [sub-action/context] args
+        try [
+            res: do sub-action/body
+        ] 'e [
+            e: handle-js-error e
+            either all [e/type/name = "return-value!" e/func = action] [
+                res: e/value
+            ] [
+                throw e
+            ]
+        ]
+        sub-action/context/values: saved
+        res
+    ]
+]
+
+; ===== TYPES: NATIVE-ACTION! =================================================
+
+make-internal-type 'native-action! [
+    make: function [arguments] [] [
+        make-struct [
+            type: native-action!
+            name: arguments/name
+            func: arguments/func
+            compile: arguments/comp
+        ]
+    ]
+    mold: function [
+        "Return a LOAD-able text representation of an action"
+        action
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        limit-string rejoin ["native '" action/name] limit
+    ]
+    call: function [action sub-action args depth] [] [
+        if not sub-action/func [
+            error make-struct [
+                category: "Internal"
+                id: "not-implemented"
+                message: "This is a compiler-only action"
+            ]
+        ]
+        apply sub-action/func/apply [none args]
+    ]
+]
+
+; ===== TYPES: ACTION-ACTION! =================================================
+
+make-internal-type 'action-action! [
+    make: function [arguments] [] [
+        make-struct [
+            type: action-action!
+            map: make-struct []
+            list: make-array
+        ]
+    ]
+    mold: function [
+        "Return a LOAD-able text representation of an action"
+        action
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [] [
+        mold-words-and-values [
+            open: "action ["
+            close: either flat ["]"] [rejoin ["^/" indent "]"]]
+            limit: limit
+            words: action/list
+            get-word-f: function [word] [] [action/map/:word]
+            sep: either flat [" "] [rejoin ["^/" indent "    "]]
+            flat: flat
+            indent: rejoin [indent "    "]
+        ]
+    ]
+    call: function [action sub-action args depth] [sub-sub-action] [
+        if not sub-sub-action: any [sub-action/map/(args/:depth/type/name) sub-action/map/("default")] [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Cannot use this action on values of type"
+                args: args/:depth/type
+            ]
+        ]
+        apply sub-sub-action/type/call [action sub-sub-action args depth + 1]
+    ]
+]
+
+; ===== TYPES: ACTION! ========================================================
+
+make-type 'action! [
+    make: function [arguments] [fnc] [
+        fnc: make-func-object action! arguments/spec
+        fnc/map: make-struct []
+        fnc/list: make-array
+        fnc/default-values: make-array
+        fnc/return-fnc: none
+        parse-function-spec fnc
+        if fnc/mandatory < 1 [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "ACTION!s require at least one mandatory argument"
+            ]
+        ]
+        fnc
+    ]
+    topaz-make: function [block] [action] [
+        if not block? block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Invalid argument for MAKE ACTION!"
+                args: block
+            ]
+        ]
+        if 2 <> length-of block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "MAKE ACTION! requires a spec and a body, not"
+                args: block
+            ]
+        ]
+        if not block? first block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Function spec must be a BLOCK!"
+            ]
+        ]
+        if not block? second block [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Action body must be a BLOCK!"
+            ]
+        ]
+        action: apply action!/make [make-struct [spec: first block]]
+        parse-action-body [
+            action: action
+            action-map: action/map
+            list: action/list
+            context: none
+            body: second block
+            depth: 1
+        ]
+        action
+    ]
+    mold: function [
+        "Return a LOAD-able text representation of an action"
+        action
+        options:
+            only: no [logic!] "Don't generate outer [ ] for block! values"
+            flat: no [logic!] "Produce a single text line"
+            limit [number! none!] "Don't return a string longer than LIMIT characters"
+            indent: "" [string!] "Add this string after each new line (ignored if flat)"
+    ] [result] [
+        result: "action "
+        if within-limit? result limit [
+            result: rejoin [
+                result
+                mold/options [
+                    value: action/spec
+                    flat: flat
+                    limit: subtract-limit result limit
+                    indent: indent
+                ]
+                " ["
+            ]
+        ]
+        mold-words-and-values [
+            open: result
+            close: either flat ["]"] [rejoin ["^/" indent "]"]]
+            limit: limit
+            words: action/list
+            get-word-f: function [word] [] [action/map/:word]
+            sep: either flat [" "] [rejoin ["^/" indent "    "]]
+            flat: flat
+            indent: rejoin [indent "    "]
+        ]
+    ]
+    do: :function-do
+    prepare-arguments: function [action] [] [clone-array action/default-values]
+    call: function [action args] [sub-action] [
+        if not sub-action: any [action/map/(args/0/type/name) action/map/("default")] [
+            error make-struct [
+                category: "Script"
+                id: "invalid-argument"
+                message: "Cannot use this action on values of type"
+                args: args/0/type
+            ]
+        ]
+        apply sub-action/type/call [action sub-action args 1]
+    ]
+    bind: :default-bind
+    compile: function [action block] [] [
+        error make-struct [
+            category: "Internal"
+            id: "not-implemented"
+            message: "Cannot compile ACTION!s yet"
+        ]
+    ]
+    equal?: :default-equal?
+    get-path: :function-get-path
+    set-argument: function [action args arg value] [] [
+        args/(arg/offset): value
+        args
+    ]
+    get-argument: function [action args arg] [] [args/(arg/offset)]
+    add-argument: function [action arg dflt] [] [
+        arg/offset: length-of-array action/default-values
+        action/default-values/(arg/offset): dflt
+    ]
+    set-return: function [action spec] [] [
+        action/return-fnc: make return! make-struct [
+            spec: spec
+            func: action
+        ]
+    ]
+    compile-default-arguments: function [action args wrap?] [] []
+]
+
+parse-action-body: function [action action-map list context body depth] [type value action-type orig tmp] [
+    if depth > action/mandatory [
+        error make-struct [
+            category: "Script"
+            id: "invalid-spec"
+            message: "Action body spec is too deep (switching on an optional or non-existent argument)"
+        ]
+    ]
+    while [not empty? body] [
+        type: first body
+        if not set-word? type [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Invalid action body spec: expected SET-WORD!, not"
+                args: type/type
+                stack: body
+            ]
+        ]
+        type: type/word
+        orig: body
+        body: next body
+        if empty? body [
+            error make-struct [
+                category: "Script"
+                id: "invalid-spec"
+                message: "Invalid action body spec: missing body after type name"
+                stack: orig
+            ]
+        ]
+        value: first body
+        either all [
+            word? value
+            any [value/word = "native" value/word = "action"]
+        ] [
+            action-type: value/word
+            body: next body
+            if empty? body [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-spec"
+                    message: "Invalid action body spec: missing argument"
+                    stack: orig
+                ]
+            ]
+            set [value body] do-step first body body
+            switch action-type [
+                "native" [
+                    if not word? value [
+                        error make-struct [
+                            category: "Script"
+                            id: "invalid-spec"
+                            message: "Invalid action body spec: NATIVE expected WORD!, not"
+                            args: value/type
+                            stack: orig
+                        ]
+                    ]
+                    tmp: name-to-js value/word
+                    value: make native-action! make-struct [
+                        name: value/word
+                        func: natives/:value
+                        comp: native-compilers/:value
+                    ]
+                ]
+                "action" [
+                    if not block? value [
+                        error make-struct [
+                            category: "Script"
+                            id: "invalid-spec"
+                            message: "Invalid action body spec: ACTION expected BLOCK!, not"
+                            args: value/type
+                            stack: orig
+                        ]
+                    ]
+                    tmp: make action-action! none
+                    context: parse-action-body [
+                        action: action
+                        action-map: tmp/map
+                        list: tmp/list
+                        context: context
+                        body: value
+                        depth: depth + 1
+                    ]
+                    value: tmp
+                ]
+            ]
+        ] [
+            set [value body] do-step value body
+            if not block? value [
+                error make-struct [
+                    category: "Script"
+                    id: "invalid-spec"
+                    message: "Invalid action body spec: expected BLOCK!, not"
+                    args: value/type
+                    stack: orig
+                ]
+            ]
+            if not context [
+                context: make context! none
+                foreach 'arg action/args-list [
+                    add-word context arg/word action/default-values/(arg/offset)
+                ]
+                if action/return-fnc [
+                    set-in-context context make word! "return" action/return-fnc
+                ]
+            ]
+            value: make mezz-action! make-struct [
+                block: value
+                context: context
+            ]
+        ]
+        if not action-map/:type [append-array list type]
+        action-map/(type): value
+    ]
+    context
+]

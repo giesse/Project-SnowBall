@@ -45,6 +45,7 @@ make-type 'op! [
         switch-default func/type/name [
             "function!" [apply op!/make [func]]
             "native!" [apply op!/make [func]]
+            "action!" [apply op!/make [func]]
         ] [
             error make-struct [
                 category: "Script"

@@ -1,5 +1,5 @@
 Topaz [
-    Title: "Tests for FUNCTION!, NATIVE! and OP! values"
+    Title: "Tests for FUNCTION!, NATIVE!, ACTION! and OP! values"
     Author: "Gabriele Santilli"
     Type: Tests
 ]
@@ -148,3 +148,32 @@ Topaz [
 [apply :f object none [a: 'word b: 1]]
 [apply :f context [a: 1 b: 'word]]
 [apply :f context [a: 'word b: 1]]
+[
+    mold a: action [
+        "Test action"
+        a
+        b
+    ] [
+        number!: [
+            rejoin ["Number A, with B of type " mold type-of :b]
+        ]
+        string!: action [
+            number!: [
+                rejoin ["String A, number B"]
+            ]
+            string!: [
+                rejoin ["String A, string B"]
+            ]
+        ]
+        default: [
+            rejoin ["Unexpected type: " mold type-of :a]
+        ]
+    ]
+]
+[a 1 2]
+[a "one" 2]
+[a "one" "two"]
+[a 1 "two"]
+[a 'one 2]
+[a 'one 'two]
+[a 1 'two]

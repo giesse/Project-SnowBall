@@ -34,7 +34,7 @@ any-block?: function [value] [] [in-typeset? any-block! value/type/name]
 any-string!: make typeset! make-struct [types: reduce [string! file!]]
 any-string?: function [value] [] [in-typeset? any-string! value/type/name]
 
-word-active!: make typeset! make-struct [types: reduce [function! native! return!]]
+word-active!: make typeset! make-struct [types: reduce [function! native! action! return!]]
 word-active?: function [value] [] [in-typeset? word-active! value/type/name]
 compiler-word-active!: make typeset! make-struct [types: reduce [function! native! expression!]]
 compiler-word-active?: function [value] [] [in-typeset? compiler-word-active! value/type/name]
