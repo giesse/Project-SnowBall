@@ -378,10 +378,6 @@ make-type 'function! [
         func/context/values: saved
         res
     ]
-    ; shortcut used by OP!
-    call-two: function [func arg1 arg2] [] [
-        apply function!/call [func reduce [func/context arg1 arg2]]
-    ]
     bind: :default-bind
     compile: function [func block] [] [function-compile func block true]
     call-compile: function [func args] [expr] [

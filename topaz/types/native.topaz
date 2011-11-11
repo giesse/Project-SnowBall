@@ -97,16 +97,6 @@ make-type 'native! [
         ]
         apply func/func/apply [none args]
     ]
-    call-two: function [func arg1 arg2] [] [
-        if not func/func [
-            error make-struct [
-                category: "Internal"
-                id: "not-implemented"
-                message: "This is a compiler-only native"
-            ]
-        ]
-        apply func/func [arg1 arg2]
-    ]
     bind: :default-bind
     compile: function [func block] [] [function-compile func block false]
     call-compile: function [func args] [] [

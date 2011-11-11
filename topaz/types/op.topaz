@@ -92,6 +92,9 @@ operator?: function [block] [value] [
         value
     ]
 ]
-do-op: function [op arg1 arg2] [result] [
-    apply op/func/type/call-two [op/func arg1 arg2]
+do-op: function [op arg1 arg2] [args] [
+    args: apply op/func/type/prepare-arguments [op/func]
+    args: apply op/func/type/set-argument [op/func args op/func/args-list/0 arg1]
+    args: apply op/func/type/set-argument [op/func args op/func/args-list/1 arg2]
+    apply op/func/type/call [op/func args]
 ]
