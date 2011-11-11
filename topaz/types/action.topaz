@@ -40,7 +40,7 @@ make-internal-type 'mezz-action! [
     ]
     mold: function [
         "Return a LOAD-able text representation of an action"
-        action
+        actn
         options:
             only: no [logic!] "Don't generate outer [ ] for block! values"
             flat: no [logic!] "Produce a single text line"
@@ -48,21 +48,21 @@ make-internal-type 'mezz-action! [
             indent: "" [string!] "Add this string after each new line (ignored if flat)"
     ] [] [
         mold/options [
-            value: action/body
+            value: actn/body
             only: only
             flat: flat
             limit: limit
             indent: indent
         ]
     ]
-    call: function [action sub-action args depth] [res saved] [
+    call: function [actn sub-action args depth] [res saved] [
         saved: sub-action/context/values
         sub-action/context/values: concat reduce [sub-action/context] args
         try [
             res: do sub-action/body
         ] 'e [
             e: handle-js-error e
-            either all [e/type/name = "return-value!" e/func = action] [
+            either all [e/type/name = "return-value!" e/func = actn] [
                 res: e/value
             ] [
                 throw e
@@ -86,16 +86,16 @@ make-internal-type 'native-action! [
     ]
     mold: function [
         "Return a LOAD-able text representation of an action"
-        action
+        actn
         options:
             only: no [logic!] "Don't generate outer [ ] for block! values"
             flat: no [logic!] "Produce a single text line"
             limit [number! none!] "Don't return a string longer than LIMIT characters"
             indent: "" [string!] "Add this string after each new line (ignored if flat)"
     ] [] [
-        limit-string rejoin ["native '" action/name] limit
+        limit-string rejoin ["native '" actn/name] limit
     ]
-    call: function [action sub-action args depth] [] [
+    call: function [actn sub-action args depth] [] [
         if not sub-action/func [
             error make-struct [
                 category: "Internal"
@@ -119,7 +119,7 @@ make-internal-type 'action-action! [
     ]
     mold: function [
         "Return a LOAD-able text representation of an action"
-        action
+        actn
         options:
             only: no [logic!] "Don't generate outer [ ] for block! values"
             flat: no [logic!] "Produce a single text line"
@@ -130,14 +130,14 @@ make-internal-type 'action-action! [
             open: "action ["
             close: either flat ["]"] [rejoin ["^/" indent "]"]]
             limit: limit
-            words: action/list
-            get-word-f: function [word] [] [action/map/:word]
+            words: actn/list
+            get-word-f: function [word] [] [actn/map/:word]
             sep: either flat [" "] [rejoin ["^/" indent "    "]]
             flat: flat
             indent: rejoin [indent "    "]
         ]
     ]
-    call: function [action sub-action args depth] [sub-sub-action] [
+    call: function [actn sub-action args depth] [sub-sub-action] [
         if not sub-sub-action: any [sub-action/map/(args/:depth/type/name) sub-action/map/("default")] [
             error make-struct [
                 category: "Script"
@@ -146,7 +146,7 @@ make-internal-type 'action-action! [
                 args: args/:depth/type
             ]
         ]
-        apply sub-sub-action/type/call [action sub-sub-action args depth + 1]
+        apply sub-sub-action/type/call [actn sub-sub-action args depth + 1]
     ]
 ]
 
@@ -169,7 +169,7 @@ make-type 'action! [
         ]
         fnc
     ]
-    topaz-make: function [block] [action] [
+    topaz-make: function [block] [actn] [
         if not block? block [
             error make-struct [
                 category: "Script"
@@ -200,20 +200,20 @@ make-type 'action! [
                 message: "Action body must be a BLOCK!"
             ]
         ]
-        action: apply action!/make [make-struct [spec: first block]]
+        actn: apply action!/make [make-struct [spec: first block]]
         parse-action-body [
-            action: action
-            action-map: action/map
-            list: action/list
+            actn: actn
+            action-map: actn/map
+            list: actn/list
             context: none
             body: second block
             depth: 1
         ]
-        action
+        actn
     ]
     mold: function [
         "Return a LOAD-able text representation of an action"
-        action
+        actn
         options:
             only: no [logic!] "Don't generate outer [ ] for block! values"
             flat: no [logic!] "Produce a single text line"
@@ -225,7 +225,7 @@ make-type 'action! [
             result: rejoin [
                 result
                 mold/options [
-                    value: action/spec
+                    value: actn/spec
                     flat: flat
                     limit: subtract-limit result limit
                     indent: indent
@@ -237,17 +237,17 @@ make-type 'action! [
             open: result
             close: either flat ["]"] [rejoin ["^/" indent "]"]]
             limit: limit
-            words: action/list
-            get-word-f: function [word] [] [action/map/:word]
+            words: actn/list
+            get-word-f: function [word] [] [actn/map/:word]
             sep: either flat [" "] [rejoin ["^/" indent "    "]]
             flat: flat
             indent: rejoin [indent "    "]
         ]
     ]
     do: :function-do
-    prepare-arguments: function [action] [] [clone-array action/default-values]
-    call: function [action args] [sub-action] [
-        if not sub-action: any [action/map/(args/0/type/name) action/map/("default")] [
+    prepare-arguments: function [actn] [] [clone-array actn/default-values]
+    call: function [actn args] [sub-action] [
+        if not sub-action: any [actn/map/(args/0/type/name) actn/map/("default")] [
             error make-struct [
                 category: "Script"
                 id: "invalid-argument"
@@ -255,10 +255,10 @@ make-type 'action! [
                 args: args/0/type
             ]
         ]
-        apply sub-action/type/call [action sub-action args 1]
+        apply sub-action/type/call [actn sub-action args 1]
     ]
     bind: :default-bind
-    compile: function [action block] [] [
+    compile: function [actn block] [] [
         error make-struct [
             category: "Internal"
             id: "not-implemented"
@@ -267,26 +267,26 @@ make-type 'action! [
     ]
     equal?: :default-equal?
     get-path: :function-get-path
-    set-argument: function [action args arg value] [] [
+    set-argument: function [actn args arg value] [] [
         args/(arg/offset): value
         args
     ]
-    get-argument: function [action args arg] [] [args/(arg/offset)]
-    add-argument: function [action arg dflt] [] [
-        arg/offset: length-of-array action/default-values
-        action/default-values/(arg/offset): dflt
+    get-argument: function [actn args arg] [] [args/(arg/offset)]
+    add-argument: function [actn arg dflt] [] [
+        arg/offset: length-of-array actn/default-values
+        actn/default-values/(arg/offset): dflt
     ]
-    set-return: function [action spec] [] [
-        action/return-fnc: make return! make-struct [
+    set-return: function [actn spec] [] [
+        actn/return-fnc: make return! make-struct [
             spec: spec
-            func: action
+            func: actn
         ]
     ]
-    compile-default-arguments: function [action args wrap?] [] []
+    compile-default-arguments: function [actn args wrap?] [] []
 ]
 
-parse-action-body: function [action action-map list context body depth] [type value action-type orig tmp] [
-    if depth > action/mandatory [
+parse-action-body: function [actn action-map list context body depth] [type value action-type orig tmp] [
+    if depth > actn/mandatory [
         error make-struct [
             category: "Script"
             id: "invalid-spec"
@@ -361,7 +361,7 @@ parse-action-body: function [action action-map list context body depth] [type va
                     ]
                     tmp: make action-action! none
                     context: parse-action-body [
-                        action: action
+                        actn: actn
                         action-map: tmp/map
                         list: tmp/list
                         context: context
@@ -384,11 +384,11 @@ parse-action-body: function [action action-map list context body depth] [type va
             ]
             if not context [
                 context: make context! none
-                foreach 'arg action/args-list [
-                    add-word context arg/word action/default-values/(arg/offset)
+                foreach 'arg actn/args-list [
+                    add-word context arg/word actn/default-values/(arg/offset)
                 ]
-                if action/return-fnc [
-                    set-in-context context make word! "return" action/return-fnc
+                if actn/return-fnc [
+                    set-in-context context make word! "return" actn/return-fnc
                 ]
             ]
             value: make mezz-action! make-struct [
