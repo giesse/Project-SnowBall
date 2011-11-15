@@ -245,7 +245,7 @@ function-get-path: function [func selector] [arg] [
 
 function-do: function [func block] [args] [
     args: apply func/type/prepare-arguments [func]
-    block: collect-function-arguments [
+    set [block args] collect-function-arguments [
         func: func
         args: args
         block: block
@@ -269,7 +269,7 @@ function-compile: function [func block wrap?] [args logic-true comp-arg] [
     ] [
         comp-arg: :compile-step
     ]
-    block: collect-function-arguments [
+    set [block args] collect-function-arguments [
         func: func
         args: args
         block: block
@@ -432,7 +432,7 @@ collect-function-arguments: function [
     ]
     switch-default invocation-mode-of func [
         "fixed" [
-            block: collect-arguments [
+            set [block args] collect-arguments [
                 func: func
                 args: args
                 list: mandatory-arguments-of func
@@ -459,7 +459,7 @@ collect-function-arguments: function [
                     args: args-block/type
                 ]
             ]
-            parse-named-arguments [
+            args: parse-named-arguments [
                 func: func
                 args: args
                 block: args-block
@@ -477,7 +477,7 @@ collect-function-arguments: function [
             message: "Something's wrong: function! do, mode not fixed or named"
         ]
     ]
-    block
+    reduce [block args]
 ]
 check-argument: function [arg value block] [] [
     if all [arg/types not in-typeset? arg/types value/type/name] [
@@ -510,7 +510,7 @@ collect-arguments: function [
         apply check-arg [arg value orig-block]
         args: apply func/type/set-argument [func args arg value]
     ]
-    block
+    reduce [block args]
 ]
 invalid-argument-type: function [
     category
@@ -588,7 +588,7 @@ parse-named-arguments: function [
             ]
         ]
     ]
-    none
+    args
 ]
 
 invalid-spec-value: function [value spec] [] [

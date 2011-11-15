@@ -177,3 +177,15 @@ Topaz [
 [a 'one 2]
 [a 'one 'two]
 [a 1 'two]
+[
+    ; RETURN not working on actions
+    a: action [a b return: a] [
+        number!: [return a "Skipped"]
+    ]
+    a 1 2
+]
+[
+    ; Cannot RETURN a single value
+    f: func [a return: a] [return a]
+    f 1
+]

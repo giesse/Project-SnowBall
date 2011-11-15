@@ -36,6 +36,7 @@ make-internal-type 'mezz-action! [
         ]
         collect-locals obj
         bind obj/body obj/context
+        obj/default-values: obj/context/values
         obj
     ]
     mold: function [
@@ -57,7 +58,10 @@ make-internal-type 'mezz-action! [
     ]
     call: function [actn sub-action args depth] [res saved] [
         saved: sub-action/context/values
-        sub-action/context/values: concat reduce [sub-action/context] args
+        sub-action/context/values: clone-array sub-action/default-values
+        foreach [value pos] args [
+            sub-action/context/values/(pos + 1): value
+        ]
         try [
             res: do sub-action/body
         ] 'e [
