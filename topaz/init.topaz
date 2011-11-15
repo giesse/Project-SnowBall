@@ -478,7 +478,17 @@ do: func [
     do-block block
 ]
 
-load: func [
+action: func [
+    "Make an ACTION! value"
+    args-spec [block!]
+    body-spec [block!]
+
+    return: action [action!]
+] [
+    make action! reduce [args-spec body-spec]
+]
+
+load: action [
     "Load a file or string into a Topaz value"
     source [file! string!] "If FILE!, it must have a Topaz header"
     options:
@@ -487,55 +497,53 @@ load: func [
 
     return: value
 ] [
-    switch make word! type-of source [
-        file! [
-            contents: read source
-            either any [
-                "Topaz [" = slice contents 7
-                found? contents: find contents "^/Topaz ["
-            ] [
-                header-object: object none []
-                parse contents: load-string contents [
-                    'Topaz
-                    into [
-                        any [
-                            name: set-word!
-                            value: skip
-                            (header-object/(name): :value)
-                        ]
-                        end
+    file!: [
+        contents: read source
+        either any [
+            "Topaz [" = slice contents 7
+            found? contents: find contents "^/Topaz ["
+        ] [
+            header-object: object none []
+            parse contents: load-string contents [
+                'Topaz
+                into [
+                    any [
+                        name: set-word!
+                        value: skip
+                        (header-object/(name): :value)
                     ]
-                    |
-                    (cause-error [
-                        category: 'Script
-                        id: 'invalid-header
-                        message: "File has an invalid Topaz header"
-                        args: source
-                    ])
+                    end
                 ]
-                contents/1: header-object
-                case [
-                    header [
-                        next contents
-                    ]
-                    system/words/all [not all 3 = length-of contents] [
-                        contents/2
-                    ]
-                    'else [
-                        skip contents 2
-                    ]
-                ]
-            ] [
-                cause-error [
+                |
+                (cause-error [
                     category: 'Script
-                    id: 'no-header
-                    message: "File is missing a Topaz header"
+                    id: 'invalid-header
+                    message: "File has an invalid Topaz header"
                     args: source
+                ])
+            ]
+            contents/1: header-object
+            case [
+                header [
+                    next contents
+                ]
+                system/words/all [not all 3 = length-of contents] [
+                    contents/2
+                ]
+                'else [
+                    skip contents 2
                 ]
             ]
+        ] [
+            cause-error [
+                category: 'Script
+                id: 'no-header
+                message: "File is missing a Topaz header"
+                args: source
+            ]
         ]
-        string! [load-string/options [string: source all: all]]
     ]
+    string!: [load-string/options [string: source all: all]]
 ]
 
 save: func [
@@ -621,16 +629,6 @@ append: func [
         value: :value
         only: only
     ]
-]
-
-action: func [
-    "Make an ACTION! value"
-    args-spec [block!]
-    body-spec [block!]
-
-    return: action [action!]
-] [
-    make action! reduce [args-spec body-spec]
 ]
 
 context: func [
@@ -766,7 +764,7 @@ parse*: func [
     apply :return this-context
 ]
 
-parse-step: func [
+parse-step: action [
     "Try to match a rule value"
     rule
     block [block!]
@@ -779,101 +777,100 @@ parse-step: func [
         match? [logic!] "Did the rules match?"
         result "Parsing result (valid if MATCH? is TRUE)"
 ] [
-    switch-default make word! type-of rule [
-        word! [
-            switch-default rule [
-                collect [
-                    rules: next rules
-                    rule: first rules
-                    collection: make block! none
-                    set this-context apply :parse-element this-context
-                    result: collection
-                    apply :return this-context
-                ]
-                ;collect-all []
-                copy [
-                    orig-block: block
-                    set this-context parse-element [
-                        rule: second rules
-                        block: block
-                        rules: next rules
-                        collection: none
-                    ]
-                    result: slice orig-block block
-                    apply :return this-context
-                ]
-                keep [
-                    only: no
-                    apply :parse-keep this-context
-                ]
-                object [
-                    rules: next rules
-                    rule: first rules
-                    collection: object none []
-                    set this-context apply :parse-element this-context
-                    result: collection
-                    apply :return this-context
-                ]
-                if [
-                    rules: next rules
-                    rule: first rules
-                    set this-context apply :parse-element this-context
-                    either :result [
-                        rule: first rules
-                        apply :parse-step this-context
-                    ] [
-                        match?: no
-                        result: none
-                        apply :return this-context
-                    ]
-                ]
-                either [
-                    rules: next orig-rules: rules
-                    rule: first rules
-                    set this-context apply :parse-element this-context
-                    if not all [
-                        block? true-rule: first rules
-                        block? false-rule: second rules
-                    ] [
-                        cause-error [
-                            category: 'Parse
-                            id: 'invalid-rule
-                            message: "EITHER must be followed by a condition and two blocks"
-                            stack: orig-rules
-                        ]
-                    ]
-                    set [block match?: result:] parse* block either :result [true-rule] [false-rule] collection
-                    rules: skip rules 2
-                    apply :return this-context
-                ]
-            ] [
-                apply :parse-element this-context
+    word!: [
+        switch-default rule [
+            collect [
+                rules: next rules
+                rule: first rules
+                collection: make block! none
+                set this-context apply :parse-element this-context
+                result: collection
+                apply :return this-context
             ]
-        ]
-        set-word! [
-            word: rule
-            rules: next rules
-            rule: first rules
-            match?: no
-            set this-context apply :parse-step this-context
-            if match? [
-                either object? collection [
-                    collection/(word): result
-                ] [
-                    set word result
+            ;collect-all []
+            copy [
+                orig-block: block
+                set this-context parse-element [
+                    rule: second rules
+                    block: block
+                    rules: next rules
+                    collection: none
                 ]
+                result: slice orig-block block
+                apply :return this-context
             ]
-            apply :return this-context
-        ]
-        path! [
-            either rule = 'keep/only [
-                only: yes
+            keep [
+                only: no
                 apply :parse-keep this-context
+            ]
+            object [
+                rules: next rules
+                rule: first rules
+                collection: object none []
+                set this-context apply :parse-element this-context
+                result: collection
+                apply :return this-context
+            ]
+            if [
+                rules: next rules
+                rule: first rules
+                set this-context apply :parse-element this-context
+                either :result [
+                    rule: first rules
+                    apply :parse-step this-context
+                ] [
+                    match?: no
+                    result: none
+                    apply :return this-context
+                ]
+            ]
+            either [
+                rules: next orig-rules: rules
+                rule: first rules
+                set this-context apply :parse-element this-context
+                if not all [
+                    block? true-rule: first rules
+                    block? false-rule: second rules
+                ] [
+                    cause-error [
+                        category: 'Parse
+                        id: 'invalid-rule
+                        message: "EITHER must be followed by a condition and two blocks"
+                        stack: orig-rules
+                    ]
+                ]
+                set [block match?: result:] parse* block either :result [true-rule] [false-rule] collection
+                rules: skip rules 2
+                apply :return this-context
+            ]
+        ] [
+            apply :parse-element this-context
+        ]
+    ]
+    set-word!: [
+        word: rule
+        rules: next rules
+        rule: first rules
+        match?: no
+        set this-context apply :parse-step this-context
+        if match? [
+            either object? collection [
+                collection/(word): result
             ] [
-                apply :parse-element this-context
+                set word result
             ]
         ]
-    ] [
+        apply :return this-context
+    ]
+    path!: [
+        either rule = 'keep/only [
+            only: yes
+            apply :parse-keep this-context
+        ] [
+            apply :parse-element this-context
+        ]
+    ]
+    default: [
         apply :parse-element this-context
     ]
 ]
@@ -917,7 +914,7 @@ parse-keep: func [
     apply :return this-context
 ]
 
-parse-element: func [
+parse-element: action [
     "Try to match a rule element value"
     rule
     block [block!]
@@ -930,105 +927,104 @@ parse-element: func [
         match? [logic!] "Did the rules match?"
         result "Parsing result (valid if MATCH? is TRUE)"
 ] [
-    switch-default make word! type-of rule [
-        word! [
-            switch-default rule [
-                any [
-                    rules: next rules
-                    rule: first rules
-                    apply :parse-any this-context
+    word!: [
+        switch-default rule [
+            any [
+                rules: next rules
+                rule: first rules
+                apply :parse-any this-context
+            ]
+            some [
+                match?: no
+                rules: any-rules: next rules
+                rule: first rules
+                set this-context apply :parse-element this-context
+                if match? [
+                    rules: any-rules
+                    set this-context apply :parse-any this-context
                 ]
-                some [
-                    match?: no
-                    rules: any-rules: next rules
-                    rule: first rules
-                    set this-context apply :parse-element this-context
-                    if match? [
-                        rules: any-rules
-                        set this-context apply :parse-any this-context
+                apply :return this-context
+            ]
+            skip * [
+                match?: not empty? block
+                result: if match? [first block]
+                block: next block
+                rules: next rules
+                apply :return this-context
+            ]
+            end [
+                return [
+                    block: block
+                    rules: next rules
+                    match?: empty? block
+                    result: none
+                ]
+            ]
+            here [
+                return [
+                    block: block
+                    rules: next rules
+                    match?: yes
+                    result: block
+                ]
+            ]
+            into [
+                rule: second rules
+                if word? rule [rule: get rule]
+                if not block? rule [
+                    cause-error [
+                        category: 'Parse
+                        id: 'invalid-rule
+                        message: "Invalid argument to INTO (must be BLOCK!)"
+                        args: rule
+                        stack: rules
                     ]
-                    apply :return this-context
                 ]
-                skip * [
-                    match?: not empty? block
-                    result: if match? [first block]
-                    block: next block
-                    rules: next rules
-                    apply :return this-context
-                ]
-                end [
+                either all [not empty? block block? first block] [
+                    result: parse* first block rule collection
+                    return [
+                        block: either result/match? [next block] [block]
+                        rules: skip rules 2
+                        match?: result/match?
+                        result: result/result
+                    ]
+                ] [
                     return [
                         block: block
-                        rules: next rules
-                        match?: empty? block
+                        rules: skip rules 2
+                        match?: no
                         result: none
                     ]
                 ]
-                here [
-                    return [
-                        block: block
-                        rules: next rules
-                        match?: yes
-                        result: block
-                    ]
-                ]
-                into [
-                    rule: second rules
-                    if word? rule [rule: get rule]
-                    if not block? rule [
-                        cause-error [
-                            category: 'Parse
-                            id: 'invalid-rule
-                            message: "Invalid argument to INTO (must be BLOCK!)"
-                            args: rule
-                            stack: rules
-                        ]
-                    ]
-                    either all [not empty? block block? first block] [
-                        result: parse* first block rule collection
-                        return [
-                            block: either result/match? [next block] [block]
-                            rules: skip rules 2
-                            match?: result/match?
-                            result: result/result
-                        ]
-                    ] [
-                        return [
-                            block: block
-                            rules: skip rules 2
-                            match?: no
-                            result: none
-                        ]
-                    ]
-                ]
-            ] [
-                ; problem: will always recurse on word! - desirable?
-                rule: get rule
-                apply :parse-element this-context
             ]
+        ] [
+            ; problem: will always recurse on word! - desirable?
+            rule: get rule
+            apply :parse-element this-context
         ]
-        ;lit-word! [
-        ;    condition: [rule = first block]
-        ;    apply :parse-match this-context
-        ;]
-        paren! [
-            return [
-                block: block
-                rules: next rules
-                match?: yes
-                result: do-block rule
-            ]
-        ]
-        block! [
-            set [block match?: result:] parse* block rule collection
+    ]
+    ;lit-word!: [
+    ;    condition: [rule = first block]
+    ;    apply :parse-match this-context
+    ;]
+    paren!: [
+        return [
+            block: block
             rules: next rules
-            apply :return this-context
+            match?: yes
+            result: do-block rule
         ]
-        datatype! [
-            condition: [rule = type-of first block]
-            apply :parse-match this-context
-        ]
-    ] [
+    ]
+    block!: [
+        set [block match?: result:] parse* block rule collection
+        rules: next rules
+        apply :return this-context
+    ]
+    datatype!: [
+        condition: [rule = type-of first block]
+        apply :parse-match this-context
+    ]
+    default: [
         condition: [rule = first block]
         apply :parse-match this-context
     ]
