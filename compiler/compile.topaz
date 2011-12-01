@@ -1,0 +1,158 @@
+Topaz [
+    Title: "Topaz compiler - COMPILE function"
+    Author: "Gabriele Santilli"
+    Copyright: 2011
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
+
+compile: action [
+    "Compile a FUNCTION! or ACTION! to a given target language"
+    f
+    language [word!] "Target language, eg. 'Javascript"
+
+    return: code [string!] "The code in the target language"
+] [
+    function!: [
+        arguments: phase0-parse-arguments context-of :f spec-of :f
+        phase1: object phase1-fundef [
+            arguments: arguments
+            body: block-to-phase1 body-of :f
+        ]
+        phase1-to-language phase1 language
+    ]
+    action!: [
+    ]
+]
+
+phase0-parse-arguments: func [
+    "Phase 0: Parse function argument spec"
+    context [context!] "The function's context"
+    spec [block!] "The function's argument spec"
+
+    return: arguments [block!] "Block of argument objects"
+] [
+    parse spec [
+        collect [
+            opt string!
+            any [
+                name: word! types: opt block! opt string!
+                keep (
+                    argument: object phase0-argument [
+                        name: name
+                        types: if types [make typeset! types]
+                    ]
+                    set-compiler-value bind name context argument
+                )
+            ]
+            opt [
+                literal options:
+                some [
+                    name: word! types: opt block! opt string!
+                    keep (
+                        argument: object phase0-argument [
+                            name: name
+                            types: if types [make typeset! types]
+                            optional
+                        ]
+                        set-compiler-value bind name context argument
+                    )
+                    |
+                    name: set-word! default-value: do-step types: opt block! opt string!
+                    keep (
+                        argument: object phase0-argument [
+                            name: make word! name
+                            default-value: default-value
+                            types: if types [make typeset! types]
+                            optional
+                        ]
+                        set-compiler-value bind name context argument
+                    )
+                ]
+            ]
+            [
+                literal return:
+                return-arguments: collect any [
+                    name: word! types: opt block! opt string!
+                    keep (object phase0-argument [
+                        name: name
+                        types: if types [make typeset! types]
+                    ])
+                ] (
+                    set-compiler-value bind 'return context object phase0-return [
+                        arguments: return-arguments
+                    ]
+                )
+                |
+                (set-compiler-value bind 'return context object phase0-return [])
+            ]
+        ]
+    ]
+]
+
+phase1-fundef: object none [
+]
+
+block-to-phase1: func [
+    "Convert a Topaz code block to a Phase 1 object (parsing pass)"
+    block [block!]
+
+    return: phase1 [object!]
+] [
+]
+
+phase1-to-language: func [
+    "Convert a Phase 1 object to the given target language"
+    phase1 [object!]
+    language [word!]
+
+    return: code [string!] "The code in the target language"
+] [
+    phase2: phase1-to-phase2 phase1
+    phase3: phase2-to-phase3 phase2 language
+    phase3-to-string phase3
+]
+
+phase1-to-phase2: func [
+    "Convert a Phase 1 object to a Phase 2 object (optimization pass)"
+    phase1 [object!]
+
+    return: phase2 [object!]
+] [
+]
+
+phase2-to-phase3: func [
+    "Convert a Phase 2 object to a Phase 3 object (compilation pass)"
+    phase2 [object!]
+    language [word!] "Target language"
+
+    return: phase3 [object!]
+] [
+]
+
+phase3-to-string: func [
+    "Convert a Phase 3 object to code text"
+    phase3 [object!]
+
+    return: code [string!]
+] [
+    phase3/to-string phase3
+]
