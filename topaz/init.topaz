@@ -419,6 +419,19 @@ foreach [native spec] [
 
         return: series
     ]
+    get-compiler-value [
+        "Internal"
+        word [any-word!]
+
+        return: value
+    ]
+    set-compiler-value [
+        "Internal"
+        word [any-word!]
+        value
+
+        return: value
+    ]
 
     ; compiler only
     function          [spec locals body]

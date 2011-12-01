@@ -34,6 +34,7 @@ make-type 'context! [
             type: context!
             words: any [arguments/words make-array]
             values: any [arguments/values make-array]
+            compiler-values: make-array
         ]
         set-in-context ctx make word! "this-context" ctx
         ctx
@@ -208,4 +209,24 @@ context-to-object: function [context] [words map] [
         words: words
         map: :map
     ]
+]
+
+get-compiler-value: function [word] [] [
+    either word/context [
+        any [word/context/compiler-values/(word/offset) make none! none]
+    ] [
+        make none! none
+    ]
+]
+set-compiler-value: function [word value] [] [
+    if not word/context [
+        error make-struct [
+            category: "Script"
+            id: "no-context"
+            message: "Word has no context"
+            args: word
+        ]
+    ]
+    word/context/compiler-values/(word/offset): value
+    value
 ]

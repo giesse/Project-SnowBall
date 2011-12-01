@@ -671,6 +671,8 @@ natives: make-struct [
     ] [] [
         apply series/type/clear [series]
     ]
+    get-compiler-value: :get-compiler-value
+    set-compiler-value: :set-compiler-value
 ]
 
 ; ===== CONJURE ===============================================================
