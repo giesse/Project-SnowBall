@@ -111,12 +111,94 @@ phase0-parse-arguments: func [
 phase1-fundef: object none [
 ]
 
+phase0-argument: object none [
+]
+
+phase0-return: object none [
+]
+
 block-to-phase1: func [
     "Convert a Topaz code block to a Phase 1 object (parsing pass)"
     block [block!]
 
     return: phase1 [object!]
 ] [
+    phase1: none
+    expressions: make block! none
+    while [not empty? block] [
+        set this-context phase1-step block
+        append expressions phase1
+    ]
+    object phase1-expressions [
+        expressions: expressions
+    ]
+]
+
+phase1-step: func [
+    "Convert a Topaz code block to a Phase 1 object (one step)"
+    block [block!]
+
+    return:
+        phase1 [object!] "Phase 1 object representing the first expression in the block"
+        block [block!] "Position of the next expression in the block"
+] [
+    value: first block
+    phase1: none
+    set this-context value-to-phase1 value block
+    while [op: operator? block] [
+        block: next block
+        if empty? block [
+            cause-error [
+                category: 'Compilation
+                id: 'missing-argument
+                message: "The operator is missing its second argument"
+                stack: skip block -2
+            ]
+        ]
+        set [phase1-2: block] value-to-phase1 first block block
+        phase1: object phase1-op [
+            op: :op
+            expr1: phase1
+            expr2: phase1-2
+        ]
+    ]
+    return phase1 block
+]
+
+value-to-phase1: action [
+    "Convert a specific value to a Phase 1 object"
+    value
+    block [block!] "Code block at the position of VALUE"
+
+    return:
+        phase1 [object!]
+        block [block!] "Position of the next expression in the block"
+] [
+    default: [
+        phase1: object phase1-value [
+            value: value
+        ]
+        return phase1 next block
+    ]
+]
+
+phase1-value: object none [
+]
+
+operator?: func [block] [
+    if not empty? block [
+        value: first block
+        if word? :value [value: get/any value]
+        if op? :value [
+            :value
+        ]
+    ]
+]
+
+phase1-expressions: object none [
+]
+
+phase1-op: object none [
 ]
 
 phase1-to-language: func [
