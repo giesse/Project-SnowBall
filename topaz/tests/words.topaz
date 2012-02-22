@@ -26,3 +26,5 @@ Topaz [
 [make word! word!]
 [type-of make word! word!]
 [make lit-word! first [name:]]
+[get 'no-value]
+[get/any 'no-value]

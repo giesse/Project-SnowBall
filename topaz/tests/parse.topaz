@@ -62,3 +62,7 @@ Topaz [
 ]
 [mold parse [a [b c d] e] [word! into [some word!] word!]]
 [mold parse [a b c d] [word! [number!] | word! word!]]
+[parse [literal] [literal literal]]
+[parse [1 2 3] [literal literal]]
+[parse [1 2 3] [opt word! number!]]
+[parse [a b c] [opt word!]]

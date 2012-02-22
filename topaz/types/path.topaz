@@ -151,7 +151,7 @@ make-type 'path! [
                 message: "Empty PATH! value"
             ]
         ]
-        value: get-any first path
+        value: get/any first path
         either all [value word-active? value] [
             path: skip path 1
             while [not empty? path] [

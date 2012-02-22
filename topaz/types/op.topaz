@@ -88,7 +88,7 @@ operator?: function [block] [value] [
     all [
         not empty? block
         word? value: first block
-        value: get-any value
+        value: get/any value
         op? value
         value
     ]

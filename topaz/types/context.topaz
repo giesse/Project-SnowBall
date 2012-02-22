@@ -181,15 +181,18 @@ mold-words-and-values: function [
             words/:i ": "
         ]
         if within-limit? result limit [
-            value: apply get-word-f [words/:i]
-            result: rejoin [
-                result
-                mold/options [
-                    value: either word? value [make lit-word! value/word] [value]
-                    flat: flat
-                    limit: subtract-limit result limit
-                    indent: indent
+            either value: apply get-word-f [words/:i] [
+                result: rejoin [
+                    result
+                    mold/options [
+                        value: either word? value [make lit-word! value/word] [value]
+                        flat: flat
+                        limit: subtract-limit result limit
+                        indent: indent
+                    ]
                 ]
+            ] [
+                result: rejoin [result "<unset>"]
             ]
         ]
         i: i + 1

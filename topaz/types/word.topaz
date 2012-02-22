@@ -61,7 +61,7 @@ make-type 'word! [
             new: no [logic!] "Add all words to CONTEXT"
     ] [] [bind-word context word new]
     compile: function [word block] [value] [
-        value: get-any word
+        value: get/any word
         either all [
             value
             compiler-word-active? value
@@ -121,7 +121,12 @@ convert-word: function [word type] [] [
     ]
 ]
 
-get-any: function [word] [] [
+get: function [
+    "Return the value of a word in its context"
+    word [any-word!]
+    options:
+        any: no [logic!] "If value is not set, return NONE instead of causing an error"
+] [value] [
     if not word/context [
         error make-struct [
             category: "Script"
@@ -130,10 +135,8 @@ get-any: function [word] [] [
             args: word
         ]
     ]
-    pick-array word/context/values word/offset
-]
-get: function [word] [value] [
-    if not value: get-any word [
+    value: pick-array word/context/values word/offset
+    if all [not :any not value] [
         error make-struct [
             category: "Script"
             id: "no-value"

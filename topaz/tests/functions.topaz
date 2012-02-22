@@ -189,3 +189,6 @@ Topaz [
     f: func [a return: a] [return a]
     f 1
 ]
+[mold context-of :f]
+[spec-of :f]
+[body-of :f]

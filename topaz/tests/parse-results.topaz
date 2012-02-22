@@ -1,7 +1,7 @@
 Topaz [
     Title: "Test results for %parse.topaz"
     Type: 'Test-Results
-    Passed: 11
+    Passed: 15
     Failed: 0
 ]
 
@@ -60,4 +60,24 @@ object none [
     unhandled-throw?: false
     caused-error?: false
     result: "b"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 'literal
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: 'a
 ]

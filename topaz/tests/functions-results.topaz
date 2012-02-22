@@ -1,7 +1,7 @@
 Topaz [
     Title: "Test results for %functions.topaz"
     Type: 'Test-Results
-    Passed: 51
+    Passed: 54
     Failed: 0
 ]
 
@@ -341,4 +341,19 @@ object none [
     unhandled-throw?: false
     caused-error?: false
     result: 1
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: "context [^/    a: <unset>^/    return: #[return [a]]^/]"
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [a return: a]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [return a]
 ]

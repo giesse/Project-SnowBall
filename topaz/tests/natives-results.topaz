@@ -1,8 +1,8 @@
 Topaz [
     Title: "Test results for %natives.topaz"
     Type: 'Test-Results
-    Passed: 58
-    Failed: 0
+    Passed: 57
+    Failed: 1
 ]
 
 object none [

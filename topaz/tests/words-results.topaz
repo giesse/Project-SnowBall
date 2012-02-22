@@ -1,7 +1,7 @@
 Topaz [
     Title: "Test results for %words.topaz"
     Type: 'Test-Results
-    Passed: 22
+    Passed: 24
     Failed: 0
 ]
 
@@ -121,4 +121,20 @@ object none [
     unhandled-throw?: false
     caused-error?: false
     result: 'name
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: true
+    result: make error! [
+        category: 'Script
+        id: 'no-value
+        message: "Word has no value"
+        args: 'no-value
+        stack: [[get 'no-value]]
+    ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: none
 ]

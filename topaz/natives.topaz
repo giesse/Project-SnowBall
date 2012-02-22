@@ -307,7 +307,16 @@ natives: make-struct [
         ]
     ]
     do-block: :do
-    get: :get
+    get: function [
+        "Return the value of a word in its context"
+        word [any-word!]
+        options:
+            nya: no [logic!] "If value is not set, return NONE instead of causing an error"
+    ] [value] [
+        value: apply :get [word nya/value]
+        if not value [value: make none! none]
+        value
+    ]
     bind: function [
         "Bind words to a specified context"
         words
@@ -609,9 +618,17 @@ natives: make-struct [
         ]
     ]
     context-of: function [
-        "Return the context of a word"
-        word [any-word!]
+        "Return the context of a word or function"
+        word [any-word! function!]
     ] [] [word/context]
+    spec-of: function [
+        "Return the arguments specification of a function"
+        f [any-function!]
+    ] [] [f/spec]
+    body-of: function [
+        "Return the body of a function"
+        f [function!]
+    ] [] [f/body]
     rejoin: function [
         "Reduce and join all the strings in the block"
         block [block!]
