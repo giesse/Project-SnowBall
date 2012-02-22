@@ -100,7 +100,7 @@ foreach 'file [
 ] [app-file file]
 
 app compose/deep [
-    sys: apply require ["sys"]
+    sys: apply require ["util"]
     fs: apply require ["fs"]
     try [
         do load/all make string! (mold/only load %topaz/init.topaz)

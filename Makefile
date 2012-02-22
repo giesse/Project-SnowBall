@@ -1,5 +1,5 @@
-NODE = nodejs
-NODEINT = rlwrap nodejs
+NODE = node
+NODEINT = rlwrap node
 
 all: topaz/topaz.js
 
