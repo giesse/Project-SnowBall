@@ -24,22 +24,40 @@ Topaz [
     ; }
 ]
 
-compile: action [
+compile: func [
     "Compile a FUNCTION! or ACTION! to a given target language"
-    f
+    f [function! action!]
     language [word!] "Target language, eg. 'Javascript"
 
     return: code [string!] "The code in the target language"
 ] [
+    phase1-to-language make-fundef :f language
+]
+
+make-fundef: action [
+    "Create a function definition Phase 1 object"
+    f
+
+    return: phase1-fundef [object!]
+] [
     function!: [
         arguments: phase0-parse-arguments context-of :f spec-of :f
-        phase1: object phase1-fundef [
+        probe object phase1-fundef [
             arguments: arguments
             body: block-to-phase1 body-of :f
         ]
-        phase1-to-language phase1 language
     ]
     action!: [
+    ]
+    native!: [
+        ; TODO
+        object none [
+            type: 'native-fundef
+            native: :f
+        ]
+    ]
+    return!: [
+        ; this may be a problem?
     ]
 ]
 
@@ -109,6 +127,7 @@ phase0-parse-arguments: func [
 ]
 
 phase1-fundef: object none [
+    fundef?: yes
 ]
 
 phase0-argument: object none [
@@ -121,13 +140,13 @@ block-to-phase1: func [
     "Convert a Topaz code block to a Phase 1 object (parsing pass)"
     block [block!]
 
-    return: phase1 [object!]
+    return: phase1-expr [object!]
 ] [
-    phase1: none
+    phase1-expr: none
     expressions: make block! none
     while [not empty? block] [
         set this-context phase1-step block
-        append expressions phase1
+        append expressions phase1-expr
     ]
     object phase1-expressions [
         expressions: expressions
@@ -139,11 +158,11 @@ phase1-step: func [
     block [block!]
 
     return:
-        phase1 [object!] "Phase 1 object representing the first expression in the block"
+        phase1-expr [object!] "Phase 1 object representing the first expression in the block"
         block [block!] "Position of the next expression in the block"
 ] [
     value: first block
-    phase1: none
+    phase1-expr: none
     set this-context value-to-phase1 value block
     while [op: operator? block] [
         block: next block
@@ -155,14 +174,15 @@ phase1-step: func [
                 stack: skip block -2
             ]
         ]
-        set [phase1-2: block] value-to-phase1 first block block
-        phase1: object phase1-op [
+        expr2: value-to-phase1 first block block
+        phase1-expr: object phase1-op [
             op: :op
-            expr1: phase1
-            expr2: phase1-2
+            expr1: phase1-expr
+            expr2: expr2/phase1-expr
         ]
+        block: expr2/block
     ]
-    return phase1 block
+    return phase1-expr block
 ]
 
 value-to-phase1: action [
@@ -171,18 +191,61 @@ value-to-phase1: action [
     block [block!] "Code block at the position of VALUE"
 
     return:
-        phase1 [object!]
+        phase1-expr [object!]
         block [block!] "Position of the next expression in the block"
 ] [
+    word!: [
+        word: value
+        either expr: get-compiler-value word [
+            either expr/fundef? [
+                compile-function-call expr block
+            ] [
+                return expr next block
+            ]
+        ] [
+            value: get/any word
+            ; this will need to check for word being constant
+            either any-function? :value [
+                fundef: make-fundef :value
+                set-compiler-value word fundef
+                compile-function-call fundef block
+            ] [
+                phase1-expr: object phase1-get [
+                    word: word
+                ]
+                return phase1-expr next block
+            ]
+        ]
+    ]
     default: [
-        phase1: object phase1-value [
+        phase1-expr: object phase1-value [
             value: value
         ]
-        return phase1 next block
+        return phase1-expr next block
     ]
 ]
 
 phase1-value: object none [
+]
+
+phase1-get: object none [
+]
+
+compile-function-call: func [
+    "Compile a function call into a Phase 1 object"
+    fundef [object!] "Phase 1 function definition object"
+    block [block!] "Topaz code block (to collect arguments)"
+
+    return:
+        phase1-expr [object!]
+        block [block!] "Position of the next expression in the block (after all arguments)"
+] [
+    ; TODO
+    phase1-expr: object none [
+        type: 'function-call
+        function: fundef
+    ]
+    return phase1-expr next block
 ]
 
 operator?: func [block] [
@@ -203,38 +266,38 @@ phase1-op: object none [
 
 phase1-to-language: func [
     "Convert a Phase 1 object to the given target language"
-    phase1 [object!]
+    phase1-expr [object!]
     language [word!]
 
     return: code [string!] "The code in the target language"
 ] [
-    phase2: phase1-to-phase2 phase1
-    phase3: phase2-to-phase3 phase2 language
-    phase3-to-string phase3
+    phase2-expr: phase1-to-phase2 phase1-expr
+    phase3-expr: phase2-to-phase3 phase2-expr language
+    phase3-to-string phase3-expr
 ]
 
 phase1-to-phase2: func [
     "Convert a Phase 1 object to a Phase 2 object (optimization pass)"
     phase1 [object!]
 
-    return: phase2 [object!]
+    return: phase2-expr [object!]
 ] [
 ]
 
 phase2-to-phase3: func [
     "Convert a Phase 2 object to a Phase 3 object (compilation pass)"
-    phase2 [object!]
+    phase2-expr [object!]
     language [word!] "Target language"
 
-    return: phase3 [object!]
+    return: phase3-expr [object!]
 ] [
 ]
 
 phase3-to-string: func [
     "Convert a Phase 3 object to code text"
-    phase3 [object!]
+    phase3-expr [object!]
 
     return: code [string!]
 ] [
-    phase3/to-string phase3
+    phase3-expr/to-string phase3-expr
 ]
