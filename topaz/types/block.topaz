@@ -296,7 +296,7 @@ mold-step: function [
         result
         sep
         mold/options [
-            value: value
+            value: either value [value] [make none! none]
             flat: flat
             limit: subtract-limit result limit
             indent: indent

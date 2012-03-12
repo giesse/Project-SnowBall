@@ -22,3 +22,9 @@ Topaz [
 [[1 2 3 4] = [1 2 3]]
 [[1 2 3 4] = [1 2 3 5]]
 [[a b "c d e"] = [a b "c d e"]]
+[
+    b: make block! none
+    b/1: 'one
+    b/3: 'three
+    mold b
+]
