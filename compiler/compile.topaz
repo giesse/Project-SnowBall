@@ -24,6 +24,9 @@ Topaz [
     ; }
 ]
 
+; Topaz function -> expression tree -> simplification/optimization
+;  -> target language AST -> target language text
+
 compile: func [
     "Compile a FUNCTION! or ACTION! to a given target language"
     f [function! action!]
@@ -31,20 +34,19 @@ compile: func [
 
     return: code [string!] "The code in the target language"
 ] [
-    phase1-to-language make-fundef :f language
+    expression-to-language make-fundef :f language
 ]
 
 make-fundef: action [
-    "Create a function definition Phase 1 object"
+    "Create a function definition expression object"
     f
 
-    return: phase1-fundef [object!]
+    return: fundef-expr [object!]
 ] [
     function!: [
-        arguments: phase0-parse-arguments context-of :f spec-of :f
-        probe object phase1-fundef [
-            arguments: arguments
-            body: block-to-phase1 body-of :f
+        probe object fundef-expr [
+            arguments: parse-arguments context-of :f spec-of :f
+            body: block-to-expression empty-environment body-of :f
         ]
     ]
     action!: [
@@ -61,8 +63,16 @@ make-fundef: action [
     ]
 ]
 
-phase0-parse-arguments: func [
-    "Phase 0: Parse function argument spec"
+empty-environment: func [
+    "Return an empty environment"
+
+    return: environment [block!]
+] [
+    make block! none
+]
+
+parse-arguments: func [
+    "Parse function argument spec"
     context [context!] "The function's context"
     spec [block!] "The function's argument spec"
 
@@ -74,11 +84,11 @@ phase0-parse-arguments: func [
             any [
                 name: word! types: opt block! opt string!
                 keep (
-                    argument: object phase0-argument [
+                    object func-argument [
+                        var-id: var-id-of bind name context
                         name: name
                         types: if types [make typeset! types]
                     ]
-                    set-compiler-value bind name context argument
                 )
             ]
             opt [
@@ -86,23 +96,23 @@ phase0-parse-arguments: func [
                 some [
                     name: word! types: opt block! opt string!
                     keep (
-                        argument: object phase0-argument [
+                        object func-argument [
+                            var-id: var-id-of bind name context
                             name: name
                             types: if types [make typeset! types]
                             optional
                         ]
-                        set-compiler-value bind name context argument
                     )
                     |
                     name: set-word! default-value: do-step types: opt block! opt string!
                     keep (
-                        argument: object phase0-argument [
+                        object func-argument [
+                            var-id: var-id-of bind name context
                             name: make word! name
                             default-value: default-value
                             types: if types [make typeset! types]
                             optional
                         ]
-                        set-compiler-value bind name context argument
                     )
                 ]
             ]
@@ -110,60 +120,89 @@ phase0-parse-arguments: func [
                 literal return:
                 return-arguments: collect any [
                     name: word! types: opt block! opt string!
-                    keep (object phase0-argument [
+                    keep (object func-argument [
                         name: name
                         types: if types [make typeset! types]
                     ])
                 ] (
-                    set-compiler-value bind 'return context object phase0-return [
+                    set-compiler-value bind 'return context object func-return [
                         arguments: return-arguments
                     ]
                 )
                 |
-                (set-compiler-value bind 'return context object phase0-return [])
+                (set-compiler-value bind 'return context object func-return [])
             ]
         ]
     ]
 ]
 
-phase1-fundef: object none [
+new-var-id: func [
+    "Return a new variable id"
+
+    return: id [number!]
+] [
+    id: [-1]
+    id/0: id/0 + 1
+    id/0
+]
+
+var-id-of: func [
+    "Return the variable id of a word"
+    word [any-word!]
+
+    return: id [number!]
+] [
+    either number? id: get-compiler-value word [
+        id
+    ] [
+        id: new-var-id
+        set-compiler-value word id
+    ]
+]
+
+fundef-expr: object none [
     fundef?: yes
 ]
 
-phase0-argument: object none [
+func-argument: object none [
 ]
 
-phase0-return: object none [
+func-return: object none [
 ]
 
-block-to-phase1: func [
-    "Convert a Topaz code block to a Phase 1 object (parsing pass)"
-    block [block!]
-
-    return: phase1-expr [object!]
-] [
-    phase1-expr: none
-    expressions: make block! none
-    while [not empty? block] [
-        set this-context phase1-step block
-        append expressions phase1-expr
-    ]
-    object phase1-expressions [
-        expressions: expressions
-    ]
-]
-
-phase1-step: func [
-    "Convert a Topaz code block to a Phase 1 object (one step)"
+block-to-expression: func [
+    "Convert a Topaz code block to an expression object (parsing pass)"
+    environment [block!]
     block [block!]
 
     return:
-        phase1-expr [object!] "Phase 1 object representing the first expression in the block"
+        environment [block!]
+        result [object!]
+] [
+    result: object empty-expression []
+    while [not empty? block] [
+        set this-context b2e-step environment block
+    ]
+    return environment result
+]
+
+empty-expression: object none [
+    evaluate: func [environment expression] [expression]
+]
+
+b2e-step: func [
+    "Convert a Topaz code block to an expression object (one step)"
+    environment [block!]
+    block [block!]
+
+    return:
+        environment [block!] "New environment as modified by the expression"
+        result [object!] "Expression object representing the first expression in the block"
         block [block!] "Position of the next expression in the block"
 ] [
     value: first block
-    phase1-expr: none
-    set this-context value-to-phase1 value block
+    result: none
+    set this-context value-to-expr value environment block
     while [op: operator? block] [
         block: next block
         if empty? block [
@@ -174,33 +213,36 @@ phase1-step: func [
                 stack: skip block -2
             ]
         ]
-        expr2: value-to-phase1 first block block
-        phase1-expr: object phase1-op [
+        expr2: value-to-expr first block environment block
+        result: object op-expr [
             op: :op
-            expr1: phase1-expr
-            expr2: expr2/phase1-expr
+            expr1: result
+            expr2: expr2/result
         ]
+        environment: expr2/environment
         block: expr2/block
     ]
-    return phase1-expr block
+    return environment result block
 ]
 
-value-to-phase1: action [
-    "Convert a specific value to a Phase 1 object"
+value-to-expr: action [
+    "Convert a specific value to an expression object"
     value
+    environment [block!]
     block [block!] "Code block at the position of VALUE"
 
     return:
-        phase1-expr [object!]
+        environment [block!] "New environment as modified by the expression"
+        result [object!] "Expression object representing the result"
         block [block!] "Position of the next expression in the block"
 ] [
     word!: [
         word: value
-        either expr: get-compiler-value word [
+        either object? expr: get-compiler-value word [
             either expr/fundef? [
-                compile-function-call expr block
+                compile-function-call environment expr block
             ] [
-                return expr next block
+                cause-error "This should not happen"
             ]
         ] [
             value: get/any word
@@ -208,44 +250,107 @@ value-to-phase1: action [
             either any-function? :value [
                 fundef: make-fundef :value
                 set-compiler-value word fundef
-                compile-function-call fundef block
+                compile-function-call environment fundef block
             ] [
-                phase1-expr: object phase1-get [
-                    word: word
-                ]
-                return phase1-expr next block
+                result: get-variable environment var-id-of word
+                return environment result next block
             ]
         ]
     ]
     default: [
-        phase1-expr: object phase1-value [
+        expression: object value-expr [
             value: value
         ]
-        return phase1-expr next block
+        return environment expression next block
     ]
 ]
 
-phase1-value: object none [
+get-variable: func [
+    "Return the expression object that represents the value of a variable"
+    environment [block!]
+    var-id [number!]
+
+    return: result [object!]
+] [
+    any [
+        pick environment var-id
+        object get-expr [
+            var-id: var-id
+        ]
+    ]
 ]
 
-phase1-get: object none [
+value-expr: object none [
+    evaluate: func [environment expression] [expression]
+]
+
+get-expr: object none [
+    evaluate: func [environment expression] [
+        any [
+            pick environment expression/var-id
+            expression
+        ]
+    ]
 ]
 
 compile-function-call: func [
-    "Compile a function call into a Phase 1 object"
-    fundef [object!] "Phase 1 function definition object"
+    "Compile a function call into a expression object"
+    environment [block!] "Current environment"
+    fundef [object!] "Function definition object"
     block [block!] "Topaz code block (to collect arguments)"
 
     return:
-        phase1-expr [object!]
+        environment [block!] "New environment after evaluating the function"
+        result [object!] "Expression object representing the result of the function"
         block [block!] "Position of the next expression in the block (after all arguments)"
 ] [
-    ; TODO
-    phase1-expr: object none [
-        type: 'function-call
-        function: fundef
+    block: next block
+    result: none
+    foreach 'arg fundef/arguments [
+        if not arg/optional [
+            argument: b2e-step environment block
+            environment: make-environment argument/environment [arg/var-id argument/result]
+            block: argument/block
+        ]
     ]
-    return phase1-expr next block
+    set this-context evaluate-function environment fundef/body
+    return environment result block
+]
+
+evaluate-function: func [
+    "Compute the result expression of a function"
+    environment [block!] "Environment, including actual arguments"
+    func-body [object!] "Function body to evaluate"
+
+    return:
+        environment [block!] "New environment after function evaluation"
+        result [object!] "The function's result"
+] [
+    new-environment: copy environment
+    changes: func-body/environment
+    while [not empty? changes] [
+        if changes/1 [
+            new-environment/1: evaluate-expression environment changes/1
+        ]
+        changes: next changes
+        new-environment: next new-environment
+    ]
+    return head new-environment evaluate-expression environment func-body/result
+]
+
+make-environment: func [
+    "Return a new environment after modifying one or more variables"
+    environment [block!]
+    changes [block!]
+
+    return: environment [block!]
+] [
+    changes: reduce changes
+    environment: copy environment
+    foreach [var-id expression] changes [
+        environment/(var-id): expression
+    ]
+    environment
 ]
 
 operator?: func [block] [
@@ -258,46 +363,54 @@ operator?: func [block] [
     ]
 ]
 
-phase1-expressions: object none [
+evaluate-expression: func [environment expression] [
+    expression/evaluate environment expression
 ]
 
-phase1-op: object none [
+op-expr: object none [
+    evaluate: func [environment expression] [
+        object expression [
+            expr1: evaluate-expression environment expression/expr1
+            expr2: evaluate-expression environment expression/expr2
+        ]
+    ]
 ]
 
-phase1-to-language: func [
-    "Convert a Phase 1 object to the given target language"
-    phase1-expr [object!]
+expression-to-language: func [
+    "Convert an expression object to the given target language"
+    expression [object!]
     language [word!]
 
     return: code [string!] "The code in the target language"
 ] [
-    phase2-expr: phase1-to-phase2 phase1-expr
-    phase3-expr: phase2-to-phase3 phase2-expr language
-    phase3-to-string phase3-expr
+    expression: simplify-expression expression
+    lang-ast: expression-to-lang-ast expression language
+    lang-ast-to-string lang-ast
 ]
 
-phase1-to-phase2: func [
-    "Convert a Phase 1 object to a Phase 2 object (optimization pass)"
-    phase1 [object!]
+simplify-expression: func [
+    "Simplify and optimize an expression object"
+    expression [object!]
 
-    return: phase2-expr [object!]
+    return: expression [object!]
+] [
+    expression/simplify expression
+]
+
+expression-to-lang-ast: func [
+    "Convert an expression to the AST of a specific language"
+    expression [object!]
+    language [word!]
+
+    return: lang-ast [object!]
 ] [
 ]
 
-phase2-to-phase3: func [
-    "Convert a Phase 2 object to a Phase 3 object (compilation pass)"
-    phase2-expr [object!]
-    language [word!] "Target language"
-
-    return: phase3-expr [object!]
-] [
-]
-
-phase3-to-string: func [
-    "Convert a Phase 3 object to code text"
-    phase3-expr [object!]
+lang-ast-to-string: func [
+    "Convert a language AST object to code text"
+    lang-ast [object!]
 
     return: code [string!]
 ] [
-    phase3-expr/to-string phase3-expr
+    lang-ast/to-string lang-ast
 ]

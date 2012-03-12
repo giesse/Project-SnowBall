@@ -738,6 +738,7 @@ any-word?: func [value] [in? any-word! type-of :value]
 any-path?: func [value] [in? any-path! type-of :value]
 any-block?: func [value] [in? any-block! type-of :value]
 any-function?: func [value] [in? any-function! type-of :value]
+number?: func [value] [number! = type-of :value]
 
 ; ===== THE SYSTEM OBJECT =====================================================
 
