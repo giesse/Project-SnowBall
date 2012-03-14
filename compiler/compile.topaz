@@ -44,7 +44,7 @@ make-fundef: action [
     return: fundef-expr [object!]
 ] [
     function!: [
-        probe object fundef-expr [
+        probe-expression object fundef-expr [
             arguments: parse-arguments context-of :f spec-of :f
             body: block-to-expression empty-environment body-of :f
         ]
@@ -52,15 +52,21 @@ make-fundef: action [
     action!: [
     ]
     native!: [
-        ; TODO
-        object none [
-            type: 'native-fundef
-            native: :f
-        ]
+        cause-error "Native not defined for the compiler"
     ]
     return!: [
         ; this may be a problem?
     ]
+]
+
+probe-expression: func [
+    "Print a human-readable representation of an expression object"
+    expression [object!]
+
+    return: expression [object!]
+] [
+    expression/print expression
+    expression
 ]
 
 empty-environment: func [
@@ -162,6 +168,23 @@ var-id-of: func [
 
 fundef-expr: object none [
     fundef?: yes
+    print: func [expr] [
+        prin "function("
+        prin rejoin punctuate map 'arg copy expr/arguments [rejoin ["$" mold arg/var-id]] ", "
+        print ") ("
+        id: 0
+        while [id < length-of expr/body/environment] [
+            if expr/body/environment/:id [
+                prin rejoin ["(set $" id " "]
+                probe-expression expr/body/environment/:id
+                print ")"
+            ]
+            id: id + 1
+        ]
+        prin "(return "
+        probe-expression expr/body/result
+        print ")^/)"
+    ]
 ]
 
 func-argument: object none [
@@ -188,6 +211,7 @@ block-to-expression: func [
 
 empty-expression: object none [
     evaluate: func [environment expression] [expression]
+    print: func [expr] [prin "()"]
 ]
 
 b2e-step: func [
@@ -257,6 +281,13 @@ value-to-expr: action [
             ]
         ]
     ]
+    set-word!: [
+        word: value
+        ; this will need to check for word being constant
+        result: b2e-step environment next block
+        environment: make-environment result/environment [var-id-of word result/result]
+        return environment result/result result/block
+    ]
     default: [
         expression: object value-expr [
             value: value
@@ -282,6 +313,7 @@ get-variable: func [
 
 value-expr: object none [
     evaluate: func [environment expression] [expression]
+    print: func [expr] [prin rejoin ["(value " mold expr/value ")"]]
 ]
 
 get-expr: object none [
@@ -291,6 +323,7 @@ get-expr: object none [
             expression
         ]
     ]
+    print: func [expr] [prin rejoin ["(get $" mold expr/var-id ")"]]
 ]
 
 compile-function-call: func [
@@ -373,6 +406,13 @@ op-expr: object none [
             expr1: evaluate-expression environment expression/expr1
             expr2: evaluate-expression environment expression/expr2
         ]
+    ]
+    print: func [expr] [
+        prin "(op "
+        probe-expression expr/expr1
+        prin " "
+        probe-expression expr/expr2
+        prin ")"
     ]
 ]
 

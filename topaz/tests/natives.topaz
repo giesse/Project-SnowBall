@@ -95,3 +95,5 @@ Topaz [
 [compose/deep [1 2 [3 (2 + 2)] 5 6]]
 [compose/deep/only [1 2 [3 ([4])] 5 6]]
 [make error! none]
+[map 'x copy [1 2 3 4] [x + 1]]
+[punctuate copy [a b c] #","]

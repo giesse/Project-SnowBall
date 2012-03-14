@@ -1,7 +1,7 @@
 Topaz [
     Title: "Test results for %natives.topaz"
     Type: 'Test-Results
-    Passed: 57
+    Passed: 59
     Failed: 1
 ]
 
@@ -318,4 +318,14 @@ object none [
         message: "Invalid argument for MAKE ERROR!"
         stack: []
     ]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [2 3 4 5]
+] object none [
+    passed?: true
+    unhandled-throw?: false
+    caused-error?: false
+    result: [a #"," b #"," c]
 ]

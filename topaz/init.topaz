@@ -721,6 +721,20 @@ map: func [
     series
 ]
 
+punctuate: func [
+    "Add a value between each element in the series"
+    series [series!]
+    value
+
+    return: series "The modified series"
+] [
+    pos: next series
+    while [not tail? pos] [
+        pos: next insert pos value
+    ]
+    series
+]
+
 attempt: func [
     "Attempt to evaluate CODE, return NONE in case of error"
     code [block! paren!]
