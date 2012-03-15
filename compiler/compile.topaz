@@ -185,6 +185,9 @@ fundef-expr: object none [
         probe-expression expr/body/result
         print ")^/)"
     ]
+    call-function: func [environment expr block] [
+        compile-function-call environment expr block
+    ]
 ]
 
 func-argument: object none [
@@ -212,6 +215,7 @@ block-to-expression: func [
 empty-expression: object none [
     evaluate: func [environment expression] [expression]
     print: func [expr] [prin "()"]
+    call-function: func [env expr block] [cause-error "This should not happen"]
 ]
 
 b2e-step: func [
@@ -263,11 +267,7 @@ value-to-expr: action [
     word!: [
         word: value
         either object? expr: get-compiler-value word [
-            either expr/fundef? [
-                compile-function-call environment expr block
-            ] [
-                cause-error "This should not happen"
-            ]
+            expr/call-function environment expr block
         ] [
             value: get/any word
             ; this will need to check for word being constant
@@ -314,6 +314,7 @@ get-variable: func [
 value-expr: object none [
     evaluate: func [environment expression] [expression]
     print: func [expr] [prin rejoin ["(value " mold expr/value ")"]]
+    call-function: func [env expr block] [cause-error "This should not happen"]
 ]
 
 get-expr: object none [
@@ -324,6 +325,7 @@ get-expr: object none [
         ]
     ]
     print: func [expr] [prin rejoin ["(get $" mold expr/var-id ")"]]
+    call-function: func [env expr block] [cause-error "This should not happen"]
 ]
 
 compile-function-call: func [
@@ -337,17 +339,44 @@ compile-function-call: func [
         result [object!] "Expression object representing the result of the function"
         block [block!] "Position of the next expression in the block (after all arguments)"
 ] [
-    block: next block
+    set this-context collect-arguments [
+        environment: environment
+        arguments: fundef/arguments
+        block: next block
+        each: func [
+            arg [object!]
+            environment [block!]
+            result [object!]
+
+            return: environment [block!]
+        ] [
+            make-environment environment [arg/var-id result]
+        ]
+    ]
     result: none
-    foreach 'arg fundef/arguments [
+    set this-context evaluate-function environment fundef/body
+    return environment result block
+]
+
+collect-arguments: func [
+    "Collect function arguments"
+    environment [block!] "Current environment"
+    arguments [block!] "Argument list (result of parse-arguments)"
+    block [block!] "Topaz code block (to collect arguments from)"
+    each [function!] "Function to call for each argument expression"
+
+    return:
+        environment [block!] "New environment after evaluating the arguments"
+        block [block!] "Position of the next expression in the block (after all arguments)"
+] [
+    foreach 'arg arguments [
         if not arg/optional [
             argument: b2e-step environment block
-            environment: make-environment argument/environment [arg/var-id argument/result]
+            environment: each arg argument/environment argument/result
             block: argument/block
         ]
     ]
-    set this-context evaluate-function environment fundef/body
-    return environment result block
+    return environment block
 ]
 
 evaluate-function: func [
@@ -414,6 +443,7 @@ op-expr: object none [
         probe-expression expr/expr2
         prin ")"
     ]
+    call-function: func [env expr block] [cause-error "This should not happen"]
 ]
 
 expression-to-language: func [
@@ -453,4 +483,65 @@ lang-ast-to-string: func [
     return: code [string!]
 ] [
     lang-ast/to-string lang-ast
+]
+
+; Natives
+
+native-fundef: object none [
+    call-function: func [
+        environment expr block
+
+        return: environment result block
+    ] [
+        args: make block! none
+        set this-context collect-arguments [
+            environment: environment
+            arguments: expr/arguments
+            block: next block
+            each: func [
+                arg [object!]
+                environment [block!]
+                result [object!]
+
+                return: environment [block!]
+            ] [
+                append args result
+                environment
+            ]
+        ]
+        ; FIXME
+        set [make-expression:] expr
+        return environment apply/only :make-expression args block
+    ]
+]
+
+foreach [name spec body] [
+    quit [
+        "Quit the Topaz interpreter"
+        exit-code [object!] "Code to return to calling environment"
+    ] [
+        object call-expr [
+            name: 'quit
+            args: reduce [exit-code]
+        ]
+    ]
+] [
+    set-compiler-value name object native-fundef [
+        arguments: parse-arguments context [] spec
+        make-expression: func spec body
+    ]
+]
+
+call-expr: object none [
+    print: func [expr] [
+        prin rejoin ["(call " mold expr/name " "]
+        if not empty? expr/args [probe-expression expr/args/0]
+        foreach 'arg next expr/args [
+            prin ", "
+            probe-expression arg
+        ]
+        prin ")"
+    ]
+    call-function: func [env expr block] [cause-error "This should not happen"]
+    evaluate: func [environment expression] [expression]
 ]
