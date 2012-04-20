@@ -1,7 +1,7 @@
 Topaz [
     Title: "Topaz compiler - COMPILE function"
     Author: "Gabriele Santilli"
-    Copyright: 2011
+    Copyright: 2012
     ; License: {
     ;     Permission is hereby granted, free of charge, to any person obtaining
     ;     a copy of this software and associated documentation files
@@ -57,24 +57,6 @@ make-fundef: action [
     return!: [
         ; this may be a problem?
     ]
-]
-
-probe-expression: func [
-    "Print a human-readable representation of an expression object"
-    expression [object!]
-
-    return: expression [object!]
-] [
-    expression/print expression
-    expression
-]
-
-empty-environment: func [
-    "Return an empty environment"
-
-    return: environment [block!]
-] [
-    make block! none
 ]
 
 parse-arguments: func [
@@ -166,30 +148,6 @@ var-id-of: func [
     ]
 ]
 
-fundef-expr: object none [
-    fundef?: yes
-    print: func [expr] [
-        prin "function("
-        prin rejoin punctuate map 'arg copy expr/arguments [rejoin ["$" mold arg/var-id]] ", "
-        print ") ("
-        id: 0
-        while [id < length-of expr/body/environment] [
-            if expr/body/environment/:id [
-                prin rejoin ["(set $" id " "]
-                probe-expression expr/body/environment/:id
-                print ")"
-            ]
-            id: id + 1
-        ]
-        prin "(return "
-        probe-expression expr/body/result
-        print ")^/)"
-    ]
-    call-function: func [environment expr block] [
-        compile-function-call environment expr block
-    ]
-]
-
 func-argument: object none [
 ]
 
@@ -201,21 +159,16 @@ block-to-expression: func [
     environment [block!]
     block [block!]
 
-    return:
-        environment [block!]
-        result [object!]
+    return: body-expression [object!]
 ] [
     result: object empty-expression []
     while [not empty? block] [
         set this-context b2e-step environment block
     ]
-    return environment result
-]
-
-empty-expression: object none [
-    evaluate: func [environment expression] [expression]
-    print: func [expr] [prin "()"]
-    call-function: func [env expr block] [cause-error "This should not happen"]
+    object body-expression [
+        environment: environment
+        result: result
+    ]
 ]
 
 b2e-step: func [
@@ -309,23 +262,6 @@ get-variable: func [
             var-id: var-id
         ]
     ]
-]
-
-value-expr: object none [
-    evaluate: func [environment expression] [expression]
-    print: func [expr] [prin rejoin ["(value " mold expr/value ")"]]
-    call-function: func [env expr block] [cause-error "This should not happen"]
-]
-
-get-expr: object none [
-    evaluate: func [environment expression] [
-        any [
-            pick environment expression/var-id
-            expression
-        ]
-    ]
-    print: func [expr] [prin rejoin ["(get $" mold expr/var-id ")"]]
-    call-function: func [env expr block] [cause-error "This should not happen"]
 ]
 
 compile-function-call: func [
@@ -425,27 +361,6 @@ operator?: func [block] [
     ]
 ]
 
-evaluate-expression: func [environment expression] [
-    expression/evaluate environment expression
-]
-
-op-expr: object none [
-    evaluate: func [environment expression] [
-        object expression [
-            expr1: evaluate-expression environment expression/expr1
-            expr2: evaluate-expression environment expression/expr2
-        ]
-    ]
-    print: func [expr] [
-        prin "(op "
-        probe-expression expr/expr1
-        prin " "
-        probe-expression expr/expr2
-        prin ")"
-    ]
-    call-function: func [env expr block] [cause-error "This should not happen"]
-]
-
 expression-to-language: func [
     "Convert an expression object to the given target language"
     expression [object!]
@@ -474,6 +389,9 @@ expression-to-lang-ast: func [
 
     return: lang-ast [object!]
 ] [
+    object none [
+        to-string: func [lang-ast] [""]
+    ]
 ]
 
 lang-ast-to-string: func [
@@ -483,65 +401,4 @@ lang-ast-to-string: func [
     return: code [string!]
 ] [
     lang-ast/to-string lang-ast
-]
-
-; Natives
-
-native-fundef: object none [
-    call-function: func [
-        environment expr block
-
-        return: environment result block
-    ] [
-        args: make block! none
-        set this-context collect-arguments [
-            environment: environment
-            arguments: expr/arguments
-            block: next block
-            each: func [
-                arg [object!]
-                environment [block!]
-                result [object!]
-
-                return: environment [block!]
-            ] [
-                append args result
-                environment
-            ]
-        ]
-        ; FIXME
-        set [make-expression:] expr
-        return environment apply/only :make-expression args block
-    ]
-]
-
-foreach [name spec body] [
-    quit [
-        "Quit the Topaz interpreter"
-        exit-code [object!] "Code to return to calling environment"
-    ] [
-        object call-expr [
-            name: 'quit
-            args: reduce [exit-code]
-        ]
-    ]
-] [
-    set-compiler-value name object native-fundef [
-        arguments: parse-arguments context [] spec
-        make-expression: func spec body
-    ]
-]
-
-call-expr: object none [
-    print: func [expr] [
-        prin rejoin ["(call " mold expr/name " "]
-        if not empty? expr/args [probe-expression expr/args/0]
-        foreach 'arg next expr/args [
-            prin ", "
-            probe-expression arg
-        ]
-        prin ")"
-    ]
-    call-function: func [env expr block] [cause-error "This should not happen"]
-    evaluate: func [environment expression] [expression]
 ]

@@ -1,0 +1,175 @@
+Topaz [
+    Title: "Topaz compiler - Expression objects"
+    Author: "Gabriele Santilli"
+    Copyright: 2012
+    ; License: {
+    ;     Permission is hereby granted, free of charge, to any person obtaining
+    ;     a copy of this software and associated documentation files
+    ;     (the "Software"), to deal in the Software without restriction, including
+    ;     without limitation the rights to use, copy, modify, merge, publish,
+    ;     distribute, sublicense, and/or sell copies of the Software, and to
+    ;     permit persons to whom the Software is furnished to do so, subject
+    ;     to the following conditions:
+
+    ;     The above copyright notice and this permission notice shall be included
+    ;     in all copies or substantial portions of the Software.
+
+    ;     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    ;     OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    ;     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    ;     THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    ;     OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ;     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    ;     OTHER DEALINGS IN THE SOFTWARE.
+    ; }
+]
+
+probe-expression: func [
+    "Print a human-readable representation of an expression object"
+    expression [object!]
+
+    return: expression [object!]
+] [
+    print expression/mold expression
+    expression
+]
+
+mold-expr: func [expr] [expr/mold expr]
+
+evaluate-expression: func [environment expression] [
+    expression/evaluate environment expression
+]
+
+empty-environment: func [
+    "Return an empty environment"
+
+    return: environment [block!]
+] [
+    make block! none
+]
+
+expression: object none [
+    mold: func [expr] ["(unknown expression)"]
+    evaluate: func [env expr] [expr]
+    call-function: func [env expr block] [cause-error "CALL-FUNCTION on non-function expression"]
+    simplify: func [expr] [expr]
+]
+
+empty-expression: object expression [
+    mold: func [expr] ["()"]
+]
+
+body-expression: object expression [
+    io: []
+    environment: empty-environment
+    result: empty-expression
+    mold: func [expr] [
+        id: -1
+        rejoin [
+            rejoin map 'var copy expr/environment [
+                id: id + 1
+                rejoin ["(set $" id " " either var [mold-expr var] ["?"] ")^/"]
+            ]
+            "(return " mold-expr expr/result ")^/"
+        ]
+    ]
+]
+
+quit-expression: object expression [
+    io: []
+    exit-code: empty-expression
+    mold: func [expr] [
+        rejoin ["(quit " mold-expr expr/exit-code ")^/"]
+    ]
+]
+
+fundef-expr: object expression [
+    ; arguments: result of parse-arguments
+    ; body: expression object for the function body
+    ; --
+    fundef?: yes
+    mold: func [expr] [
+        rejoin [
+            "function("
+            rejoin punctuate map 'arg copy expr/arguments [rejoin ["$" mold arg/var-id]] ", "
+            ") (^/"
+            mold-expr expr/body
+            ")^/"
+        ]
+    ]
+    call-function: func [environment expr block] [
+        compile-function-call environment expr block
+    ]
+]
+
+value-expr: object expression [
+    ; value: Topaz value
+    ; --
+    mold: func [expr] [rejoin ["(value " mold expr/value ")"]]
+]
+
+get-expr: object expression [
+    ; var-id: variable id
+    ; --
+    evaluate: func [environment expression] [
+        any [
+            pick environment expression/var-id
+            expression
+        ]
+    ]
+    mold: func [expr] [rejoin ["(get $" mold expr/var-id ")"]]
+]
+
+op-expr: object expression [
+    ; op: operator function
+    ; expr1: expression 1
+    ; expr2: expression 2
+    ; --
+    evaluate: func [environment expression] [
+        object expression [
+            expr1: evaluate-expression environment expression/expr1
+            expr2: evaluate-expression environment expression/expr2
+        ]
+    ]
+    mold: func [expr] [
+        rejoin ["(op " mold-expr expr/expr1 " " mold-expr expr/expr2 ")"]
+    ]
+]
+
+native-fundef: object expression [
+    call-function: func [
+        environment expr block
+
+        return: environment result block
+    ] [
+        args: make block! none
+        set this-context collect-arguments [
+            environment: environment
+            arguments: expr/arguments
+            block: next block
+            each: func [
+                arg [object!]
+                environment [block!]
+                result [object!]
+
+                return: environment [block!]
+            ] [
+                append args result
+                environment
+            ]
+        ]
+        ; FIXME
+        set [make-expression:] expr
+        return environment apply/only :make-expression args block
+    ]
+]
+
+call-expr: object expression [
+    mold: func [expr] [
+        rejoin [
+            "(call " mold expr/name " "
+            rejoin punctuate map 'arg copy expr/args [mold-expr arg] ", "
+            ")"
+        ]
+    ]
+]
