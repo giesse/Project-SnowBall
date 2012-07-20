@@ -1,0 +1,162 @@
+Topaz concepts
+
+    Author: "Gabriele Santilli"
+    Purpose: {Some of the ideas I plan to implement in Topaz}
+
+===Introduction
+
+Given that Topaz is proceeding slowly lately, and that there are other
+interesting languages coming out such as Red which are still young enough to
+allow changes, I thought about publishing this document with some of the ideas
+I plan to have in Topaz, so that maybe they can be useful for the other
+languages as well.
+
+===Type classes
+
+REBOL 3 introduced type sets as a way to handle pseudo-types like |series!|,
+function argument specs, etc. Topaz also supports type sets for the same
+reasons, however, they have the disadvantage of being "static", that is, they
+don't make sense if the language allows adding new data types at run time.
+
+For example, if you add a new type that behaves like a series, you'll want to
+add it to the |series!| typeset; this implies that you know that a |series!|
+typeset exists, and that it is mutable and never copied. In the end, this
+approach is not going to work, and at best would require type implementers to
+do a lot of work.
+
+For this reason, Topaz introduces the concept of type classes. (You may be
+familiar with the idea if you have used languages like Haskell etc.) You can
+think of a type class as a "dynamic type set". It behaves like a type set,
+except that the member types are determined dynamically, by their properties,
+rather than listed upon creation of the type set.
+
+For example, a |list!| type class may represent all types that support the
+|first| and |next| actions. (Actually, |first| is going to be based on |pick|
+in Topaz, but the idea is the same.) If you create a new type that can handle
+those two actions, then it is made automatically part of the |list!| type
+class, and will be usable by any function that expects a |list!|.
+
+Most "pseudo types", like |series!| etc., in Topaz will be type classes. They
+are defined from a list of actions (and possibly "reflectors") that the type
+has to support in order to be part of the class.
+
+Note that this implies that the behavior of each action needs to be more
+precisely defined to ensure the consistency of the types that are members of
+the same type class.
+
+===Object classes
+
+I'm still on the fence on this (because custom types may be a better choice
+most of the time), but, they seem a useful enough concept. They work in the
+same way as type classes: class membership is not defined statically like in
+class-based OOP languages, rather, an object class defines the properties (eg.
+fields and their type) that an object must satisfy in order to be part of the
+class.
+
+For example, you could say that an |object!| value is part of the |person|
+object class if it has two fields, |first-name| and |last-name|, and they are
+both set to |string!| values.
+
+===Function classes
+
+In the same spirit as type classes and object classes, function classes define
+classes of |function!| values. All functions with the same argument spec (maybe
+with some margin for variability, eg. extra options) are part of the same
+class.
+
+This is useful when passing arguments that are |function!| values, as the
+receiver is usually expecting the argument to behave in a specific way (eg.
+take two arguments of a specific type).
+
+===Custom types
+
+It's easy to add new types to Topaz and rebuild the interpreter, but it's still
+useful to be able to add new types dynamically at run time as well. The simplest
+way to accomplish this is to just "wrap" |object!| values so that they appear
+as values of the new custom type. So, under the hood, you're just dealing with
+objects, but you can define your own actions for them and have them behave in
+any way you wish.
+
+A value of a custom type thus is just a wrapper around an actual |object!|
+value which is what your action code will see internally.
+
+===To promise, or not to promise
+
+Like REBOL 3, I/O in Topaz is going to be completely asynchronous. This does
+however pose a problem: writing code for async I/O is more complicated than it
+needs to be. Since our goal is that simple things should be simple to do, and
+complex things possible, complicating the simple cases is not a good idea.
+
+There is a way though to have the benefits of async I/O while keeping code
+readable and simple (at least in the simple cases): the concept of promised
+values.
+
+The idea is simple: imagine you have something like:
+
+    #lit page: read http://www.colellachiara.com/
+
+With I/O being async, you're usually forced to write it like:
+
+    read http://www.colellachiara.com/ func [page] [...]
+
+which gets really ugly really fast. Instead, what can be done is having |read|
+return a "promise" for the page instead of the page itself, so you still write:
+
+    #lit page: read http://www.colellachiara.com/
+
+where |page| is not a |string!| anymore, but a promise for a string to be
+delivered later.
+
+A simple (but, insufficient - see below) way to implement this would be to
+offer a |promise!| type, and to have a wrapper around functions so that
+whenever any one of the arguments is a |promise!|, the function will wait for
+it to be resolved (ie. for the actual promised value to be delivered) before
+calling the actual function code; the function thus returns immediately a
+promise for its result value.
+
+That would make it possible to write something like:
+
+    #lit x: read http://www.colellachiara.com/
+    y: read http://www.roccacasale.it/
+    z: join x y
+    print z
+
+It looks like synchronous code, but everything actually happens asynchronously.
+|x| and |y| are promises that are fulfilled in parallel; |z| is a promise for
+the result of |join|. Thus, |join| waits until both |x| and |y| are resolved,
+then resolves |z| with the result of joining |x| and |y|. |print| waits for |z|
+to be resolved, then prints it.
+
+It's nice and works very well, and can be implemented at the mezz level (even
+in REBOL 3 for eg.), except for one thing:
+
+    #lit x: none
+    page: read http://www.colellachiara.com/
+    if find page "Topaz" [
+        x: "Found Topaz"
+    ]
+    print x
+
+Even if |find| and |if| have been adapted to work with promised values, |print|
+only sees |none| as its argument here, because the body block of |if| is only
+executed when the promise for |page| is resolved.
+
+To solve this problem, the interpreter itself needs to handle cases like this,
+and assume that whatever follows the |if| can only be evaluated once the
+promise resulting from the |if| is resolved, etc. At that point, though, there
+is no need anymore to expose |promise!| values to the user: the interpreter can
+handle all this internally, and "pretend" it's evaluating things serially while
+actually doing everything in parallel and only serializing based on
+dependencies. (A compiler can do more than this, and detect whether the |print|
+after the |if| actually needs to wait for the |if| to complete or not.)
+
+There are more issues (eg. correctly serializing writes), but overall the idea
+is to have the interpreter doing things in parallel whenever possible
+automatically, while you write nice simple code.
+
+===|port!| types
+
+In Topaz, |port!| is a type class, and every different kind of port is its own
+type. The reason is that in REBOL ports are the closest thing to custom types,
+except that they are specific to one class of types; but, since we have real
+custom types in Topaz, there is no need for this special case.
